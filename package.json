@@ -1,0 +1,24 @@
+{
+  "name": "kaisho-cloud",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Kaisho Cloud Sync API",
+  "main": "api/server.js",
+  "scripts": {
+    "start": "node api/server.js",
+    "dev": "node api/server.js -v"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.0",
+    "bcrypt": "^5.1.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.5.0",
+    "pino": "^9.6.0",
+    "pino-http": "^10.4.0",
+    "resend": "^4.1.0",
+    "stripe": "^17.7.0",
+    "zod": "^3.24.0"
+  }
+}
