@@ -1,0 +1,21 @@
+{
+  "name": "Kaisho Clock",
+  "short_name": "Kaisho",
+  "description": "Mobile clock tracking for Kaisho",
+  "start_url": "/m/",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#18181b",
+  "icons": [
+    {
+      "src": "/m/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/m/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
