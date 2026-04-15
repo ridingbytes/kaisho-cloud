@@ -1,13 +1,19 @@
 "use strict"
 
+/**
+ * Request validation schemas (Zod) and middleware
+ * factories for body and query validation.
+ */
+
 const { z } = require("zod")
 
-// ── Schemas ──────────────────────────────────────────────
+// ── Auth schemas ────────────────────────────────────────
 
 const emailSchema = z
   .string()
   .email("Invalid email address")
 
+/** @type {z.ZodObject} Signup request body. */
 const signupSchema = z.object({
   email: emailSchema,
   password: z
@@ -15,15 +21,27 @@ const signupSchema = z.object({
     .min(8, "Password must be at least 8 characters"),
 })
 
+/** @type {z.ZodObject} Login request body. */
 const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, "Password is required"),
 })
 
+/** @type {z.ZodObject} Key rotation request body. */
 const rotateKeySchema = z.object({
   email: emailSchema,
 })
 
+/** @type {z.ZodObject} Token refresh request body. */
+const refreshSchema = z.object({
+  refresh_token: z
+    .string()
+    .min(1, "refresh_token is required"),
+})
+
+// ── Billing schemas ─────────────────────────────────────
+
+/** @type {z.ZodObject} Checkout request body. */
 const checkoutSchema = z.object({
   plan: z.enum(
     ["sync", "sync_ai"],
@@ -31,6 +49,9 @@ const checkoutSchema = z.object({
   ),
 })
 
+// ── Clock schemas ───────────────────────────────────────
+
+/** @type {z.ZodObject} Clock start request body. */
 const clockStartSchema = z.object({
   customer: z.string().nullable().optional(),
   description: z.string().optional().default(""),
@@ -38,6 +59,7 @@ const clockStartSchema = z.object({
   contract: z.string().nullable().optional(),
 })
 
+/** @type {z.ZodObject} Quick-book request body. */
 const quickBookSchema = z.object({
   duration: z.string().min(1, "Duration is required"),
   customer: z.string().nullable().optional(),
@@ -47,6 +69,7 @@ const quickBookSchema = z.object({
   date: z.string().nullable().optional(),
 })
 
+/** @type {z.ZodObject} Clock entry update body. */
 const clockUpdateSchema = z.object({
   customer: z.string().nullable().optional(),
   description: z.string().optional(),
@@ -65,6 +88,9 @@ const clockUpdateSchema = z.object({
   { message: "Nothing to update" },
 )
 
+// ── Sync schemas ────────────────────────────────────────
+
+/** @type {z.ZodObject} Snapshot push request body. */
 const snapshotSchema = z.object({
   customers: z.array(z.object({
     name: z.string(),
@@ -83,10 +109,12 @@ const snapshotSchema = z.object({
   snapshot_at: z.string().optional(),
 })
 
+/** @type {z.ZodObject} Ack-clocks request body. */
 const ackSchema = z.object({
   entry_ids: z.array(z.string().uuid()),
 })
 
+/** @type {z.ZodObject} Single triage entry. */
 const triageEntrySchema = z.object({
   id: z.string().uuid(),
   customer: z.string().optional(),
@@ -94,12 +122,36 @@ const triageEntrySchema = z.object({
   contract: z.string().nullable().optional(),
 })
 
+/** @type {z.ZodObject} Triage request body. */
 const triageSchema = z.object({
   entries: z.array(triageEntrySchema).min(1),
 })
 
-// ── Middleware factory ────────────────────────────────────
+// ── Query schemas ───────────────────────────────────────
 
+/** @type {z.ZodObject} Period query parameter. */
+const periodQuerySchema = z.object({
+  period: z
+    .enum(["today", "week", "month", "year"])
+    .optional(),
+  synced: z.string().optional(),
+})
+
+/** @type {z.ZodObject} Pull-clocks query parameters. */
+const pullClocksQuerySchema = z.object({
+  since: z.string().optional(),
+  limit: z.coerce.number().int().positive().optional(),
+})
+
+// ── Middleware factories ─────────────────────────────────
+
+/**
+ * Create body-validation middleware for a Zod schema.
+ *
+ * @param {z.ZodSchema} schema - Zod schema for
+ *   req.body.
+ * @returns {Function} Express middleware.
+ */
 function validate(schema) {
   return (req, res, next) => {
     const result = schema.safeParse(req.body)
@@ -114,10 +166,32 @@ function validate(schema) {
   }
 }
 
+/**
+ * Create query-validation middleware for a Zod schema.
+ *
+ * @param {z.ZodSchema} schema - Zod schema for
+ *   req.query.
+ * @returns {Function} Express middleware.
+ */
+function validateQuery(schema) {
+  return (req, res, next) => {
+    const result = schema.safeParse(req.query)
+    if (!result.success) {
+      const msg =
+        result.error.issues[0]?.message ||
+        "Invalid query parameters"
+      return res.status(400).json({ error: msg })
+    }
+    req.query = result.data
+    next()
+  }
+}
+
 module.exports = {
   signupSchema,
   loginSchema,
   rotateKeySchema,
+  refreshSchema,
   checkoutSchema,
   clockStartSchema,
   quickBookSchema,
@@ -125,5 +199,8 @@ module.exports = {
   snapshotSchema,
   ackSchema,
   triageSchema,
+  periodQuerySchema,
+  pullClocksQuerySchema,
   validate,
+  validateQuery,
 }

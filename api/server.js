@@ -3,7 +3,8 @@
 /**
  * Kaisho Cloud — Sync API
  *
- * Entry point. Wires up middleware and route modules.
+ * Entry point. Wires up middleware, route modules, and
+ * error handling.
  */
 
 const express = require("express")
@@ -12,15 +13,20 @@ const cookieParser = require("cookie-parser")
 const { PORT, BASE_URL } = require("./config")
 const { logger, httpLogger } = require("./logger")
 const { supabase } = require("./db")
+const { asyncHandler } = require("./utils/asyncHandler")
+const {
+  handleStripeEvent,
+} = require("./routes/stripe-webhook")
 
 const authRoutes = require("./routes/auth")
 const clockRoutes = require("./routes/clocks")
 const syncRoutes = require("./routes/sync")
+const refRoutes = require("./routes/ref")
 const billingRoutes = require("./routes/billing")
 
 const app = express()
 
-// ── Middleware ────────────────────────────────────────────
+// ── Middleware ───────────────────────────────────────────
 
 // Stripe webhook needs raw body for signature
 // verification. Register before express.json().
@@ -34,44 +40,49 @@ app.use(cookieParser())
 app.use(express.json())
 app.use(httpLogger)
 
-// ── Routes ───────────────────────────────────────────────
+// ── Routes ──────────────────────────────────────────────
 
 app.use("/auth", authRoutes)
 app.use("/clocks", clockRoutes)
 app.use("/sync", syncRoutes)
+app.use("/ref", refRoutes)
 app.use("/billing", billingRoutes)
 
-// Reference data endpoints (mobile reads synced
-// customers/tasks)
-app.use("/ref", syncRoutes)
-
-// ── Mobile SPA ───────────────────────────────────────────
+// ── Mobile SPA ──────────────────────────────────────────
 
 const path = require("path")
-const mobileDir = path.join(__dirname, "..", "mobile", "dist")
+const mobileDir = path.join(
+  __dirname, "..", "mobile", "dist",
+)
 app.use("/m", express.static(mobileDir))
 app.get("/m/*", (_req, res) => {
   res.sendFile(path.join(mobileDir, "index.html"))
 })
 
-// ── Health ───────────────────────────────────────────────
+// ── Health ──────────────────────────────────────────────
 
+/** @route GET /health */
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" })
 })
 
-// ── Stripe webhook ───────────────────────────────────────
+// ── Stripe webhook ──────────────────────────────────────
 
+/**
+ * Receive and process Stripe webhook events.
+ *
+ * @route POST /billing/webhook/stripe
+ */
 app.post(
   "/billing/webhook/stripe",
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const Stripe = require("stripe")
     const stripe = new Stripe(
       process.env.STRIPE_SECRET_KEY,
     )
     const sig = req.headers["stripe-signature"]
-    let event
 
+    let event
     try {
       event = stripe.webhooks.constructEvent(
         req.body,
@@ -100,26 +111,28 @@ app.post(
       })
     }
 
-    try {
-      await billingRoutes.handleStripeEvent(event)
-      await supabase.from("stripe_events").insert({
-        id: event.id,
-        type: event.type,
-      })
-      res.json({ received: true })
-    } catch (err) {
-      logger.error(
-        { err, eventId: event.id },
-        "Webhook processing error",
-      )
-      res
-        .status(500)
-        .json({ error: "Processing failed" })
-    }
-  },
+    await handleStripeEvent(event)
+    await supabase.from("stripe_events").insert({
+      id: event.id,
+      type: event.type,
+    })
+    res.json({ received: true })
+  }),
 )
 
-// ── Start ────────────────────────────────────────────────
+// ── Error handler ───────────────────────────────────────
+
+/**
+ * Global Express error handler. Catches unhandled errors
+ * from asyncHandler and other middleware.
+ */
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, _next) => {
+  logger.error({ err }, "Unhandled route error")
+  res.status(500).json({ error: "Internal server error" })
+})
+
+// ── Start ───────────────────────────────────────────────
 
 app.listen(PORT, () => {
   logger.info({ port: PORT }, "Kaisho Cloud API started")

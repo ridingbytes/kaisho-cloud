@@ -1,27 +1,43 @@
 "use strict"
 
+/**
+ * Sync endpoints (API key auth, local kaisho client).
+ *
+ * Handles snapshot push, clock pull/ack, status, and
+ * triage operations for the desktop sync client.
+ */
+
 const { Router } = require("express")
 const { supabase } = require("../db")
+const { requireApiKey } = require("../middleware")
 const {
-  requireApiKey, requireAuth,
-} = require("../middleware")
-const {
-  validate, snapshotSchema, ackSchema, triageSchema,
+  validate,
+  validateQuery,
+  snapshotSchema,
+  ackSchema,
+  triageSchema,
+  pullClocksQuerySchema,
 } = require("../validation")
+const { asyncHandler } = require("../utils/asyncHandler")
+const { buildUpdates } = require("../utils/updates")
 
 const router = Router()
 
-// ── Sync endpoints (API key auth, local kaisho) ──────────
+// ── POST /sync/push-snapshot ────────────────────────────
 
-// POST /sync/push-snapshot
+/**
+ * Replace all reference customers and tasks for the
+ * authenticated user with a fresh snapshot.
+ *
+ * @route POST /sync/push-snapshot
+ */
 router.post(
   "/push-snapshot",
   requireApiKey,
   validate(snapshotSchema),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const { customers, tasks } = req.body
 
-    // Replace all ref_customers for this user
     await supabase
       .from("ref_customers")
       .delete()
@@ -39,7 +55,6 @@ router.post(
       )
     }
 
-    // Replace all ref_tasks for this user
     await supabase
       .from("ref_tasks")
       .delete()
@@ -58,15 +73,24 @@ router.post(
     }
 
     res.json({ ok: true })
-  },
+  }),
 )
 
-// GET /sync/pull-clocks
+// ── GET /sync/pull-clocks ───────────────────────────────
+
+/**
+ * Pull unsynced completed clock entries created after
+ * the given cursor.
+ *
+ * @route GET /sync/pull-clocks?since=&limit=
+ */
 router.get(
   "/pull-clocks",
   requireApiKey,
-  async (req, res) => {
-    const since = req.query.since || "1970-01-01T00:00:00Z"
+  validateQuery(pullClocksQuerySchema),
+  asyncHandler(async (req, res) => {
+    const since =
+      req.query.since || "1970-01-01T00:00:00Z"
     const limit = Math.min(
       parseInt(req.query.limit) || 100, 500,
     )
@@ -105,15 +129,21 @@ router.get(
         : since
 
     res.json({ entries, cursor })
-  },
+  }),
 )
 
-// POST /sync/ack-clocks
+// ── POST /sync/ack-clocks ───────────────────────────────
+
+/**
+ * Mark clock entries as synced by their IDs.
+ *
+ * @route POST /sync/ack-clocks
+ */
 router.post(
   "/ack-clocks",
   requireApiKey,
   validate(ackSchema),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const { entry_ids } = req.body
     const now = new Date().toISOString()
 
@@ -130,14 +160,21 @@ router.post(
     }
 
     res.json({ acked: count || entry_ids.length })
-  },
+  }),
 )
 
-// GET /sync/status
+// ── GET /sync/status ────────────────────────────────────
+
+/**
+ * Return the count of pending (unsynced) clock entries
+ * and the user plan.
+ *
+ * @route GET /sync/status
+ */
 router.get(
   "/status",
   requireApiKey,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const { count: pending } = await supabase
       .from("clock_entries")
       .select("id", { count: "exact", head: true })
@@ -155,29 +192,29 @@ router.get(
       pending: pending || 0,
       plan: user?.plan || "free",
     })
-  },
+  }),
 )
 
-// POST /sync/triage
+// ── POST /sync/triage ───────────────────────────────────
+
+const TRIAGE_FIELDS = ["customer", "task_id", "contract"]
+
+/**
+ * Batch-update customer, task, and contract fields on
+ * multiple clock entries.
+ *
+ * @route POST /sync/triage
+ */
 router.post(
   "/triage",
   requireApiKey,
   validate(triageSchema),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const { entries } = req.body
     let updated = 0
 
     for (const entry of entries) {
-      const updates = {}
-      if (entry.customer !== undefined) {
-        updates.customer = entry.customer
-      }
-      if (entry.task_id !== undefined) {
-        updates.task_id = entry.task_id
-      }
-      if (entry.contract !== undefined) {
-        updates.contract = entry.contract
-      }
+      const updates = buildUpdates(entry, TRIAGE_FIELDS)
       updates.updated_at = new Date().toISOString()
 
       const { error } = await supabase
@@ -190,57 +227,7 @@ router.post(
     }
 
     res.json({ updated })
-  },
-)
-
-// ── Reference data (JWT auth, mobile reads) ──────────────
-
-// GET /ref/customers
-router.get(
-  "/customers",
-  requireAuth,
-  async (req, res) => {
-    const { data: rows } = await supabase
-      .from("ref_customers")
-      .select("name, snapshot")
-      .eq("user_id", req.userId)
-      .order("name")
-
-    const customers = (rows || []).map((r) => ({
-      name: r.name,
-      contracts: r.snapshot?.contracts || [],
-    }))
-
-    res.json(customers)
-  },
-)
-
-// GET /ref/tasks
-router.get(
-  "/tasks",
-  requireAuth,
-  async (req, res) => {
-    let query = supabase
-      .from("ref_tasks")
-      .select("task_id, customer, title, status")
-      .eq("user_id", req.userId)
-      .order("title")
-
-    if (req.query.customer) {
-      query = query.eq("customer", req.query.customer)
-    }
-
-    const { data: rows } = await query
-
-    const tasks = (rows || []).map((r) => ({
-      id: r.task_id,
-      customer: r.customer,
-      title: r.title,
-      status: r.status,
-    }))
-
-    res.json(tasks)
-  },
+  }),
 )
 
 module.exports = router

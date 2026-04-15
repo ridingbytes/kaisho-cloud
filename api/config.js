@@ -1,14 +1,34 @@
 "use strict"
 
+/**
+ * Application configuration — plan prices, rate
+ * limiters, and environment constants.
+ */
+
 const { rateLimit } = require("express-rate-limit")
 
-// ── Plan configuration ───────────────────────────────────
+// ── Env validation ──────────────────────────────────────
+
+const REQUIRED = ["SUPABASE_URL", "SUPABASE_SERVICE_KEY"]
+for (const key of REQUIRED) {
+  if (!process.env[key]) {
+    throw new Error(`Missing required env var: ${key}`)
+  }
+}
+
+// ── Plan configuration ──────────────────────────────────
 
 const PLAN_PRICES = {
   sync:    process.env.STRIPE_PRICE_SYNC,
   sync_ai: process.env.STRIPE_PRICE_SYNC_AI,
 }
 
+/**
+ * Look up a plan name by its Stripe price ID.
+ *
+ * @param {string} priceId - Stripe price ID.
+ * @returns {string|null} Plan name or null.
+ */
 function planFromPriceId(priceId) {
   for (const [plan, id] of Object.entries(PLAN_PRICES)) {
     if (id === priceId) return plan
@@ -16,8 +36,9 @@ function planFromPriceId(priceId) {
   return null
 }
 
-// ── Rate limiters ────────────────────────────────────────
+// ── Rate limiters ───────────────────────────────────────
 
+/** @type {Function} 5 req/hour signup limiter. */
 const signupLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 5,
@@ -30,6 +51,7 @@ const signupLimiter = rateLimit({
   },
 })
 
+/** @type {Function} 30 req/15 min auth limiter. */
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
@@ -43,6 +65,7 @@ const authLimiter = rateLimit({
   },
 })
 
+/** @type {Function} 5 req/hour key rotation limiter. */
 const rotateKeyLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 5,
@@ -56,6 +79,7 @@ const rotateKeyLimiter = rateLimit({
   },
 })
 
+/** @type {Function} 120 req/min per-user API limiter. */
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 120,
@@ -68,7 +92,7 @@ const apiLimiter = rateLimit({
   },
 })
 
-// ── Constants ────────────────────────────────────────────
+// ── Constants ───────────────────────────────────────────
 
 const PORT = process.env.PORT || 3000
 const BASE_URL =

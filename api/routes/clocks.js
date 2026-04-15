@@ -1,15 +1,27 @@
 "use strict"
 
+/**
+ * Clock entry routes — start, stop, book, list, update,
+ * and delete time entries.
+ */
+
 const { Router } = require("express")
 const { supabase } = require("../db")
 const { requireAuth, requirePlan } = require("../middleware")
 const { apiLimiter } = require("../config")
 const {
   validate,
+  validateQuery,
   clockStartSchema,
   quickBookSchema,
   clockUpdateSchema,
+  periodQuerySchema,
 } = require("../validation")
+const { asyncHandler } = require("../utils/asyncHandler")
+const {
+  parseDuration, periodRange, formatEntry,
+} = require("../utils/clocks")
+const { buildUpdates } = require("../utils/updates")
 
 const router = Router()
 
@@ -17,134 +29,80 @@ router.use(requireAuth)
 router.use(apiLimiter)
 router.use(requirePlan("sync", "sync_ai"))
 
-// ── Duration parser ──────────────────────────────────────
+// ── GET /clocks/active ──────────────────────────────────
 
-const DURATION_SIMPLE =
-  /^(\d+(?:\.\d+)?)\s*(h|hours?|m|min|mins|minutes?)$/i
-const DURATION_COMPOUND =
-  /^(\d+)\s*h\s*(\d+)\s*(?:m|min|mins|minutes?)?$/i
+/**
+ * Return the currently running timer for the
+ * authenticated user, or { active: false }.
+ *
+ * @route GET /clocks/active
+ */
+router.get(
+  "/active",
+  asyncHandler(async (req, res) => {
+    const { data: row } = await supabase
+      .from("clock_entries")
+      .select("*")
+      .eq("user_id", req.userId)
+      .is("end_at", null)
+      .single()
 
-function parseDuration(str) {
-  const s = str.trim().toLowerCase()
-  const cm = DURATION_COMPOUND.exec(s)
-  if (cm) {
-    return parseInt(cm[1]) * 60 + parseInt(cm[2])
-  }
-  const sm = DURATION_SIMPLE.exec(s)
-  if (!sm) return null
-  const value = parseFloat(sm[1])
-  return sm[2].startsWith("h")
-    ? Math.round(value * 60)
-    : Math.round(value)
-}
-
-// ── Helpers ──────────────────────────────────────────────
-
-function formatEntry(row) {
-  const durationMinutes =
-    row.end_at && row.start_at
-      ? Math.round(
-          (new Date(row.end_at) -
-            new Date(row.start_at)) /
-            60000,
-        )
-      : null
-  return {
-    id: row.id,
-    customer: row.customer || null,
-    description: row.description,
-    start: row.start_at,
-    end: row.end_at || null,
-    duration_minutes: durationMinutes,
-    task_id: row.task_id || null,
-    contract: row.contract || null,
-    notes: row.notes || "",
-    booked: row.booked || false,
-    synced: row.synced || false,
-    created_at: row.created_at,
-  }
-}
-
-function periodRange(period) {
-  const now = new Date()
-  const today = new Date(
-    now.getFullYear(), now.getMonth(), now.getDate(),
-  )
-  switch (period) {
-    case "today":
-      return { from: today }
-    case "week": {
-      const day = today.getDay()
-      const monday = new Date(today)
-      monday.setDate(today.getDate() - ((day + 6) % 7))
-      return { from: monday }
+    if (!row) {
+      return res.json({ active: false })
     }
-    case "month":
-      return {
-        from: new Date(
-          today.getFullYear(), today.getMonth(), 1,
-        ),
-      }
-    case "year":
-      return {
-        from: new Date(today.getFullYear(), 0, 1),
-      }
-    default:
-      return { from: today }
-  }
-}
 
-// ── GET /clocks/active ───────────────────────────────────
+    res.json({ active: true, ...formatEntry(row) })
+  }),
+)
 
-router.get("/active", async (req, res) => {
-  const { data: row } = await supabase
-    .from("clock_entries")
-    .select("*")
-    .eq("user_id", req.userId)
-    .is("end_at", null)
-    .single()
+// ── GET /clocks/entries ─────────────────────────────────
 
-  if (!row) {
-    return res.json({ active: false })
-  }
+/**
+ * List clock entries for a given period.
+ *
+ * @route GET /clocks/entries?period=today|week|month|year
+ */
+router.get(
+  "/entries",
+  validateQuery(periodQuerySchema),
+  asyncHandler(async (req, res) => {
+    const period = req.query.period || "today"
+    const { from } = periodRange(period)
 
-  res.json({ active: true, ...formatEntry(row) })
-})
+    let query = supabase
+      .from("clock_entries")
+      .select("*")
+      .eq("user_id", req.userId)
+      .gte("start_at", from.toISOString())
+      .order("start_at", { ascending: false })
+      .limit(200)
 
-// ── GET /clocks/entries ──────────────────────────────────
+    if (req.query.synced === "false") {
+      query = query.eq("synced", false)
+    }
 
-router.get("/entries", async (req, res) => {
-  const period = req.query.period || "today"
-  const { from } = periodRange(period)
+    const { data: rows, error } = await query
+    if (error) {
+      return res
+        .status(500)
+        .json({ error: "Failed to fetch entries" })
+    }
 
-  let query = supabase
-    .from("clock_entries")
-    .select("*")
-    .eq("user_id", req.userId)
-    .gte("start_at", from.toISOString())
-    .order("start_at", { ascending: false })
-    .limit(200)
+    res.json(rows.map(formatEntry))
+  }),
+)
 
-  if (req.query.synced === "false") {
-    query = query.eq("synced", false)
-  }
+// ── POST /clocks/start ──────────────────────────────────
 
-  const { data: rows, error } = await query
-  if (error) {
-    return res
-      .status(500)
-      .json({ error: "Failed to fetch entries" })
-  }
-
-  res.json(rows.map(formatEntry))
-})
-
-// ── POST /clocks/start ───────────────────────────────────
-
+/**
+ * Start a new timer. Fails if one is already running.
+ *
+ * @route POST /clocks/start
+ */
 router.post(
   "/start",
   validate(clockStartSchema),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const { customer, description, task_id, contract } =
       req.body
 
@@ -181,48 +139,61 @@ router.post(
     }
 
     res.status(201).json(formatEntry(row))
-  },
+  }),
 )
 
-// ── POST /clocks/stop ────────────────────────────────────
+// ── POST /clocks/stop ───────────────────────────────────
 
-router.post("/stop", async (req, res) => {
-  const { data: active } = await supabase
-    .from("clock_entries")
-    .select("*")
-    .eq("user_id", req.userId)
-    .is("end_at", null)
-    .single()
+/**
+ * Stop the currently running timer.
+ *
+ * @route POST /clocks/stop
+ */
+router.post(
+  "/stop",
+  asyncHandler(async (req, res) => {
+    const { data: active } = await supabase
+      .from("clock_entries")
+      .select("*")
+      .eq("user_id", req.userId)
+      .is("end_at", null)
+      .single()
 
-  if (!active) {
-    return res
-      .status(404)
-      .json({ error: "No running timer" })
-  }
+    if (!active) {
+      return res
+        .status(404)
+        .json({ error: "No running timer" })
+    }
 
-  const now = new Date().toISOString()
-  const { data: row, error } = await supabase
-    .from("clock_entries")
-    .update({ end_at: now, updated_at: now })
-    .eq("id", active.id)
-    .select()
-    .single()
+    const now = new Date().toISOString()
+    const { data: row, error } = await supabase
+      .from("clock_entries")
+      .update({ end_at: now, updated_at: now })
+      .eq("id", active.id)
+      .select()
+      .single()
 
-  if (error) {
-    return res
-      .status(500)
-      .json({ error: "Failed to stop timer" })
-  }
+    if (error) {
+      return res
+        .status(500)
+        .json({ error: "Failed to stop timer" })
+    }
 
-  res.json(formatEntry(row))
-})
+    res.json(formatEntry(row))
+  }),
+)
 
-// ── POST /clocks/quick-book ──────────────────────────────
+// ── POST /clocks/quick-book ─────────────────────────────
 
+/**
+ * Book a completed time entry with a duration string.
+ *
+ * @route POST /clocks/quick-book
+ */
 router.post(
   "/quick-book",
   validate(quickBookSchema),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const {
       duration, customer, description,
       task_id, contract, date,
@@ -230,9 +201,9 @@ router.post(
 
     const minutes = parseDuration(duration)
     if (minutes === null || minutes <= 0) {
-      return res
-        .status(400)
-        .json({ error: `Invalid duration: ${duration}` })
+      return res.status(400).json({
+        error: `Invalid duration: ${duration}`,
+      })
     }
 
     let startAt
@@ -240,7 +211,9 @@ router.post(
       startAt = new Date(`${date}T12:00:00`)
     } else {
       startAt = new Date()
-      startAt.setMinutes(startAt.getMinutes() - minutes)
+      startAt.setMinutes(
+        startAt.getMinutes() - minutes,
+      )
     }
     const endAt = new Date(
       startAt.getTime() + minutes * 60000,
@@ -267,36 +240,29 @@ router.post(
     }
 
     res.status(201).json(formatEntry(row))
-  },
+  }),
 )
 
-// ── PATCH /clocks/:id ────────────────────────────────────
+// ── PATCH /clocks/:id ───────────────────────────────────
 
+const CLOCK_UPDATE_FIELDS = [
+  "customer", "description", "task_id",
+  "contract", "notes", "booked",
+]
+
+/**
+ * Update fields on a clock entry.
+ *
+ * @route PATCH /clocks/:id
+ */
 router.patch(
   "/:id",
   validate(clockUpdateSchema),
-  async (req, res) => {
-    const updates = {
-      updated_at: new Date().toISOString(),
-    }
-    if (req.body.customer !== undefined) {
-      updates.customer = req.body.customer
-    }
-    if (req.body.description !== undefined) {
-      updates.description = req.body.description
-    }
-    if (req.body.task_id !== undefined) {
-      updates.task_id = req.body.task_id
-    }
-    if (req.body.contract !== undefined) {
-      updates.contract = req.body.contract
-    }
-    if (req.body.notes !== undefined) {
-      updates.notes = req.body.notes
-    }
-    if (req.body.booked !== undefined) {
-      updates.booked = req.body.booked
-    }
+  asyncHandler(async (req, res) => {
+    const updates = buildUpdates(
+      req.body, CLOCK_UPDATE_FIELDS,
+    )
+    updates.updated_at = new Date().toISOString()
 
     const { data: row, error } = await supabase
       .from("clock_entries")
@@ -313,25 +279,33 @@ router.patch(
     }
 
     res.json(formatEntry(row))
-  },
+  }),
 )
 
-// ── DELETE /clocks/:id ───────────────────────────────────
+// ── DELETE /clocks/:id ──────────────────────────────────
 
-router.delete("/:id", async (req, res) => {
-  const { error } = await supabase
-    .from("clock_entries")
-    .delete()
-    .eq("id", req.params.id)
-    .eq("user_id", req.userId)
+/**
+ * Delete a clock entry by ID.
+ *
+ * @route DELETE /clocks/:id
+ */
+router.delete(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const { error } = await supabase
+      .from("clock_entries")
+      .delete()
+      .eq("id", req.params.id)
+      .eq("user_id", req.userId)
 
-  if (error) {
-    return res
-      .status(404)
-      .json({ error: "Entry not found" })
-  }
+    if (error) {
+      return res
+        .status(404)
+        .json({ error: "Entry not found" })
+    }
 
-  res.sendStatus(204)
-})
+    res.sendStatus(204)
+  }),
+)
 
 module.exports = router

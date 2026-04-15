@@ -1,5 +1,10 @@
 "use strict"
 
+/**
+ * Authentication routes — signup, login, token refresh,
+ * and API key management.
+ */
+
 const crypto = require("crypto")
 const bcrypt = require("bcryptjs")
 const { Router } = require("express")
@@ -9,21 +14,32 @@ const {
 const { supabase, invalidateAuthCache } = require("../db")
 const { requireJwt } = require("../middleware")
 const {
-  validate, signupSchema, loginSchema, rotateKeySchema,
+  validate,
+  signupSchema,
+  loginSchema,
+  rotateKeySchema,
+  refreshSchema,
 } = require("../validation")
 const {
   sendWelcomeEmail, sendNewApiKeyEmail,
 } = require("../emails/mailer")
+const { asyncHandler } = require("../utils/asyncHandler")
 
 const router = Router()
 
-// ── POST /auth/signup ────────────────────────────────────
+// ── POST /auth/signup ───────────────────────────────────
 
+/**
+ * Register a new user account. Creates a Supabase auth
+ * user, a users row, and generates an API key.
+ *
+ * @route POST /auth/signup
+ */
 router.post(
   "/signup",
   signupLimiter,
   validate(signupSchema),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const { email, password } = req.body
 
     const { data: authData, error: authErr } =
@@ -65,16 +81,22 @@ router.post(
       user_id: userId,
       api_key: apiKey,
     })
-  },
+  }),
 )
 
-// ── POST /auth/login ─────────────────────────────────────
+// ── POST /auth/login ────────────────────────────────────
 
+/**
+ * Authenticate with email and password. Returns JWT
+ * tokens and user plan.
+ *
+ * @route POST /auth/login
+ */
 router.post(
   "/login",
   authLimiter,
   validate(loginSchema),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const { email, password } = req.body
 
     const { data, error } =
@@ -102,44 +124,52 @@ router.post(
       access_token: data.session.access_token,
       refresh_token: data.session.refresh_token,
     })
-  },
+  }),
 )
 
-// ── POST /auth/refresh ───────────────────────────────────
+// ── POST /auth/refresh ──────────────────────────────────
 
-router.post("/refresh", async (req, res) => {
-  const { refresh_token } = req.body
-  if (!refresh_token) {
-    return res
-      .status(400)
-      .json({ error: "refresh_token is required" })
-  }
+/**
+ * Exchange a refresh token for new JWT tokens.
+ *
+ * @route POST /auth/refresh
+ */
+router.post(
+  "/refresh",
+  validate(refreshSchema),
+  asyncHandler(async (req, res) => {
+    const { refresh_token } = req.body
 
-  const { data, error } =
-    await supabase.auth.refreshSession({
-      refresh_token,
+    const { data, error } =
+      await supabase.auth.refreshSession({
+        refresh_token,
+      })
+
+    if (error) {
+      return res
+        .status(401)
+        .json({ error: "Invalid refresh token" })
+    }
+
+    res.json({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
     })
+  }),
+)
 
-  if (error) {
-    return res
-      .status(401)
-      .json({ error: "Invalid refresh token" })
-  }
+// ── POST /auth/api-key ──────────────────────────────────
 
-  res.json({
-    access_token: data.session.access_token,
-    refresh_token: data.session.refresh_token,
-  })
-})
-
-// ── POST /auth/api-key ───────────────────────────────────
-// Generate a new API key for local sync. Replaces any
-// existing key.
-
+/**
+ * Generate a new API key for the authenticated user.
+ * Replaces any existing key.
+ *
+ * @route POST /auth/api-key
+ */
 router.post(
   "/api-key",
   requireJwt,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const apiKey = crypto.randomUUID()
     const keyHash = await bcrypt.hash(apiKey, 10)
 
@@ -151,17 +181,22 @@ router.post(
     invalidateAuthCache(req.userId)
 
     res.json({ api_key: apiKey })
-  },
+  }),
 )
 
-// ── POST /auth/rotate-key ────────────────────────────────
-// Rotate API key by email (for recovery without login).
+// ── POST /auth/rotate-key ───────────────────────────────
 
+/**
+ * Rotate the API key by email address (recovery without
+ * login). Sends the new key via email.
+ *
+ * @route POST /auth/rotate-key
+ */
 router.post(
   "/rotate-key",
   rotateKeyLimiter,
   validate(rotateKeySchema),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const { email } = req.body
 
     const { data: authUsers } =
@@ -190,7 +225,7 @@ router.post(
     sendNewApiKeyEmail({ email, apiKey })
 
     res.json({ api_key: apiKey })
-  },
+  }),
 )
 
 module.exports = router

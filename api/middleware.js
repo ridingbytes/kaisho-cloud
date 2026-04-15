@@ -8,8 +8,16 @@ const {
   cacheUser,
 } = require("./db")
 
-// ── JWT auth (mobile users via Supabase Auth) ────────────
+// ── JWT auth (mobile users via Supabase Auth) ───────────
 
+/**
+ * Require a valid Supabase JWT in the Authorization
+ * header. Sets req.userId and req.userEmail.
+ *
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ * @param {import("express").NextFunction} next
+ */
 async function requireJwt(req, res, next) {
   const auth = req.headers.authorization
   if (!auth?.startsWith("Bearer ")) {
@@ -27,8 +35,17 @@ async function requireJwt(req, res, next) {
   next()
 }
 
-// ── API key auth (local sync client) ─────────────────────
+// ── API key auth (local sync client) ────────────────────
 
+/**
+ * Require a valid API key in the Authorization header.
+ * Checks all users with a key hash and caches positive
+ * matches. Sets req.userId and req.userPlan.
+ *
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ * @param {import("express").NextFunction} next
+ */
 async function requireApiKey(req, res, next) {
   const auth = req.headers.authorization
   if (!auth?.startsWith("Bearer ")) {
@@ -36,9 +53,6 @@ async function requireApiKey(req, res, next) {
   }
   const apiKey = auth.slice(7)
 
-  // Fetch all users with an api_key_hash and try each.
-  // With a small user base this is fine. For scale,
-  // the cache avoids repeated bcrypt on every request.
   const { data: users } = await supabase
     .from("users")
     .select("id, plan, api_key_hash")
@@ -70,8 +84,17 @@ async function requireApiKey(req, res, next) {
   return res.status(401).json({ error: "Invalid API key" })
 }
 
-// ── Combined auth (JWT or API key) ───────────────────────
+// ── Combined auth (JWT or API key) ──────────────────────
 
+/**
+ * Accept either a Supabase JWT or an API key. Tries JWT
+ * first for tokens longer than 50 characters, then falls
+ * back to API key auth.
+ *
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ * @param {import("express").NextFunction} next
+ */
 async function requireAuth(req, res, next) {
   const auth = req.headers.authorization
   if (!auth?.startsWith("Bearer ")) {
@@ -80,7 +103,6 @@ async function requireAuth(req, res, next) {
 
   const token = auth.slice(7)
 
-  // Try JWT first (short tokens are likely API keys)
   if (token.length > 50) {
     const { data, error } =
       await supabase.auth.getUser(token)
@@ -91,12 +113,18 @@ async function requireAuth(req, res, next) {
     }
   }
 
-  // Fall back to API key
   return requireApiKey(req, res, next)
 }
 
-// ── Plan enforcement ─────────────────────────────────────
+// ── Plan enforcement ────────────────────────────────────
 
+/**
+ * Require the authenticated user to be on one of the
+ * given plans. Returns 403 if not.
+ *
+ * @param {...string} plans - Allowed plan names.
+ * @returns {Function} Express middleware.
+ */
 function requirePlan(...plans) {
   return async (req, res, next) => {
     const { data: user } = await supabase
