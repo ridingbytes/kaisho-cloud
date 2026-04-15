@@ -6,7 +6,7 @@
   "main": "api/server.js",
   "scripts": {
     "start": "node api/server.js",
-    "dev": "node api/server.js -v"
+    "dev": "node --env-file=.env api/server.js -v"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.0",
