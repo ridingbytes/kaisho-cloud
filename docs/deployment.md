@@ -6,7 +6,7 @@
 
 - Docker and Docker Compose on the VPS
 - Traefik (or another reverse proxy) for TLS termination
-- DNS pointing `cloud.kaisho.app` to the VPS IP
+- DNS pointing `cloud.kaisho.dev` to the VPS IP
 
 ### Setup
 
@@ -37,7 +37,7 @@
        env_file: .env
        labels:
          - "traefik.enable=true"
-         - "traefik.http.routers.kaisho-cloud.rule=Host(`cloud.kaisho.app`)"
+         - "traefik.http.routers.kaisho-cloud.rule=Host(`cloud.kaisho.dev`)"
          - "traefik.http.routers.kaisho-cloud.tls.certresolver=letsencrypt"
          - "traefik.http.services.kaisho-cloud.loadbalancer.server.port=3000"
        networks:
@@ -57,7 +57,7 @@
 5. Verify:
 
    ```bash
-   curl https://cloud.kaisho.app/health
+   curl https://cloud.kaisho.dev/health
    # {"status":"ok"}
    ```
 

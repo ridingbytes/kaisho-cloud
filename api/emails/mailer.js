@@ -7,7 +7,7 @@ const { renderPlanCancelled } = require("./plan-cancelled")
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM =
-  process.env.EMAIL_FROM || "Kaisho <noreply@kaisho.app>"
+  process.env.EMAIL_FROM || "Kaisho <noreply@kaisho.dev>"
 
 async function sendWelcomeEmail({ email, apiKey }) {
   try {

@@ -78,7 +78,7 @@ Go to **Developers -> API keys** and copy the **Secret key**
 
 Go to **Developers -> Webhooks -> Add endpoint**:
 
-- **Endpoint URL:** `https://cloud.kaisho.app/billing/webhook/stripe`
+- **Endpoint URL:** `https://cloud.kaisho.dev/billing/webhook/stripe`
 - **Events:**
   - `checkout.session.completed`
   - `customer.subscription.updated`
@@ -112,14 +112,14 @@ Go to resend.com, create an account, and generate an API key:
 
 ### Configure sender domain
 
-Add and verify the sender domain (e.g. `kaisho.app`) in the Resend
+Add and verify the sender domain (e.g. `kaisho.dev`) in the Resend
 dashboard under **Domains -> Add domain**. Add the SPF, DKIM, and
 DMARC DNS records to the domain zone and wait for Resend to confirm
 all three are valid.
 
 Set the sender address:
 
-- `EMAIL_FROM=Kaisho <noreply@kaisho.app>` in `.env`
+- `EMAIL_FROM=Kaisho <noreply@kaisho.dev>` in `.env`
 
 ---
 
@@ -138,9 +138,9 @@ STRIPE_PRICE_SYNC=price_...
 STRIPE_PRICE_SYNC_AI=price_...
 
 RESEND_API_KEY=re_...
-EMAIL_FROM=Kaisho <noreply@kaisho.app>
+EMAIL_FROM=Kaisho <noreply@kaisho.dev>
 
-BASE_URL=https://cloud.kaisho.app
+BASE_URL=https://cloud.kaisho.dev
 PORT=3000
 ```
 
@@ -250,7 +250,7 @@ dashboard first.
 3. Recreate the two products and prices in live mode. Copy the
    new `price_...` IDs.
 4. Register a new webhook endpoint in live mode:
-   - **Endpoint URL**: `https://cloud.kaisho.app/billing/webhook/stripe`
+   - **Endpoint URL**: `https://cloud.kaisho.dev/billing/webhook/stripe`
    - **Events**: same as above
    Copy the new signing secret.
 5. Verify the sender domain in Resend (SPF, DKIM, DMARC).
@@ -294,7 +294,7 @@ docker logs kaisho-cloud --tail 100 -f
 ### Health check
 
 ```bash
-curl https://cloud.kaisho.app/health
+curl https://cloud.kaisho.dev/health
 # Expected: {"status":"ok"}
 ```
 

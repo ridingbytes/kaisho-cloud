@@ -72,7 +72,7 @@ const apiLimiter = rateLimit({
 
 const PORT = process.env.PORT || 3000
 const BASE_URL =
-  process.env.BASE_URL || "https://cloud.kaisho.app"
+  process.env.BASE_URL || "https://cloud.kaisho.dev"
 
 module.exports = {
   PLAN_PRICES,
