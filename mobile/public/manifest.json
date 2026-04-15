@@ -1,0 +1,16 @@
+{
+  "name": "Kaisho",
+  "short_name": "Kaisho",
+  "start_url": "/m/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "icons": [
+    {
+      "src": "/m/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

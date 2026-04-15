@@ -48,7 +48,7 @@ app.use("/ref", syncRoutes)
 // ── Mobile SPA ───────────────────────────────────────────
 
 const path = require("path")
-const mobileDir = path.join(__dirname, "..", "mobile")
+const mobileDir = path.join(__dirname, "..", "mobile", "dist")
 app.use("/m", express.static(mobileDir))
 app.get("/m/*", (_req, res) => {
   res.sendFile(path.join(mobileDir, "index.html"))
