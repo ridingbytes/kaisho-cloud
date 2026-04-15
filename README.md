@@ -28,9 +28,9 @@ Enables mobile clock tracking that syncs back to the local app.
 ## Quick start
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env   # fill in credentials
-npm run dev
+pnpm dev
 ```
 
 See [docs/development.md](docs/development.md) for details.

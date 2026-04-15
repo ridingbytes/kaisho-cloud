@@ -18,7 +18,7 @@
 2. Install dependencies:
 
    ```bash
-   npm install
+   pnpm install
    ```
 
 3. Create `.env` from `.env.example` and fill in credentials.
@@ -33,7 +33,7 @@
 Start the API server in verbose mode:
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 The server starts on `http://localhost:3000`.
