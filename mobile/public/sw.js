@@ -23,11 +23,20 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return
+  const url = new URL(e.request.url)
+  // Only cache http(s) same-origin responses
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return
+  }
   e.respondWith(
     fetch(e.request)
       .then((res) => {
-        const clone = res.clone()
-        caches.open(CACHE).then((c) => c.put(e.request, clone))
+        if (url.origin === self.location.origin) {
+          const clone = res.clone()
+          caches.open(CACHE).then((c) =>
+            c.put(e.request, clone),
+          )
+        }
         return res
       })
       .catch(() => caches.match(e.request))
