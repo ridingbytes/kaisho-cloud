@@ -228,4 +228,29 @@ router.post(
   }),
 )
 
+// ── GET /auth/me ────────────────────────────────────────
+
+/**
+ * Return the current user's email and plan.
+ *
+ * @route GET /auth/me
+ */
+router.get(
+  "/me",
+  requireJwt,
+  asyncHandler(async (req, res) => {
+    const { data: user } = await supabase
+      .from("users")
+      .select("plan")
+      .eq("id", req.userId)
+      .single()
+
+    res.json({
+      user_id: req.userId,
+      email: req.userEmail,
+      plan: user?.plan || "free",
+    })
+  }),
+)
+
 module.exports = router

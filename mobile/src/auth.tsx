@@ -9,6 +9,7 @@ import type { ReactNode } from "react"
 import type { SignupResult, User } from "./types"
 import {
   clearTokens,
+  getMe,
   login as apiLogin,
   setOnAuthExpired,
   setTokens,
@@ -68,6 +69,28 @@ export function AuthProvider(
       setTokens(user.access_token, user.refresh_token)
     }
   }, [user])
+
+  // Refresh plan info from server on mount (plan may have
+  // changed server-side since last login).
+  useEffect(() => {
+    if (!user) return
+    getMe()
+      .then((me) => {
+        if (me.plan !== user.plan || me.email !== user.email) {
+          const next = {
+            ...user,
+            plan: me.plan,
+            email: me.email,
+          }
+          setUser(next)
+          storeUser(next)
+        }
+      })
+      .catch(() => {
+        // ignore; will retry next mount
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     setOnAuthExpired(() => {

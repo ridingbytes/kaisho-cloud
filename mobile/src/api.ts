@@ -127,6 +127,14 @@ export function regenerateApiKey(): Promise<{
   return request("/auth/api-key", { method: "POST" })
 }
 
+export function getMe(): Promise<{
+  user_id: string
+  email: string
+  plan: string
+}> {
+  return request("/auth/me")
+}
+
 // -- Clocks --
 
 export function getActive(): Promise<ActiveTimer> {
