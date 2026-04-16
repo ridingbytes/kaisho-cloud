@@ -54,22 +54,24 @@ function storeUser(u: User) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(u))
 }
 
+// Hydrate tokens synchronously at module load so the first
+// render can make authenticated API calls (setTokens in a
+// useEffect would run after components mount and fire 401s).
+const initialUser = loadStored()
+if (initialUser) {
+  setTokens(
+    initialUser.access_token, initialUser.refresh_token,
+  )
+}
+
 export function AuthProvider(
   { children }: { children: ReactNode },
 ) {
-  const [user, setUser] = useState<User | null>(
-    loadStored,
-  )
+  const [user, setUser] = useState<User | null>(initialUser)
   const [signupResult, setSignupResult] =
     useState<SignupResult | null>(null)
   const [authView, setAuthView] =
     useState<AuthView>("login")
-
-  useEffect(() => {
-    if (user) {
-      setTokens(user.access_token, user.refresh_token)
-    }
-  }, [user])
 
   // Refresh plan info from server on mount (plan may have
   // changed server-side since last login).
