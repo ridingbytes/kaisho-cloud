@@ -11,7 +11,9 @@ const { Router } = require("express")
 const {
   signupLimiter, authLimiter, rotateKeyLimiter,
 } = require("../config")
-const { supabase, invalidateAuthCache } = require("../db")
+const {
+  supabase, supabaseAuth, invalidateAuthCache,
+} = require("../db")
 const { requireJwt } = require("../middleware")
 const {
   validate,
@@ -100,7 +102,7 @@ router.post(
     const { email, password } = req.body
 
     const { data, error } =
-      await supabase.auth.signInWithPassword({
+      await supabaseAuth.auth.signInWithPassword({
         email,
         password,
       })
@@ -111,11 +113,18 @@ router.post(
         .json({ error: "Invalid credentials" })
     }
 
-    const { data: user } = await supabase
+    const { data: user, error: userErr } = await supabase
       .from("users")
       .select("plan")
       .eq("id", data.user.id)
       .single()
+
+    if (userErr) {
+      req.log.error(
+        { err: userErr, userId: data.user.id },
+        "login: failed to read users.plan",
+      )
+    }
 
     res.json({
       user_id: data.user.id,
@@ -141,7 +150,7 @@ router.post(
     const { refresh_token } = req.body
 
     const { data, error } =
-      await supabase.auth.refreshSession({
+      await supabaseAuth.auth.refreshSession({
         refresh_token,
       })
 

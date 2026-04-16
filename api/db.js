@@ -5,19 +5,32 @@ const { createClient } = require("@supabase/supabase-js")
 
 // ── Supabase client ──────────────────────────────────────
 
-// persistSession: false prevents the client from tracking
-// user sessions after auth.signInWithPassword calls — without
-// this, subsequent queries use the signed-in user's JWT (subject
-// to RLS) instead of the service_role key.
+// Two clients, because supabase-js tracks the current user
+// session internally on a single client. Calling
+// auth.signInWithPassword() on a shared client causes later
+// .from().select() queries to send the user's JWT (subject to
+// RLS) instead of the service_role key, returning 0 rows.
+//
+// - supabase:     service-role-only, for DB and auth.admin ops
+// - supabaseAuth: for auth.signInWithPassword and refreshSession
+const clientOpts = {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+  },
+}
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  },
+  clientOpts,
+)
+
+const supabaseAuth = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY,
+  clientOpts,
 )
 
 // ── Auth cache ───────────────────────────────────────────
@@ -62,6 +75,7 @@ function invalidateAuthCache(userId) {
 
 module.exports = {
   supabase,
+  supabaseAuth,
   AUTH_CACHE,
   authCacheKey,
   getCachedUser,

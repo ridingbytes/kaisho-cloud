@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs")
 const { logger } = require("./logger")
 const {
   supabase,
+  supabaseAuth,
   getCachedUser,
   cacheUser,
 } = require("./db")
@@ -25,7 +26,7 @@ async function requireJwt(req, res, next) {
   }
   const token = auth.slice(7)
 
-  const { data, error } = await supabase.auth.getUser(token)
+  const { data, error } = await supabaseAuth.auth.getUser(token)
   if (error || !data?.user) {
     return res.status(401).json({ error: "Invalid token" })
   }
@@ -105,7 +106,7 @@ async function requireAuth(req, res, next) {
 
   if (token.length > 50) {
     const { data, error } =
-      await supabase.auth.getUser(token)
+      await supabaseAuth.auth.getUser(token)
     if (!error && data?.user) {
       req.userId = data.user.id
       req.userEmail = data.user.email
