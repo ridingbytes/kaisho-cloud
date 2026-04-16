@@ -1,0 +1,23 @@
+# Traefik file provider config for kaisho-cloud.
+# Copy to /home/docker/traefik/conf.d/kaisho-cloud.yml
+# Traefik picks it up automatically (hot-reload).
+#
+# Routes https://cloud.kaisho.dev to the kaisho-cloud
+# container listening on port 3000 inside the
+# traefik-public network.
+
+http:
+  routers:
+    kaisho-cloud:
+      rule: "Host(`cloud.kaisho.dev`)"
+      entrypoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+      service: kaisho-cloud
+
+  services:
+    kaisho-cloud:
+      loadBalancer:
+        servers:
+          - url: "http://kaisho-cloud:3000"

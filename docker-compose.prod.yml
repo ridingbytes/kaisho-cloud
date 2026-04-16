@@ -1,0 +1,24 @@
+# kaisho-cloud — production stack
+#
+# Uses the pre-built image from ghcr.io (built by GitHub
+# Actions on push to `production`). The VPS only needs
+# this file and a .env file — no source code required.
+#
+# Prerequisites:
+#   - docker network create traefik-public (if not already
+#     present — shared with other apps)
+#   - cp .env.example .env (fill in secrets)
+#   - cp traefik/kaisho-cloud.yml /home/docker/traefik/conf.d/
+
+services:
+  api:
+    image: ghcr.io/ridingbytes/kaisho-cloud:latest
+    container_name: kaisho-cloud
+    restart: unless-stopped
+    env_file: .env
+    networks:
+      - traefik-public
+
+networks:
+  traefik-public:
+    external: true
