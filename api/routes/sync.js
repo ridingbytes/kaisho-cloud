@@ -106,6 +106,10 @@ router.get(
       .limit(limit)
 
     if (error) {
+      req.log.error(
+        { err: error, since, limit },
+        "pull-clocks query failed",
+      )
       return res
         .status(500)
         .json({ error: "Failed to pull clocks" })
