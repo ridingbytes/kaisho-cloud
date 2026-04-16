@@ -5,9 +5,19 @@ const { createClient } = require("@supabase/supabase-js")
 
 // ── Supabase client ──────────────────────────────────────
 
+// persistSession: false prevents the client from tracking
+// user sessions after auth.signInWithPassword calls — without
+// this, subsequent queries use the signed-in user's JWT (subject
+// to RLS) instead of the service_role key.
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  },
 )
 
 // ── Auth cache ───────────────────────────────────────────
