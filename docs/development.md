@@ -30,13 +30,44 @@
 
 ## Running
 
-Start the API server in verbose mode:
+### API server
 
 ```bash
 pnpm dev
 ```
 
-The server starts on `http://localhost:3000`.
+Starts on `http://localhost:3000`. The server auto-loads
+`.env` via Node's `--env-file` flag.
+
+### Mobile PWA
+
+The mobile app lives in `mobile/` and is a Vite + React + TS
+PWA. In production it's served by the Express API at `/m/`
+from `mobile/dist/`. For local dev you have two options:
+
+**Option A — use the built mobile app through the API:**
+
+```bash
+cd mobile && pnpm install && pnpm build && cd ..
+pnpm dev
+# Open http://localhost:3000/m/
+```
+
+Rebuild after any frontend change.
+
+**Option B — run Vite dev server with hot reload:**
+
+```bash
+# Terminal 1: API
+pnpm dev
+
+# Terminal 2: Vite dev server
+cd mobile && pnpm dev
+# Open http://localhost:5173/m/
+```
+
+Vite proxies `/auth`, `/clocks`, `/sync`, `/ref`, `/billing`
+to `http://localhost:3000` (see `mobile/vite.config.ts`).
 
 ## Testing the API
 
