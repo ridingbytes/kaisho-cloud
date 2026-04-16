@@ -3,6 +3,7 @@ import { useAuth } from "../auth"
 import { useToast } from "../toast"
 import { rotateKey, ApiError } from "../api"
 import { ErrorBanner } from "./ErrorBanner"
+import { Logo } from "./Logo"
 
 export function RecoverKey() {
   const { setAuthView } = useAuth()
@@ -33,11 +34,7 @@ export function RecoverKey() {
 
   return (
     <div className="auth-screen">
-      <img
-        src="/m/icon.svg"
-        alt="Kaisho"
-        className="auth-logo"
-      />
+      <Logo size={56} className="auth-logo" />
       <h1 className="auth-title">Recover API key</h1>
       {sent ? (
         <div className="card">

@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useAuth } from "../auth"
 import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
+import { Logo } from "./Logo"
 import { ApiError } from "../api"
 
 export function LoginForm() {
@@ -41,11 +42,7 @@ export function LoginForm() {
 
   return (
     <div className="auth-screen">
-      <img
-        src="/m/icon.svg"
-        alt="Kaisho"
-        className="auth-logo"
-      />
+      <Logo size={56} className="auth-logo" />
       <h1 className="auth-title">Kaisho</h1>
       <form className="auth-form" onSubmit={handleSubmit}>
         <ErrorBanner

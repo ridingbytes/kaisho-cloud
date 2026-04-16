@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useAuth } from "../auth"
 import { useToast } from "../toast"
+import { Logo } from "./Logo"
 
 export function SignupSuccess() {
   const { signupResult, setAuthView } = useAuth()
@@ -21,11 +22,7 @@ export function SignupSuccess() {
 
   return (
     <div className="auth-screen">
-      <img
-        src="/m/icon.svg"
-        alt="Kaisho"
-        className="auth-logo"
-      />
+      <Logo size={56} className="auth-logo" />
       <h1 className="auth-title">Account created</h1>
       <div className="card api-key-card">
         <p className="text-muted">

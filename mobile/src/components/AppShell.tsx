@@ -3,6 +3,7 @@ import { TimerView } from "./TimerView"
 import { BookView } from "./BookView"
 import { EntriesView } from "./EntriesView"
 import { ProfileView } from "./ProfileView"
+import { Logo } from "./Logo"
 
 type Tab = "timer" | "book" | "entries" | "profile"
 
@@ -70,11 +71,7 @@ export function AppShell() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <img
-          src="/m/icon.svg"
-          alt=""
-          className="app-header-logo"
-        />
+        <Logo size={22} className="app-header-logo" />
         <span className="app-header-title">Kaisho</span>
       </header>
       <main className="app-content">

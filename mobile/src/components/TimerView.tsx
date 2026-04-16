@@ -61,13 +61,13 @@ export function TimerView() {
   }, [load])
 
   useEffect(() => {
-    if (!timer?.started_at) return
+    if (!timer?.start) return
     const tick = () =>
-      setElapsed(formatElapsed(timer.started_at!))
+      setElapsed(formatElapsed(timer.start!))
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [timer?.started_at])
+  }, [timer?.start])
 
   const selectedCustomer = customers.find(
     (c) => c.name === customer,

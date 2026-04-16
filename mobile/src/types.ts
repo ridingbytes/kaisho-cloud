@@ -12,11 +12,17 @@ export interface SignupResult {
 
 export interface ActiveTimer {
   active: boolean
-  customer?: string
+  id?: string
+  customer?: string | null
   description?: string
-  task_id?: string
-  contract?: string
-  started_at?: string
+  task_id?: string | null
+  contract?: string | null
+  start?: string
+  end?: string | null
+  duration_minutes?: number | null
+  notes?: string
+  booked?: boolean
+  synced?: boolean
 }
 
 export interface ClockEntry {

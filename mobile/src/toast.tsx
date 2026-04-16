@@ -50,8 +50,13 @@ export function ToastProvider(
           <div
             key={t.id}
             className={`toast toast-${t.type}`}
+            role="status"
+            aria-live="polite"
           >
-            {t.message}
+            <span className="toast-icon" aria-hidden="true">
+              {t.type === "success" ? "✓" : "!"}
+            </span>
+            <span>{t.message}</span>
           </div>
         ))}
       </div>

@@ -1,12 +1,21 @@
 import { useState } from "react"
 import { useAuth } from "../auth"
 import { useToast } from "../toast"
+import { useTheme } from "../theme"
+import type { Theme } from "../theme"
 import { regenerateApiKey, ApiError } from "../api"
 import { ErrorBanner } from "./ErrorBanner"
+
+const THEME_OPTIONS: { id: Theme; label: string }[] = [
+  { id: "light", label: "Light" },
+  { id: "dark", label: "Dark" },
+  { id: "system", label: "System" },
+]
 
 export function ProfileView() {
   const { user, logout } = useAuth()
   const { toast } = useToast()
+  const { theme, setTheme } = useTheme()
   const [newKey, setNewKey] = useState<string | null>(
     null,
   )
@@ -57,6 +66,25 @@ export function ProfileView() {
           <span className="plan-badge">
             {user?.plan ?? "free"}
           </span>
+        </div>
+      </div>
+
+      <div className="card">
+        <h3>Appearance</h3>
+        <div className="segmented">
+          {THEME_OPTIONS.map((opt) => (
+            <button
+              key={opt.id}
+              className={
+                "segmented-btn" +
+                (theme === opt.id
+                  ? " segmented-btn--active" : "")
+              }
+              onClick={() => setTheme(opt.id)}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
 
