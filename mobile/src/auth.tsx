@@ -12,6 +12,7 @@ import {
   getMe,
   login as apiLogin,
   setOnAuthExpired,
+  setOnTokensRefreshed,
   setTokens,
   signup as apiSignup,
 } from "./api"
@@ -97,6 +98,18 @@ export function AuthProvider(
       setUser(null)
       localStorage.removeItem(STORAGE_KEY)
       clearTokens()
+    })
+    setOnTokensRefreshed((access, refresh) => {
+      setUser((prev) => {
+        if (!prev) return prev
+        const next = {
+          ...prev,
+          access_token: access,
+          refresh_token: refresh,
+        }
+        storeUser(next)
+        return next
+      })
     })
   }, [])
 

@@ -1,4 +1,4 @@
-const CACHE = "kaisho-v1"
+const CACHE = "kaisho-v2"
 const PRECACHE = ["/m/", "/m/icon.svg"]
 
 self.addEventListener("install", (e) => {

@@ -10,6 +10,9 @@ import type {
 let accessToken: string | null = null
 let refreshToken: string | null = null
 let onAuthExpired: (() => void) | null = null
+let onTokensRefreshed:
+  | ((access: string, refresh: string) => void)
+  | null = null
 
 export function setTokens(
   access: string,
@@ -22,6 +25,12 @@ export function setTokens(
 export function clearTokens() {
   accessToken = null
   refreshToken = null
+}
+
+export function setOnTokensRefreshed(
+  cb: (access: string, refresh: string) => void,
+) {
+  onTokensRefreshed = cb
 }
 
 export function setOnAuthExpired(cb: () => void) {
@@ -41,6 +50,7 @@ async function refreshAccess(): Promise<boolean> {
   const data = await res.json()
   accessToken = data.access_token
   refreshToken = data.refresh_token
+  onTokensRefreshed?.(accessToken!, refreshToken!)
   return true
 }
 
