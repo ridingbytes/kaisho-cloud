@@ -439,7 +439,9 @@ select {
 
 .toast-container {
   position: fixed;
-  top: 16px;
+  bottom: calc(
+    72px + env(safe-area-inset-bottom, 0)
+  );
   left: 16px;
   right: 16px;
   z-index: 1000;
@@ -472,7 +474,7 @@ select {
 @keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
