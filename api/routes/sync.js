@@ -167,6 +167,42 @@ router.post(
   }),
 )
 
+// ── GET /sync/active ────────────────────────────────────
+
+/**
+ * Return the cloud-side running timer for this user, if
+ * any. Used by the local app to show "running on mobile".
+ *
+ * @route GET /sync/active
+ */
+router.get(
+  "/active",
+  requireApiKey,
+  asyncHandler(async (req, res) => {
+    const { data: row } = await supabase
+      .from("clock_entries")
+      .select(
+        "id, customer, description, start_at, " +
+        "task_id, contract",
+      )
+      .eq("user_id", req.userId)
+      .is("end_at", null)
+      .maybeSingle()
+
+    if (!row) return res.json({ active: false })
+
+    res.json({
+      active: true,
+      id: row.id,
+      customer: row.customer || null,
+      description: row.description,
+      start: row.start_at,
+      task_id: row.task_id || null,
+      contract: row.contract || null,
+    })
+  }),
+)
+
 // ── GET /sync/status ────────────────────────────────────
 
 /**
