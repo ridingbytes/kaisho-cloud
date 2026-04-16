@@ -113,12 +113,6 @@ sudo chown docker:docker /home/docker/kaisho-cloud
 sudo -u docker vim /home/docker/kaisho-cloud/.env
 sudo chmod 600 /home/docker/kaisho-cloud/.env
 
-# Drop the Traefik file-provider config into place so
-# https://cloud.kaisho.dev routes to the container:
-sudo cp traefik/kaisho-cloud.yml \
-  /home/docker/traefik/conf.d/kaisho-cloud.yml
-# Traefik hot-reloads; no restart needed.
-
 # Ensure the shared Traefik network exists (same one
 # SENAITY uses):
 docker network inspect traefik-public >/dev/null 2>&1 \
@@ -129,3 +123,9 @@ The GHCR package is private by default; either make it
 public under **Packages → kaisho-cloud → Settings →
 Visibility**, or run `docker login ghcr.io` on the VPS
 with a read-scoped PAT.
+
+The Traefik file-provider config
+(`traefik/kaisho-cloud.yml`) is SCPed into
+`/home/docker/traefik/conf.d/` by the deploy workflow
+automatically on every push. Traefik hot-reloads it, so
+no manual copy or restart is needed.

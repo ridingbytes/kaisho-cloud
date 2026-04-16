@@ -51,6 +51,16 @@ jobs:
           source: docker-compose.prod.yml
           target: /home/docker/kaisho-cloud/
 
+      - name: Copy Traefik config to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: traefik/kaisho-cloud.yml
+          target: /home/docker/traefik/conf.d/
+          strip_components: 1
+
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
         env:

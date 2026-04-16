@@ -61,6 +61,15 @@ app.get("/m/*", (_req, res) => {
 
 // ── Health ──────────────────────────────────────────────
 
+/** @route GET / */
+app.get("/", (_req, res) => {
+  res.json({
+    service: "kaisho-cloud",
+    status: "ok",
+    docs: "https://kaisho.dev",
+  })
+})
+
 /** @route GET /health */
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" })
