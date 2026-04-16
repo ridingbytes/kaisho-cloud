@@ -206,10 +206,9 @@ export function TimerView() {
         </select>
         <input
           type="text"
-          placeholder="Description"
+          placeholder="Description (optional)"
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
-          required
         />
         <button
           type="submit"

@@ -241,12 +241,16 @@ select {
 .app-shell {
   display: flex;
   flex-direction: column;
+  /* svh = smallest viewport height: stays inside the
+   * Safari chrome so the tab-bar never slides under the
+   * bottom toolbar. iOS 15+, Chrome 108+. */
   height: 100vh;
-  height: 100dvh;
+  height: 100svh;
 }
 
 .app-header {
-  padding: 14px 16px;
+  padding: calc(14px + env(safe-area-inset-top, 0))
+           16px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
   flex-shrink: 0;
@@ -414,6 +418,34 @@ select {
 
 .sync-dot.unsynced {
   background: var(--t4);
+}
+
+.entry-delete {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--t4);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.entry-delete:hover,
+.entry-delete:focus-visible {
+  color: var(--red);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.entry-delete:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* -- Profile -- */

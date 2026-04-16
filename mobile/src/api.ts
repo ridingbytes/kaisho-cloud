@@ -97,6 +97,7 @@ async function request<T>(
     throw new ApiError(res.status, msg)
   }
 
+  if (res.status === 204) return undefined as T
   return res.json()
 }
 
@@ -181,6 +182,12 @@ export function quickBook(data: {
 
 export function getEntries(): Promise<ClockEntry[]> {
   return request("/clocks/entries?period=week")
+}
+
+export async function deleteEntry(id: string): Promise<void> {
+  await request(`/clocks/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  })
 }
 
 // -- Reference data --

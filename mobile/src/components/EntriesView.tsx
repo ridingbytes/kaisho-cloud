@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import type { ClockEntry } from "../types"
-import { getEntries, ApiError } from "../api"
+import { deleteEntry, getEntries, ApiError } from "../api"
 import { ErrorBanner } from "./ErrorBanner"
 
 function formatMins(m: number): string {
@@ -30,6 +30,8 @@ function formatTime(iso: string): string {
 export function EntriesView() {
   const [entries, setEntries] = useState<ClockEntry[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] =
+    useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -45,6 +47,26 @@ export function EntriesView() {
     load()
   }, [load])
 
+  async function handleDelete(e: ClockEntry) {
+    const label = e.description
+      ? `"${e.description}"`
+      : `${formatDate(e.start)} ${formatTime(e.start)}`
+    if (!confirm(`Delete entry ${label}?`)) return
+    setDeletingId(e.id)
+    try {
+      await deleteEntry(e.id)
+      setEntries((prev) =>
+        prev.filter((x) => x.id !== e.id),
+      )
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message)
+      }
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   return (
     <div className="view">
       <ErrorBanner
@@ -56,8 +78,8 @@ export function EntriesView() {
           No entries this week
         </p>
       )}
-      {entries.map((e, i) => (
-        <div key={i} className="card entry-card">
+      {entries.map((e) => (
+        <div key={e.id} className="card entry-card">
           <div className="entry-header">
             <span className="entry-date">
               {formatDate(e.start)}
@@ -87,6 +109,25 @@ export function EntriesView() {
             }
             title={e.synced ? "Synced" : "Not synced"}
           />
+          <button
+            className="entry-delete"
+            onClick={() => handleDelete(e)}
+            disabled={deletingId === e.id}
+            aria-label="Delete entry"
+            title="Delete entry"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 viewBox="0 0 24 24"
+                 width="16" height="16"
+                 fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6M14 11v6"/>
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+          </button>
         </div>
       ))}
     </div>

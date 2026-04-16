@@ -26,6 +26,7 @@ export interface ActiveTimer {
 }
 
 export interface ClockEntry {
+  id: string
   start: string
   end: string
   customer: string
