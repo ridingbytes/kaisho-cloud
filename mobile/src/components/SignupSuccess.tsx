@@ -21,7 +21,11 @@ export function SignupSuccess() {
 
   return (
     <div className="auth-screen">
-      <div className="auth-logo">K</div>
+      <img
+        src="/m/icon.svg"
+        alt="Kaisho"
+        className="auth-logo"
+      />
       <h1 className="auth-title">Account created</h1>
       <div className="card api-key-card">
         <p className="text-muted">

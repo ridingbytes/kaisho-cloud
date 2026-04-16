@@ -41,7 +41,11 @@ export function LoginForm() {
 
   return (
     <div className="auth-screen">
-      <div className="auth-logo">K</div>
+      <img
+        src="/m/icon.svg"
+        alt="Kaisho"
+        className="auth-logo"
+      />
       <h1 className="auth-title">Kaisho</h1>
       <form className="auth-form" onSubmit={handleSubmit}>
         <ErrorBanner

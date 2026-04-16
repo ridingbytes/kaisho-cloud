@@ -33,7 +33,11 @@ export function RecoverKey() {
 
   return (
     <div className="auth-screen">
-      <div className="auth-logo">K</div>
+      <img
+        src="/m/icon.svg"
+        alt="Kaisho"
+        className="auth-logo"
+      />
       <h1 className="auth-title">Recover API key</h1>
       {sent ? (
         <div className="card">

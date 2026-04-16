@@ -70,6 +70,11 @@ export function AppShell() {
   return (
     <div className="app-shell">
       <header className="app-header">
+        <img
+          src="/m/icon.svg"
+          alt=""
+          className="app-header-logo"
+        />
         <span className="app-header-title">Kaisho</span>
       </header>
       <main className="app-content">
