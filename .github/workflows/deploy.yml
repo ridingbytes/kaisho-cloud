@@ -70,6 +70,5 @@ jobs:
             # Pin images to this exact build
             sed -i "s|:latest|:${GIT_SHA}|g" docker-compose.yml
             echo "$GIT_SHA" > .deploy-sha
-            chown -R docker:docker /home/docker/kaisho-cloud
-            sudo -u docker docker compose pull
-            sudo -u docker docker compose up -d
+            docker compose pull
+            docker compose up -d
