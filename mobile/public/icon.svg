@@ -1,7 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"
-     width="32" height="32" fill="none">
-  <!-- Kaisho: Open Bracket Palm — light variant
-       for dark backgrounds (#fafafc) -->
+     width="32" height="32">
+  <!-- Kaisho: Open Bracket Palm
+       Self-contained icon with a dark background so it
+       renders correctly on iOS home screens (which ignore
+       manifest background_color) and stays visible on
+       light-themed browser tabs. -->
+  <rect width="32" height="32" rx="6" fill="#09090b"/>
   <path d="M 10 5 L 5 5 L 5 27 L 10 27"
         stroke="#fafafc" stroke-width="2.2"
         stroke-linecap="round"
