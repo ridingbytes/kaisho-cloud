@@ -66,6 +66,7 @@ app.get("/", (_req, res) => {
   res.json({
     service: "kaisho-cloud",
     status: "ok",
+    mobile: "/m/",
     docs: "https://kaisho.dev",
   })
 })
