@@ -1,7 +1,6 @@
 "use strict"
 
 const bcrypt = require("bcryptjs")
-const { logger } = require("./logger")
 const {
   supabase,
   supabaseAuth,

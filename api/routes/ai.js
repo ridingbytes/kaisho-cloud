@@ -214,7 +214,7 @@ function extractUsage(result) {
 // ── POST /ai/complete ───────────────────────────────────
 
 /**
- * General-purpose Claude completion. Metered.
+ * General-purpose chat completion. Metered.
  *
  * @route POST /ai/complete
  */

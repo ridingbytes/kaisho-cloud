@@ -35,7 +35,9 @@ const supabaseAuth = createClient(
 
 // ── Auth cache ───────────────────────────────────────────
 // Bcrypt comparison takes ~100 ms. Cache positive auth
-// results for 60 s so sync requests don't pay that cost.
+// results for 5 minutes so sync requests don't pay that
+// cost. A fast SHA-256 key cache provides O(1) lookups
+// that skip bcrypt entirely for recently-seen API keys.
 
 const AUTH_CACHE = new Map()
 const AUTH_CACHE_TTL = 300_000  // 5 minutes
@@ -97,8 +99,6 @@ function invalidateAuthCache(userId) {
 module.exports = {
   supabase,
   supabaseAuth,
-  AUTH_CACHE,
-  authCacheKey,
   getCachedUser,
   cacheUser,
   invalidateAuthCache,

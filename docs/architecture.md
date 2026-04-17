@@ -58,14 +58,19 @@ JWT is used for all database queries.
 ### Desktop App (API Key)
 
 ```
-Desktop -> x-api-key header on all requests
+Desktop -> Bearer <api_key> on all requests
         -> Cloud compares bcrypt hash against users.api_key_hash
-        -> Cached for 60s after first validation
+        -> SHA-256 fast cache (5 min TTL) skips bcrypt on repeat calls
 ```
 
 API keys are generated in the mobile PWA's profile view. The
 key is shown once and stored as a bcrypt hash in the `users`
 table. The desktop app stores it in `settings.yaml`.
+
+After the first successful bcrypt comparison, the API key is
+cached by its SHA-256 hash for 5 minutes. Subsequent requests
+hit the fast cache in O(1) without any bcrypt or database
+round-trip.
 
 ### Combined Auth Middleware
 
@@ -73,6 +78,55 @@ The `requireAuth` middleware tries JWT first (tokens longer than
 50 characters), then falls back to API key auth. This allows
 both the mobile PWA and the desktop app to use the same
 endpoints.
+
+
+## Real-Time Updates (WebSocket)
+
+The cloud server runs a WebSocket endpoint at `/ws` for
+pushing state changes to connected clients in real time.
+
+### Connection
+
+```
+Mobile PWA -> wss://cloud.kaisho.dev/ws?token=<jwt>
+Desktop    -> wss://cloud.kaisho.dev/ws?api_key=<key>
+```
+
+Auth uses the same JWT/API-key validation as HTTP routes.
+Each authenticated connection is registered in a per-user
+socket map (`userId -> Set<WebSocket>`).
+
+### Events
+
+| Event | Payload | Trigger |
+|-------|---------|---------|
+| `connected` | `{ devices }` | On successful auth |
+| `timer:started` | entry | POST /clocks/start, /sync/active/start |
+| `timer:stopped` | entry | POST /clocks/stop, /sync/active/stop |
+| `entries:changed` | `{ count }` | POST /sync/apply, PATCH /clocks/:id |
+| `entries:deleted` | `{ ids }` | DELETE /clocks/:id |
+
+### Heartbeat and Reconnect
+
+Server pings every 30 seconds; clients that miss two pings
+are terminated. The mobile WS client reconnects with
+exponential backoff (1s to 30s) and +/-20% jitter to prevent
+thundering herd on server restarts.
+
+### Polling Fallback
+
+The mobile PWA uses WebSocket events as the primary refresh
+trigger but also re-fetches on `visibilitychange` (visible)
+to catch updates missed while the iOS PWA was backgrounded
+(iOS suspends WebSocket connections in the background).
+
+### Optimistic UI and Suppression
+
+Timer start/stop use optimistic updates (show the state
+change immediately, confirm with the API in the background).
+A 3-second suppression window ignores incoming WS events
+after a local mutation to prevent the server's broadcast
+from reverting the optimistic state.
 
 
 ## Bidirectional Sync Protocol
@@ -108,6 +162,19 @@ The local app runs a sync cycle periodically (default: every
            Push customer and task reference data so the
            mobile PWA has dropdown options.
 ```
+
+### Batch Optimization
+
+The `/sync/apply` endpoint processes batches efficiently:
+
+1. **Single SELECT**: all incoming entry IDs are fetched in one
+   query to build an `existingMap` for merge decisions.
+2. **Batch INSERT**: new entries are inserted in a single query.
+3. **Individual UPDATE**: existing entries are updated one at a
+   time (each needs its own `WHERE user_id = ?` for RLS safety).
+
+This reduces the N+1 query pattern to 1 + 1 + U queries (where
+U is the number of updates), compared to 2N before.
 
 ### Conflict Resolution
 
@@ -262,6 +329,14 @@ when exceeded).
 | Free | 0 | Desktop app, CLI, all storage backends |
 | Cloud Sync | 9/mo | Bidirectional sync, mobile PWA |
 | Sync + AI | 19/mo | Everything + Kaisho AI, 200K tokens |
+
+### Plan Cache
+
+The `requirePlan` middleware caches Supabase plan lookups
+for 60 seconds per user to avoid a database round-trip on
+every authenticated request. The cache is an in-memory Map
+keyed by user ID with a TTL timestamp. Cache entries are
+refreshed on expiry, not evicted proactively.
 
 ### Stripe Integration
 

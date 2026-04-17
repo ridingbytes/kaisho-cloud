@@ -234,17 +234,6 @@ function decideMerge(existing, incoming) {
 }
 
 /**
- * Apply a single incoming sync entry: fetch the existing
- * row (if any), run the merge decision, then insert or
- * update accordingly.
- *
- * @param {object} entry - Wire-format sync entry.
- * @param {string} userId - Authenticated user ID.
- * @returns {Promise<{action: string, id: string}>}
- *   Result with the action taken and entry id.
- */
-
-/**
  * Apply a batch of incoming entries. Idempotent.
  *
  * @route POST /sync/apply
@@ -306,7 +295,8 @@ router.post(
       }
     }
 
-    // Batch update (upsert with onConflict)
+    // Update existing entries individually (each row
+    // needs its own WHERE clause for user_id safety).
     if (toUpdate.length > 0) {
       for (const row of toUpdate) {
         const { error } = await supabase
@@ -326,6 +316,8 @@ router.post(
     // sync caller gets its response without waiting for
     // all WS clients to be notified.
     const applied = counts.inserted + counts.updated
+    // Note: counts.errors (number) is spread then
+    // overridden by errorIds (array of UUIDs).
     res.json({
       ...counts,
       errors: errorIds,
