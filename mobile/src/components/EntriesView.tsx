@@ -12,6 +12,7 @@ import {
   stopTimer,
   ApiError,
 } from "../api"
+import { onWsEvent } from "../ws"
 import { useToast } from "../toast"
 import { useConfirm } from "./ConfirmDialog"
 import { ErrorBanner } from "./ErrorBanner"
@@ -345,6 +346,20 @@ export function EntriesView() {
 
   useEffect(() => {
     load()
+  }, [load])
+
+  // Re-fetch when another device changes entries
+  useEffect(() => {
+    const off1 = onWsEvent(
+      "entries:changed", () => load(),
+    )
+    const off2 = onWsEvent(
+      "entries:deleted", () => load(),
+    )
+    const off3 = onWsEvent(
+      "timer:stopped", () => load(),
+    )
+    return () => { off1(); off2(); off3() }
   }, [load])
 
   async function handleDelete(e: ClockEntry) {
