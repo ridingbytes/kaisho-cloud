@@ -83,6 +83,16 @@ function TabIcon({ icon }: { icon: string }) {
   }
 }
 
+const VALID_TABS = new Set<Tab>(
+  TABS.map((t) => t.id),
+)
+
+function tabFromHash(): Tab {
+  const hash = window.location.hash.replace("#", "")
+  if (VALID_TABS.has(hash as Tab)) return hash as Tab
+  return "timer"
+}
+
 export function AppShell() {
   const [tab, setTab] = useState<Tab>(() => {
     // After Stripe checkout, land on Profile so the user
@@ -91,14 +101,25 @@ export function AppShell() {
       window.location.search,
     )
     if (params.get("upgraded") === "true") {
-      // Clean the URL so a page refresh doesn't re-trigger
       window.history.replaceState(
-        {}, "", window.location.pathname,
+        {}, "", window.location.pathname + "#profile",
       )
       return "profile"
     }
-    return "timer"
+    return tabFromHash()
   })
+
+  // Persist tab in hash and listen for back/forward
+  useEffect(() => {
+    window.location.hash = tab
+  }, [tab])
+
+  useEffect(() => {
+    const onHash = () => setTab(tabFromHash())
+    window.addEventListener("hashchange", onHash)
+    return () =>
+      window.removeEventListener("hashchange", onHash)
+  }, [])
 
   useEffect(() => {
     const goEntries = () => setTab("entries")
