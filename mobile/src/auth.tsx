@@ -100,14 +100,13 @@ export function AuthProvider(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Connect WebSocket when user is authenticated
+  // Connect WebSocket when user is authenticated.
+  // Don't disconnect on cleanup — only on explicit
+  // logout (handled in setOnAuthExpired above).
   useEffect(() => {
     if (user?.access_token) {
       connectWs(user.access_token)
-    } else {
-      disconnectWs()
     }
-    return () => disconnectWs()
   }, [user?.access_token])
 
   useEffect(() => {
