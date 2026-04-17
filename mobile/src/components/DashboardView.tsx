@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import type { ClockEntry } from "../types"
-import { ApiError, getEntries } from "../api"
+import { ApiError, aiSummarize, getEntries } from "../api"
+import { useAuth } from "../auth"
 import { ErrorBanner } from "./ErrorBanner"
 
 // ── Formatters ──────────────────────────────────────────
@@ -180,9 +181,17 @@ function openEntriesAt(from: Date, to?: Date) {
 // ── Main view ───────────────────────────────────────────
 
 export function DashboardView() {
+  const { user } = useAuth()
   const [entries, setEntries] = useState<ClockEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [summary, setSummary] = useState<string | null>(
+    null,
+  )
+  const [summaryLoading, setSummaryLoading] = useState(
+    false,
+  )
+  const hasAI = user?.plan === "sync_ai"
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -262,6 +271,51 @@ export function DashboardView() {
           </div>
         </button>
       </div>
+
+      {/* AI Summary — sync_ai plan only */}
+      {hasAI && (
+        <section className="card dashboard-section">
+          <header className="dashboard-section-header">
+            <h3>AI Summary</h3>
+            <button
+              type="button"
+              className="link-btn"
+              onClick={async () => {
+                setSummaryLoading(true)
+                try {
+                  const { summary: text } =
+                    await aiSummarize(week)
+                  setSummary(text)
+                } catch {
+                  setSummary(
+                    "Could not generate summary.",
+                  )
+                } finally {
+                  setSummaryLoading(false)
+                }
+              }}
+              disabled={summaryLoading}
+            >
+              {summaryLoading
+                ? "Generating..."
+                : summary
+                  ? "Refresh"
+                  : "Generate"}
+            </button>
+          </header>
+          {summary && (
+            <p className="dashboard-summary">
+              {summary}
+            </p>
+          )}
+          {!summary && !summaryLoading && (
+            <p className="text-muted">
+              Tap Generate for an AI-powered weekly
+              overview.
+            </p>
+          )}
+        </section>
+      )}
 
       <section className="card dashboard-section">
         <header className="dashboard-section-header">

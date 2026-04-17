@@ -287,3 +287,42 @@ export function createCheckout(
     body: JSON.stringify({ plan }),
   })
 }
+
+// -- AI --
+
+export function aiParseBooking(
+  text: string,
+): Promise<{
+  parsed: {
+    duration: string | null
+    customer: string | null
+    description: string
+    date: string | null
+  }
+  source: "regex" | "ai"
+}> {
+  return request("/ai/parse-booking", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  })
+}
+
+export function aiSummarize(
+  entries: ClockEntry[],
+): Promise<{ summary: string }> {
+  return request("/ai/summarize", {
+    method: "POST",
+    body: JSON.stringify({ entries }),
+  })
+}
+
+export function aiUsage(): Promise<{
+  month: string
+  input_tokens: number
+  output_tokens: number
+  total_tokens: number
+  request_count: number
+  cap: number
+}> {
+  return request("/ai/usage")
+}

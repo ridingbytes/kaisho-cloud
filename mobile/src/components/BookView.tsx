@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react"
 import type { Customer } from "../types"
 import {
+  aiParseBooking,
   getCustomers,
   quickBook,
   ApiError,
 } from "../api"
+import { useAuth } from "../auth"
 import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
 import { CustomerPicker } from "./CustomerPicker"
@@ -15,6 +17,7 @@ function todayStr(): string {
 }
 
 export function BookView() {
+  const { user } = useAuth()
   const { toast } = useToast()
   const [customers, setCustomers] = useState<Customer[]>(
     [],
@@ -23,9 +26,12 @@ export function BookView() {
   const [duration, setDuration] = useState("")
   const [desc, setDesc] = useState("")
   const [date, setDate] = useState(todayStr())
+  const [smartText, setSmartText] = useState("")
+  const [parsing, setParsing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [needsUpgrade, setNeedsUpgrade] = useState(false)
   const [loading, setLoading] = useState(false)
+  const hasAI = user?.plan === "sync_ai"
 
   useEffect(() => {
     getCustomers()
@@ -67,8 +73,64 @@ export function BookView() {
     }
   }
 
+  async function handleSmartBook() {
+    if (!smartText.trim()) return
+    setParsing(true)
+    setError(null)
+    try {
+      const { parsed } = await aiParseBooking(
+        smartText.trim(),
+      )
+      if (parsed.duration) setDuration(parsed.duration)
+      if (parsed.customer) setCustomer(parsed.customer)
+      if (parsed.description) setDesc(parsed.description)
+      if (parsed.date) setDate(parsed.date)
+      setSmartText("")
+      toast("Parsed — review and submit")
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message)
+      }
+    } finally {
+      setParsing(false)
+    }
+  }
+
   return (
     <div className="view">
+      {/* Smart Book: natural language input (AI plan) */}
+      {hasAI && (
+        <div className="card form smart-book">
+          <div className="smart-book-row">
+            <input
+              type="text"
+              value={smartText}
+              onChange={(e) =>
+                setSmartText(e.target.value)
+              }
+              placeholder='e.g. "2h Acme fix login"'
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  handleSmartBook()
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="btn-primary smart-book-btn"
+              onClick={handleSmartBook}
+              disabled={parsing || !smartText.trim()}
+            >
+              {parsing ? "..." : "Parse"}
+            </button>
+          </div>
+          <p className="text-muted smart-book-hint">
+            Type a booking in plain language
+          </p>
+        </div>
+      )}
+
       <form className="card form" onSubmit={handleSubmit}>
         <ErrorBanner
           message={error}

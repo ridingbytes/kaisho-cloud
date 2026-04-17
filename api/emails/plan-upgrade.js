@@ -1,18 +1,22 @@
 "use strict"
 
-const { wrap, h1, p, hr, planBadge } = require("./base")
+const {
+  wrap, h1, p, hr, planBadge, note,
+} = require("./base")
 
 function renderPlanUpgrade({ plan }) {
   const features = {
     sync: [
-      "Mobile clock tracking",
-      "Automatic sync to local app",
+      "Bidirectional clock sync across devices",
+      "Mobile timer with offline support",
       "Customer and task reference data",
+      "Dashboard with weekly and monthly stats",
     ],
     sync_ai: [
       "Everything in Cloud Sync",
-      "AI advisor queries (~100/month)",
-      "No API key management needed",
+      "AI-powered time summaries",
+      "Natural language time booking",
+      "Smart customer suggestions",
     ],
   }
 
@@ -37,7 +41,19 @@ function renderPlanUpgrade({ plan }) {
       hr(),
       `<ul style="margin:0 0 16px;padding-left:20px;">` +
         `${list}</ul>`,
-      p("Thank you for supporting Kaisho."),
+      hr(),
+      p(
+        "<strong>Connect your desktop app</strong>" +
+        "<br/>Open the mobile app &rarr; Profile " +
+        "&rarr; Generate new key &rarr; copy the " +
+        "CLI command and run it in a terminal:<br/>" +
+        "<code>kai cloud connect " +
+        "https://cloud.kaisho.dev &lt;key&gt;</code>",
+      ),
+      note(
+        "Or open Kaisho Settings &rarr; Cloud " +
+        "Sync and paste the URL + API key manually.",
+      ),
     ].join(""),
   })
 }

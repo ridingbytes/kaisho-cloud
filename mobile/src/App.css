@@ -426,6 +426,12 @@ select {
   color: var(--t1);
 }
 
+.dashboard-summary {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--t2);
+}
+
 .bar-chart {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -800,6 +806,33 @@ select {
   cursor: not-allowed;
 }
 
+/* -- Connect card -- */
+
+.connect-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 14px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.connect-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.connect-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+
 /* -- Profile -- */
 
 .profile-row {
@@ -846,6 +879,32 @@ select {
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
+}
+
+/* -- Smart book (AI) -- */
+
+.smart-book {
+  margin-bottom: 12px;
+}
+
+.smart-book-row {
+  display: flex;
+  gap: 8px;
+}
+
+.smart-book-row input {
+  flex: 1;
+}
+
+.smart-book-btn {
+  width: auto;
+  padding: 10px 16px;
+  white-space: nowrap;
+}
+
+.smart-book-hint {
+  margin-top: 4px;
+  font-size: 11px;
 }
 
 /* -- Upgrade banner -- */

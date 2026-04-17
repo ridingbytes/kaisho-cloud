@@ -14,6 +14,7 @@ export default defineConfig({
       "/sync": "http://localhost:3030",
       "/ref": "http://localhost:3030",
       "/billing": "http://localhost:3030",
+      "/ai": "http://localhost:3030",
       "/health": "http://localhost:3030",
     },
   },

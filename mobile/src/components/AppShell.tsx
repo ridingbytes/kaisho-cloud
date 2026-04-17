@@ -84,7 +84,21 @@ function TabIcon({ icon }: { icon: string }) {
 }
 
 export function AppShell() {
-  const [tab, setTab] = useState<Tab>("timer")
+  const [tab, setTab] = useState<Tab>(() => {
+    // After Stripe checkout, land on Profile so the user
+    // can generate a connect key for the desktop app.
+    const params = new URLSearchParams(
+      window.location.search,
+    )
+    if (params.get("upgraded") === "true") {
+      // Clean the URL so a page refresh doesn't re-trigger
+      window.history.replaceState(
+        {}, "", window.location.pathname,
+      )
+      return "profile"
+    }
+    return "timer"
+  })
 
   useEffect(() => {
     const goEntries = () => setTab("entries")

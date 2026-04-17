@@ -23,6 +23,7 @@ const clockRoutes = require("./routes/clocks")
 const syncRoutes = require("./routes/sync")
 const refRoutes = require("./routes/ref")
 const billingRoutes = require("./routes/billing")
+const aiRoutes = require("./routes/ai")
 
 const app = express()
 
@@ -47,6 +48,7 @@ app.use("/clocks", clockRoutes)
 app.use("/sync", syncRoutes)
 app.use("/ref", refRoutes)
 app.use("/billing", billingRoutes)
+app.use("/ai", aiRoutes)
 
 // ── Mobile SPA ──────────────────────────────────────────
 
