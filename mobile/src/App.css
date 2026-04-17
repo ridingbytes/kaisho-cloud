@@ -862,35 +862,18 @@ select {
 
 .edit-sheet-backdrop {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 100vh;
-  height: 100dvh;
+  inset: 0;
   z-index: 100;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--bg);
   display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: env(safe-area-inset-bottom, 0);
-  animation: fade-in 0.15s ease-out;
+  flex-direction: column;
 }
 
 .edit-sheet {
   width: 100%;
-  max-width: 480px;
-  /* dvh = dynamic viewport height, accounts for iOS
-     Safari address bar. Fallback to 80vh for older
-     browsers. */
-  max-height: 80vh;
-  max-height: 80dvh;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
-  border-radius: var(--radius) var(--radius) 0 0;
-  box-shadow: var(--shadow);
-  animation: slide-up 0.2s ease-out;
   overflow: hidden;
 }
 
