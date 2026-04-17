@@ -128,20 +128,22 @@ async function requireAuth(req, res, next) {
  */
 function requirePlan(...plans) {
   return async (req, res, next) => {
-    // Look up by auth UID first, then by email
+    // Look up by auth UID. If the user row doesn't
+    // exist yet (first login), auto-create it with
+    // the free plan.
     let { data: user } = await supabase
       .from("users")
       .select("plan")
       .eq("id", req.userId)
       .single()
 
-    if (!user && req.userEmail) {
-      const { data: byEmail } = await supabase
+    if (!user) {
+      const { data: created } = await supabase
         .from("users")
+        .upsert({ id: req.userId, plan: "free" })
         .select("plan")
-        .eq("email", req.userEmail)
         .single()
-      user = byEmail
+      user = created
     }
 
     const plan = user?.plan || "free"
