@@ -27,12 +27,24 @@ router.use(apiLimiter)
 router.use(requirePlan("sync_ai"))
 
 // ── Config ──────────────────────────────────────────────
+//
+// Uses OpenRouter as the inference gateway. OpenRouter
+// provides a unified OpenAI-compatible API across many
+// models and handles rate limiting, fallbacks, and cost
+// tracking on their side.
 
-const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || ""
-const CLAUDE_MODEL =
-  process.env.CLAUDE_MODEL || "claude-sonnet-4-20250514"
-const CLAUDE_URL =
-  "https://api.anthropic.com/v1/messages"
+const OPENROUTER_API_KEY =
+  process.env.OPENROUTER_API_KEY || ""
+const OPENROUTER_URL =
+  "https://openrouter.ai/api/v1/chat/completions"
+
+// Model selection per use case:
+//   - FAST: cheap structured extraction (parse-booking)
+//   - DEFAULT: general completion + summarization
+const MODEL_FAST = process.env.AI_MODEL_FAST
+  || "google/gemini-2.0-flash-lite-001"
+const MODEL_DEFAULT = process.env.AI_MODEL_DEFAULT
+  || "anthropic/claude-sonnet-4"
 
 // Monthly soft cap: 200K tokens. Requests over this
 // limit return 429 instead of proxying. The cap prevents
@@ -117,27 +129,42 @@ async function recordUsage(
 }
 
 /**
- * Send a request to the Anthropic Messages API.
+ * Send a chat completion request via OpenRouter.
+ *
+ * OpenRouter uses the OpenAI-compatible chat
+ * completions format, so this works with any model
+ * available on their platform.
  *
  * @param {object} opts
- * @param {string} opts.system - System prompt.
- * @param {Array} opts.messages - Message array.
+ * @param {string} opts.model - OpenRouter model ID.
+ * @param {string} [opts.system] - System prompt
+ *   (prepended as a system message).
+ * @param {Array} opts.messages - Chat messages.
  * @param {number} [opts.maxTokens=1024] - Max tokens.
- * @returns {Promise<object>} Anthropic response.
+ * @returns {Promise<object>} OpenAI-format response with
+ *   ``choices[0].message.content`` and ``usage``.
  */
-async function callClaude(opts) {
-  const body = {
-    model: CLAUDE_MODEL,
-    max_tokens: opts.maxTokens || 1024,
-    system: opts.system || undefined,
-    messages: opts.messages,
+async function callModel(opts) {
+  const messages = []
+  if (opts.system) {
+    messages.push({
+      role: "system", content: opts.system,
+    })
   }
-  const res = await fetch(CLAUDE_URL, {
+  messages.push(...opts.messages)
+
+  const body = {
+    model: opts.model || MODEL_DEFAULT,
+    max_tokens: opts.maxTokens || 1024,
+    messages,
+  }
+  const res = await fetch(OPENROUTER_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": CLAUDE_API_KEY,
-      "anthropic-version": "2023-06-01",
+      "Authorization": "Bearer " + OPENROUTER_API_KEY,
+      "HTTP-Referer": "https://kaisho.dev",
+      "X-Title": "Kaisho",
     },
     body: JSON.stringify(body),
   })
@@ -145,11 +172,37 @@ async function callClaude(opts) {
     const errBody = await res.text()
     logger.error(
       { status: res.status, body: errBody },
-      "Claude API error",
+      "OpenRouter API error",
     )
-    throw new Error("Claude API " + res.status)
+    throw new Error("OpenRouter API " + res.status)
   }
   return res.json()
+}
+
+/**
+ * Extract the assistant's text from an OpenAI-format
+ * chat completion response.
+ *
+ * @param {object} result - OpenRouter response.
+ * @returns {string} The assistant's message text.
+ */
+function extractText(result) {
+  return (
+    result.choices?.[0]?.message?.content || ""
+  )
+}
+
+/**
+ * Extract token usage from an OpenRouter response.
+ *
+ * @param {object} result - OpenRouter response.
+ * @returns {{ input: number, output: number }}
+ */
+function extractUsage(result) {
+  return {
+    input: result.usage?.prompt_tokens || 0,
+    output: result.usage?.completion_tokens || 0,
+  }
 }
 
 // ── POST /ai/complete ───────────────────────────────────
@@ -162,7 +215,7 @@ async function callClaude(opts) {
 router.post(
   "/complete",
   asyncHandler(async (req, res) => {
-    if (!CLAUDE_API_KEY) {
+    if (!OPENROUTER_API_KEY) {
       return res
         .status(503)
         .json({ error: "AI not configured" })
@@ -180,25 +233,27 @@ router.post(
       })
     }
 
-    const { system, messages, max_tokens } = req.body
+    const { system, messages, max_tokens, model } =
+      req.body
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({
         error: "messages array is required",
       })
     }
 
-    const result = await callClaude({
+    const result = await callModel({
+      model: model || MODEL_DEFAULT,
       system,
       messages,
       maxTokens: Math.min(max_tokens || 1024, 4096),
     })
 
-    const inTok = result.usage?.input_tokens || 0
-    const outTok = result.usage?.output_tokens || 0
+    const { input: inTok, output: outTok } =
+      extractUsage(result)
     await recordUsage(req.userId, month, inTok, outTok)
 
     res.json({
-      content: result.content,
+      text: extractText(result),
       usage: {
         input_tokens: inTok,
         output_tokens: outTok,
@@ -246,7 +301,7 @@ router.post(
       })
     }
 
-    if (!CLAUDE_API_KEY) {
+    if (!OPENROUTER_API_KEY) {
       return res.status(503).json({
         error: "AI not configured",
       })
@@ -263,20 +318,22 @@ router.post(
       })
     }
 
-    const result = await callClaude({
+    // Use the fast/cheap model for structured
+    // extraction — no need for a large LLM here.
+    const result = await callModel({
+      model: MODEL_FAST,
       system: PARSE_SYSTEM,
       messages: [{ role: "user", content: text }],
       maxTokens: 256,
     })
 
-    const inTok = result.usage?.input_tokens || 0
-    const outTok = result.usage?.output_tokens || 0
+    const { input: inTok, output: outTok } =
+      extractUsage(result)
     await recordUsage(req.userId, month, inTok, outTok)
 
     let parsed
     try {
-      const raw = result.content?.[0]?.text || "{}"
-      parsed = JSON.parse(raw)
+      parsed = JSON.parse(extractText(result) || "{}")
     } catch {
       parsed = { duration: null, customer: null }
     }
@@ -335,7 +392,7 @@ router.post(
       })
     }
 
-    if (!CLAUDE_API_KEY) {
+    if (!OPENROUTER_API_KEY) {
       return res.status(503).json({
         error: "AI not configured",
       })
@@ -360,7 +417,8 @@ router.post(
       t: e.description,
     }))
 
-    const result = await callClaude({
+    const result = await callModel({
+      model: MODEL_DEFAULT,
       system: SUMMARY_SYSTEM,
       messages: [{
         role: "user",
@@ -369,12 +427,11 @@ router.post(
       maxTokens: 512,
     })
 
-    const inTok = result.usage?.input_tokens || 0
-    const outTok = result.usage?.output_tokens || 0
+    const { input: inTok, output: outTok } =
+      extractUsage(result)
     await recordUsage(req.userId, month, inTok, outTok)
 
-    const summary = result.content?.[0]?.text || ""
-    res.json({ summary })
+    res.json({ summary: extractText(result) })
   }),
 )
 

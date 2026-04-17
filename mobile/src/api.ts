@@ -254,6 +254,26 @@ export function getEntries(
   return request(`/clocks/entries?${qs}`)
 }
 
+export function updateEntry(
+  id: string,
+  fields: {
+    customer?: string | null
+    description?: string
+    task_id?: string | null
+    contract?: string | null
+    notes?: string
+    invoiced?: boolean
+  },
+): Promise<ClockEntry> {
+  return request(
+    `/clocks/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(fields),
+    },
+  )
+}
+
 export async function deleteEntry(id: string): Promise<void> {
   await request(`/clocks/${encodeURIComponent(id)}`, {
     method: "DELETE",

@@ -14,6 +14,7 @@ import {
 } from "../api"
 import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
+import { EditEntrySheet } from "./EditEntrySheet"
 
 type Range = "day" | "week" | "month"
 
@@ -258,6 +259,8 @@ export function EntriesView() {
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] =
     useState<string | null>(null)
+  const [editingEntry, setEditingEntry] =
+    useState<ClockEntry | null>(null)
 
   useEffect(() => {
     localStorage.setItem("entries_range", range)
@@ -496,10 +499,11 @@ export function EntriesView() {
             <div
               key={e.id}
               className={
-                "card entry-card" +
+                "card entry-card entry-card--tap" +
                 (isRunning(e)
                   ? " entry-card--running" : "")
               }
+              onClick={() => setEditingEntry(e)}
             >
               <div className="entry-header">
                 <span className="entry-time">
@@ -516,9 +520,10 @@ export function EntriesView() {
               {e.customer && (
                 <div
                   className="entry-customer entry-customer--tap"
-                  onClick={() =>
+                  onClick={(ev) => {
+                    ev.stopPropagation()
                     setCustomerFilter(e.customer!)
-                  }
+                  }}
                 >
                   {e.customer}
                   {e.contract
@@ -541,7 +546,10 @@ export function EntriesView() {
                     : "Pending sync"
                 }
               />
-              <div className="entry-actions">
+              <div
+                className="entry-actions"
+                onClick={(ev) => ev.stopPropagation()}
+              >
                 {!isRunning(e) && (
                   <button
                     className="entry-action-btn"
@@ -594,6 +602,21 @@ export function EntriesView() {
           ))}
         </section>
       ))}
+
+      {editingEntry && (
+        <EditEntrySheet
+          entry={editingEntry}
+          onClose={() => setEditingEntry(null)}
+          onSaved={(updated) => {
+            setEntries((prev) =>
+              prev.map((e) =>
+                e.id === updated.id ? updated : e,
+              ),
+            )
+            setEditingEntry(null)
+          }}
+        />
+      )}
     </div>
   )
 }
