@@ -159,6 +159,11 @@ async function callModel(opts) {
     max_tokens: opts.maxTokens || 1024,
     messages,
   }
+  // Forward tool definitions if provided so the
+  // model can emit tool_calls in its response.
+  if (opts.tools && opts.tools.length > 0) {
+    body.tools = opts.tools
+  }
   const res = await fetch(OPENROUTER_URL, {
     method: "POST",
     headers: {
@@ -234,8 +239,9 @@ router.post(
       })
     }
 
-    const { system, messages, max_tokens, model } =
-      req.body
+    const {
+      system, messages, max_tokens, model, tools,
+    } = req.body
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({
         error: "messages array is required",
@@ -246,20 +252,27 @@ router.post(
       model: model || MODEL_DEFAULT,
       system,
       messages,
-      maxTokens: Math.min(max_tokens || 1024, 4096),
+      tools,
+      maxTokens: Math.min(max_tokens || 4096, 8192),
     })
 
     const { input: inTok, output: outTok } =
       extractUsage(result)
     await recordUsage(req.userId, month, inTok, outTok)
 
-    res.json({
-      text: extractText(result),
+    const msg = result.choices?.[0]?.message || {}
+    const response = {
+      text: msg.content || "",
+      tool_calls: msg.tool_calls || null,
+      finish_reason: (
+        result.choices?.[0]?.finish_reason || "stop"
+      ),
       usage: {
         input_tokens: inTok,
         output_tokens: outTok,
       },
-    })
+    }
+    res.json(response)
   }),
 )
 
