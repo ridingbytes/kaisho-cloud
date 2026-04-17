@@ -534,14 +534,29 @@ router.delete(
   "/entries",
   requireApiKey,
   asyncHandler(async (req, res) => {
-    const { error, count } = await supabase
-      .from("clock_entries")
+    // Wipe all user data: clock entries + reference
+    // snapshots. The local org file is the single
+    // source of truth — everything gets rebuilt from
+    // a full push on the next connect.
+    const { error: clockErr, count: clockCount } =
+      await supabase
+        .from("clock_entries")
+        .delete()
+        .eq("user_id", req.userId)
+
+    await supabase
+      .from("ref_customers")
       .delete()
       .eq("user_id", req.userId)
 
-    if (error) {
+    await supabase
+      .from("ref_tasks")
+      .delete()
+      .eq("user_id", req.userId)
+
+    if (clockErr) {
       req.log.error(
-        { err: error },
+        { err: clockErr },
         "Failed to wipe entries",
       )
       return res
@@ -549,7 +564,7 @@ router.delete(
         .json({ error: "Failed to wipe entries" })
     }
 
-    res.json({ deleted: count || 0 })
+    res.json({ deleted: clockCount || 0 })
   }),
 )
 
