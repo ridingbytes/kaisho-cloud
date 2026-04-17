@@ -864,17 +864,26 @@ select {
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: var(--bg);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
-  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fade-in 0.15s ease-out;
 }
 
 .edit-sheet {
   width: 100%;
-  flex: 1;
+  max-width: 480px;
+  max-height: 70vh;
   display: flex;
   flex-direction: column;
+  background: var(--bg);
+  border-radius: var(--radius) var(--radius) 0 0;
+  box-shadow: var(--shadow);
+  animation: slide-up 0.2s ease-out;
   overflow: hidden;
+  /* Push above the tab bar */
+  margin-bottom: 60px;
 }
 
 .edit-sheet-header {
