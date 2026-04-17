@@ -8,6 +8,7 @@ import {
 import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
 import { CustomerPicker } from "./CustomerPicker"
+import { UpgradeBanner } from "./UpgradeBanner"
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10)
@@ -23,6 +24,7 @@ export function BookView() {
   const [desc, setDesc] = useState("")
   const [date, setDate] = useState(todayStr())
   const [error, setError] = useState<string | null>(null)
+  const [needsUpgrade, setNeedsUpgrade] = useState(false)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -53,9 +55,7 @@ export function BookView() {
           err.message.toLowerCase()
             .includes("plan")
         ) {
-          setError(
-            "Plan upgrade required to use this feature",
-          )
+          setNeedsUpgrade(true)
         } else {
           setError(err.message)
         }
@@ -99,13 +99,17 @@ export function BookView() {
           value={date}
           onChange={(e) => setDate(e.target.value)}
         />
-        <button
-          type="submit"
-          className="btn-primary"
-          disabled={loading}
-        >
-          {loading ? "..." : "Book entry"}
-        </button>
+        {needsUpgrade ? (
+          <UpgradeBanner />
+        ) : (
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={loading}
+          >
+            {loading ? "..." : "Book entry"}
+          </button>
+        )}
       </form>
     </div>
   )

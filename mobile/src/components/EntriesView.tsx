@@ -9,8 +9,10 @@ import {
   deleteEntry,
   getCustomers,
   getEntries,
+  stopTimer,
   ApiError,
 } from "../api"
+import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
 
 type Range = "day" | "week" | "month"
@@ -52,6 +54,32 @@ function formatTime(iso: string | null): string {
     hour: "2-digit",
     minute: "2-digit",
   })
+}
+
+function formatElapsed(startIso: string): string {
+  const ms = Date.now() - new Date(startIso).getTime()
+  const sec = Math.max(0, Math.floor(ms / 1000))
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  const s = sec % 60
+  return [h, m, s]
+    .map((n) => String(n).padStart(2, "0"))
+    .join(":")
+}
+
+function RunningElapsed({ start }: { start: string }) {
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(
+      () => setTick((n) => n + 1), 1000,
+    )
+    return () => clearInterval(id)
+  }, [])
+  return <>{formatElapsed(start)}</>
+}
+
+function isRunning(e: ClockEntry): boolean {
+  return !e.end
 }
 
 // ── Range helpers ───────────────────────────────────────
@@ -213,6 +241,7 @@ function sumMinutes(entries: ClockEntry[]): number {
 // ── Main view ───────────────────────────────────────────
 
 export function EntriesView() {
+  const { toast } = useToast()
   const [range, setRange] = useState<Range>(
     () =>
       (localStorage.getItem("entries_range") as Range) ||
@@ -353,17 +382,39 @@ export function EntriesView() {
     return [...names].sort()
   }, [entries, customers])
 
-  function handleResume(e: ClockEntry) {
+  // Check if any entry in the current list is running.
+  const hasRunning = entries.some(isRunning)
+
+  async function handleResume(e: ClockEntry) {
+    if (hasRunning) {
+      const ok = confirm(
+        "A timer is running. Stop it and start a " +
+        "new one?",
+      )
+      if (!ok) return
+      try {
+        await stopTimer()
+        toast("Timer stopped")
+      } catch {
+        // If stop fails the start will also fail with
+        // 409 — let the TimerView show the error.
+      }
+    }
+    const detail = {
+      customer: e.customer ?? "",
+      description: e.description ?? "",
+      task_id: e.task_id ?? "",
+      contract: e.contract ?? "",
+      autoStart: true,
+    }
     window.dispatchEvent(
-      new CustomEvent("resume-entry", {
-        detail: {
-          customer: e.customer ?? "",
-          description: e.description ?? "",
-          task_id: e.task_id ?? "",
-          contract: e.contract ?? "",
-        },
-      }),
+      new CustomEvent("resume-entry", { detail }),
     )
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("resume-entry", { detail }),
+      )
+    }, 50)
   }
 
   return (
@@ -442,19 +493,33 @@ export function EntriesView() {
             </span>
           </header>
           {entries.map((e) => (
-            <div key={e.id} className="card entry-card">
+            <div
+              key={e.id}
+              className={
+                "card entry-card" +
+                (isRunning(e)
+                  ? " entry-card--running" : "")
+              }
+            >
               <div className="entry-header">
                 <span className="entry-time">
                   {formatTime(e.start)}
                   {" – "}
-                  {formatTime(e.end)}
+                  {isRunning(e) ? "now" : formatTime(e.end)}
                 </span>
                 <span className="entry-duration">
-                  {formatMins(e.duration_minutes)}
+                  {isRunning(e)
+                    ? <RunningElapsed start={e.start} />
+                    : formatMins(e.duration_minutes)}
                 </span>
               </div>
               {e.customer && (
-                <div className="entry-customer">
+                <div
+                  className="entry-customer entry-customer--tap"
+                  onClick={() =>
+                    setCustomerFilter(e.customer!)
+                  }
+                >
                   {e.customer}
                   {e.contract
                     ? ` / ${e.contract}` : ""}
@@ -477,24 +542,26 @@ export function EntriesView() {
                 }
               />
               <div className="entry-actions">
-                <button
-                  className="entry-action-btn"
-                  onClick={() => handleResume(e)}
-                  aria-label="Resume"
-                  title="Resume timer"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg"
-                       viewBox="0 0 24 24"
-                       width="15" height="15"
-                       fill="none"
-                       stroke="currentColor"
-                       strokeWidth="2"
-                       strokeLinecap="round"
-                       strokeLinejoin="round">
-                    <polygon
-                      points="5 3 19 12 5 21 5 3" />
-                  </svg>
-                </button>
+                {!isRunning(e) && (
+                  <button
+                    className="entry-action-btn"
+                    onClick={() => handleResume(e)}
+                    aria-label="Resume"
+                    title="Resume timer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                         viewBox="0 0 24 24"
+                         width="15" height="15"
+                         fill="none"
+                         stroke="currentColor"
+                         strokeWidth="2"
+                         strokeLinecap="round"
+                         strokeLinejoin="round">
+                      <polygon
+                        points="5 3 19 12 5 21 5 3" />
+                    </svg>
+                  </button>
+                )}
                 <button
                   className="entry-action-btn
                     entry-action-btn--danger"

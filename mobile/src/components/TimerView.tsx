@@ -11,6 +11,7 @@ import {
 import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
 import { CustomerPicker } from "./CustomerPicker"
+import { UpgradeBanner } from "./UpgradeBanner"
 
 function formatElapsed(startedAt: string): string {
   const ms = Date.now() - new Date(startedAt).getTime()
@@ -38,6 +39,7 @@ export function TimerView() {
   const [taskId, setTaskId] = useState("")
   const [desc, setDesc] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [needsUpgrade, setNeedsUpgrade] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const refreshActive = useCallback(async () => {
@@ -104,6 +106,8 @@ export function TimerView() {
   }, [timer?.start])
 
   // Resume: pre-fill form from an Entries-view tap.
+  // When ``autoStart`` is set, submit the form
+  // automatically so the timer fires immediately.
   useEffect(() => {
     function onResume(event: Event) {
       const detail = (
@@ -112,12 +116,37 @@ export function TimerView() {
           description: string
           task_id: string
           contract: string
+          autoStart?: boolean
         }>
       ).detail
       setCustomer(detail.customer || "")
       setDesc(detail.description || "")
       setTaskId(detail.task_id || "")
       setContract(detail.contract || "")
+      if (detail.autoStart && !timer) {
+        // Delay slightly so React commits the state
+        // updates before we trigger the start.
+        setTimeout(async () => {
+          setLoading(true)
+          setError(null)
+          try {
+            const result = await startTimer({
+              customer: detail.customer || undefined,
+              description: detail.description || "",
+              task_id: detail.task_id || undefined,
+              contract: detail.contract || undefined,
+            })
+            setTimer(result)
+            toast("Timer started")
+          } catch (err) {
+            if (err instanceof ApiError) {
+              setError(err.message)
+            }
+          } finally {
+            setLoading(false)
+          }
+        }, 100)
+      }
     }
     window.addEventListener(
       "resume-entry", onResume as EventListener,
@@ -127,7 +156,7 @@ export function TimerView() {
         "resume-entry", onResume as EventListener,
       )
     }
-  }, [])
+  }, [timer, toast])
 
   const selectedCustomer = customers.find(
     (c) => c.name === customer,
@@ -159,9 +188,7 @@ export function TimerView() {
           err.message.toLowerCase()
             .includes("plan")
         ) {
-          setError(
-            "Plan upgrade required to use this feature",
-          )
+          setNeedsUpgrade(true)
         } else {
           setError(err.message)
         }
@@ -271,13 +298,17 @@ export function TimerView() {
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
         />
-        <button
-          type="submit"
-          className="btn-primary"
-          disabled={loading}
-        >
-          {loading ? "..." : "Start timer"}
-        </button>
+        {needsUpgrade ? (
+          <UpgradeBanner />
+        ) : (
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={loading}
+          >
+            {loading ? "..." : "Start timer"}
+          </button>
+        )}
       </form>
     </div>
   )

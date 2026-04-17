@@ -269,3 +269,21 @@ export function getCustomers(): Promise<Customer[]> {
 export function getTasks(): Promise<Task[]> {
   return request("/ref/tasks")
 }
+
+// -- Billing --
+
+export function getSubscription(): Promise<{
+  plan: string
+  active: boolean
+}> {
+  return request("/billing/subscription")
+}
+
+export function createCheckout(
+  plan: "sync" | "sync_ai",
+): Promise<{ url: string }> {
+  return request("/billing/checkout", {
+    method: "POST",
+    body: JSON.stringify({ plan }),
+  })
+}

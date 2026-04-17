@@ -110,6 +110,7 @@ html, body, #root {
 
 input, select {
   width: 100%;
+  max-width: 100%;
   padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -119,6 +120,11 @@ input, select {
   font-size: 15px;
   outline: none;
   transition: border-color 0.15s;
+}
+
+input[type="date"] {
+  -webkit-appearance: none;
+  min-height: 44px;
 }
 
 input:focus, select:focus {
@@ -682,6 +688,11 @@ select {
 
 .entry-card {
   position: relative;
+  padding-right: 36px;
+}
+
+.entry-card--running {
+  border-color: rgba(34, 197, 94, 0.3);
 }
 
 .entry-header {
@@ -714,6 +725,18 @@ select {
   font-size: 13px;
   color: var(--t3);
   margin-bottom: 2px;
+}
+
+.entry-customer--tap {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
+  transition: text-decoration-color 0.15s;
+}
+
+.entry-customer--tap:hover {
+  text-decoration-color: var(--t4);
 }
 
 .entry-desc {
@@ -823,6 +846,41 @@ select {
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
+}
+
+/* -- Upgrade banner -- */
+
+.upgrade-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 8px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+}
+
+.upgrade-msg {
+  font-size: 13px;
+  color: var(--t2);
+  text-align: center;
+}
+
+.upgrade-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.upgrade-btn {
+  flex: 1;
+  padding: 10px;
+  font-size: 13px;
+}
+
+.upgrade-error {
+  font-size: 12px;
+  color: var(--red);
+  text-align: center;
 }
 
 /* -- Segmented control -- */
