@@ -161,8 +161,10 @@ router.post(
     }
 
     const entry = formatEntry(row)
-    broadcast(req.userId, "timer:started", entry)
     res.status(201).json(entry)
+    process.nextTick(() =>
+      broadcast(req.userId, "timer:started", entry),
+    )
   }),
 )
 
@@ -205,8 +207,10 @@ router.post(
     }
 
     const entry = formatEntry(row)
-    broadcast(req.userId, "timer:stopped", entry)
     res.json(entry)
+    process.nextTick(() =>
+      broadcast(req.userId, "timer:stopped", entry),
+    )
   }),
 )
 
@@ -268,10 +272,12 @@ router.post(
     }
 
     const booked = formatEntry(row)
-    broadcast(req.userId, "entries:changed", {
-      count: 1,
-    })
     res.status(201).json(booked)
+    process.nextTick(() =>
+      broadcast(req.userId, "entries:changed", {
+        count: 1,
+      }),
+    )
   }),
 )
 
@@ -322,10 +328,12 @@ router.patch(
     }
 
     const updated = formatEntry(row)
-    broadcast(req.userId, "entries:changed", {
-      count: 1,
-    })
     res.json(updated)
+    process.nextTick(() =>
+      broadcast(req.userId, "entries:changed", {
+        count: 1,
+      }),
+    )
   }),
 )
 
@@ -357,10 +365,12 @@ router.delete(
         .json({ error: "Entry not found" })
     }
 
-    broadcast(req.userId, "entries:deleted", {
-      ids: [row.id],
-    })
     res.sendStatus(204)
+    process.nextTick(() =>
+      broadcast(req.userId, "entries:deleted", {
+        ids: [row.id],
+      }),
+    )
   }),
 )
 

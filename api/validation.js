@@ -105,6 +105,8 @@ const clockUpdateSchema = z.object({
   contract: z.string().nullable().optional(),
   notes: z.string().optional(),
   invoiced: z.boolean().optional(),
+  start_at: z.string().optional(),
+  end_at: z.string().nullable().optional(),
 }).refine(
   (d) =>
     d.customer !== undefined ||
@@ -112,7 +114,9 @@ const clockUpdateSchema = z.object({
     d.task_id !== undefined ||
     d.contract !== undefined ||
     d.notes !== undefined ||
-    d.invoiced !== undefined,
+    d.invoiced !== undefined ||
+    d.start_at !== undefined ||
+    d.end_at !== undefined,
   { message: "Nothing to update" },
 )
 

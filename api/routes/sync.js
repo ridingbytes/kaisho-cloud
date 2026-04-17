@@ -311,17 +311,22 @@ router.post(
       }
     }
 
+    // Respond first, broadcast after — so the desktop
+    // sync caller gets its response without waiting for
+    // all WS clients to be notified.
     const applied = counts.inserted + counts.updated
-    if (applied > 0) {
-      broadcast(req.userId, "entries:changed", {
-        count: applied,
-      })
-    }
     res.json({
       ...counts,
       errors: errorIds,
       applied_at: new Date().toISOString(),
     })
+    if (applied > 0) {
+      process.nextTick(() => {
+        broadcast(req.userId, "entries:changed", {
+          count: applied,
+        })
+      })
+    }
   }),
 )
 
