@@ -347,6 +347,13 @@ export function EntriesView() {
     load()
   }, [load])
 
+  // Refresh entries every 30s so changes from other
+  // devices (e.g. desktop deletes) propagate.
+  useEffect(() => {
+    const id = setInterval(load, 30000)
+    return () => clearInterval(id)
+  }, [load])
+
   async function handleDelete(e: ClockEntry) {
     const label = e.description
       ? `"${e.description}"`

@@ -122,7 +122,8 @@ input, select {
   transition: border-color 0.15s;
 }
 
-input[type="date"] {
+input[type="date"],
+input[type="time"] {
   -webkit-appearance: none;
   min-height: 44px;
 }
@@ -873,7 +874,7 @@ select {
 .edit-sheet {
   width: 100%;
   max-width: 480px;
-  max-height: 90vh;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
   background: var(--bg);
