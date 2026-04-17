@@ -15,17 +15,7 @@ import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
 import { CustomerPicker } from "./CustomerPicker"
 import { UpgradeBanner } from "./UpgradeBanner"
-
-function formatElapsed(startedAt: string): string {
-  const ms = Date.now() - new Date(startedAt).getTime()
-  const totalSec = Math.max(0, Math.floor(ms / 1000))
-  const h = Math.floor(totalSec / 3600)
-  const m = Math.floor((totalSec % 3600) / 60)
-  const s = totalSec % 60
-  return [h, m, s]
-    .map((n) => String(n).padStart(2, "0"))
-    .join(":")
-}
+import { formatElapsed } from "../utils/formatElapsed"
 
 export function TimerView() {
   const { toast } = useToast()

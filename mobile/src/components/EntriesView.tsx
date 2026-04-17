@@ -17,6 +17,7 @@ import { useToast } from "../toast"
 import { useConfirm } from "./ConfirmDialog"
 import { ErrorBanner } from "./ErrorBanner"
 import { EditEntrySheet } from "./EditEntrySheet"
+import { formatElapsed } from "../utils/formatElapsed"
 
 type Range = "day" | "week" | "month"
 
@@ -59,16 +60,8 @@ function formatTime(iso: string | null): string {
   })
 }
 
-function formatElapsed(startIso: string): string {
-  const ms = Date.now() - new Date(startIso).getTime()
-  const sec = Math.max(0, Math.floor(ms / 1000))
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  const s = sec % 60
-  return [h, m, s]
-    .map((n) => String(n).padStart(2, "0"))
-    .join(":")
-}
+// formatElapsed imported from utils
+
 
 function RunningElapsed({ start }: { start: string }) {
   const [, setTick] = useState(0)

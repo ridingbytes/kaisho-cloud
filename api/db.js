@@ -94,6 +94,13 @@ function invalidateAuthCache(userId) {
       AUTH_CACHE.delete(key)
     }
   }
+  // Also clear the fast SHA-256 cache so a rotated
+  // key stops working immediately.
+  for (const [key, entry] of API_KEY_CACHE.entries()) {
+    if (entry.user.id === userId) {
+      API_KEY_CACHE.delete(key)
+    }
+  }
 }
 
 module.exports = {
