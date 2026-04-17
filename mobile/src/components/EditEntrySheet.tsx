@@ -8,7 +8,7 @@ import {
 import { useToast } from "../toast"
 import { CustomerPicker } from "./CustomerPicker"
 import { ErrorBanner } from "./ErrorBanner"
-import { formatDate, formatTime } from "../utils/time"
+import { formatDate } from "../utils/time"
 
 /**
  * Props for the EditEntrySheet.

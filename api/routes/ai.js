@@ -19,6 +19,12 @@ const {
 const { apiLimiter } = require("../config")
 const { asyncHandler } = require("../utils/asyncHandler")
 const { logger } = require("../logger")
+const {
+  validate,
+  aiCompleteSchema,
+  aiParseBookingSchema,
+  aiSummarizeSchema,
+} = require("../validation")
 
 const router = Router()
 
@@ -260,6 +266,7 @@ function extractUsage(result) {
  */
 router.post(
   "/complete",
+  validate(aiCompleteSchema),
   requireOpenRouterKey,
   asyncHandler(requireTokenQuota),
   asyncHandler(async (req, res) => {
@@ -324,6 +331,7 @@ const PARSE_SYSTEM =
  */
 router.post(
   "/parse-booking",
+  validate(aiParseBookingSchema),
   asyncHandler(async (req, res, next) => {
     const { text } = req.body
     if (!text) {
@@ -414,6 +422,7 @@ const SUMMARY_SYSTEM =
  */
 router.post(
   "/summarize",
+  validate(aiSummarizeSchema),
   asyncHandler(async (req, res, next) => {
     const { entries } = req.body
     if (!entries || !Array.isArray(entries)) {
