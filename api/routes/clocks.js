@@ -230,7 +230,8 @@ router.post(
 
     let startAt
     if (date) {
-      startAt = new Date(`${date}T12:00:00`)
+      // Explicit UTC to avoid timezone ambiguity
+      startAt = new Date(`${date}T12:00:00Z`)
     } else {
       startAt = new Date()
       startAt.setMinutes(
