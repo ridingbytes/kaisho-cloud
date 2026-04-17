@@ -300,14 +300,65 @@ router.post(
     }
     const errorIds = []
 
+    // Batch: fetch all existing entries in ONE query
+    const ids = entries.map((e) => e.id)
+    const { data: existingRows } = await supabase
+      .from("clock_entries")
+      .select("id, updated_at, deleted_at")
+      .eq("user_id", req.userId)
+      .in("id", ids)
+    const existingMap = new Map(
+      (existingRows || []).map((r) => [r.id, r]),
+    )
+
+    // Classify entries by merge decision
+    const toInsert = []
+    const toUpdate = []
     for (const entry of entries) {
-      const result = await applyOneEntry(entry, req.userId)
-      if (result.action === "insert") counts.inserted++
-      else if (result.action === "update") counts.updated++
-      else if (result.action === "skip") counts.skipped++
-      else {
-        counts.errors++
-        errorIds.push(result.id)
+      const existing = existingMap.get(entry.id) || null
+      const decision = decideMerge(existing, entry)
+      if (decision.action === "skip") {
+        counts.skipped++
+      } else if (decision.action === "insert") {
+        toInsert.push(wireToRow(entry, req.userId))
+        counts.inserted++
+      } else {
+        const row = wireToRow(entry, req.userId)
+        const updates = {}
+        for (const k of APPLY_FIELDS) updates[k] = row[k]
+        updates.deleted_at = row.deleted_at
+        updates.updated_at = row.updated_at
+        updates.id = entry.id
+        toUpdate.push(updates)
+        counts.updated++
+      }
+    }
+
+    // Batch insert
+    if (toInsert.length > 0) {
+      const { error } = await supabase
+        .from("clock_entries")
+        .insert(toInsert)
+      if (error) {
+        counts.errors += toInsert.length
+        counts.inserted -= toInsert.length
+        toInsert.forEach((r) => errorIds.push(r.id))
+      }
+    }
+
+    // Batch update (upsert with onConflict)
+    if (toUpdate.length > 0) {
+      for (const row of toUpdate) {
+        const { error } = await supabase
+          .from("clock_entries")
+          .update(row)
+          .eq("id", row.id)
+          .eq("user_id", req.userId)
+        if (error) {
+          counts.errors++
+          counts.updated--
+          errorIds.push(row.id)
+        }
       }
     }
 
