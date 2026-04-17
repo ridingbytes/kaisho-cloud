@@ -882,7 +882,7 @@ select {
   box-shadow: var(--shadow);
   animation: slide-up 0.2s ease-out;
   overflow: hidden;
-  margin-bottom: 42px;
+  margin-bottom: 50px;
 }
 
 .edit-sheet-header {
