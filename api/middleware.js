@@ -54,6 +54,14 @@ async function requireApiKey(req, res, next) {
   }
   const apiKey = auth.slice(7)
 
+  // Fast path: check SHA-256 cache (no bcrypt, no DB)
+  const cached = getCachedUser(null, apiKey)
+  if (cached) {
+    req.userId = cached.id
+    req.userPlan = cached.plan
+    return next()
+  }
+
   const { data: users } = await supabase
     .from("users")
     .select("id, plan, api_key_hash")
