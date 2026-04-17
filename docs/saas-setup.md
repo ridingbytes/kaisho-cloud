@@ -298,6 +298,55 @@ curl https://cloud.kaisho.dev/health
 # Expected: {"status":"ok"}
 ```
 
+---
+
+## 9. OpenRouter (AI Gateway)
+
+The Sync + AI plan routes AI requests through OpenRouter. This
+provides access to multiple model providers (Anthropic, Google,
+OpenAI) through a single API key.
+
+### Create an account
+
+Go to openrouter.ai, create an account, and add credit ($5 is
+enough to start). Generate an API key at openrouter.ai/keys.
+
+### Configure
+
+Add to `.env` on the VPS:
+
+```bash
+OPENROUTER_API_KEY=sk-or-v1-...
+```
+
+Optional model overrides (defaults are sensible):
+
+```bash
+# Fast model for NLP time booking (cheap, structured extraction)
+AI_MODEL_FAST=google/gemini-2.0-flash-lite-001
+
+# Default model for summaries and advisor (quality)
+AI_MODEL_DEFAULT=anthropic/claude-sonnet-4
+```
+
+### Token metering
+
+Each user on the Sync + AI plan has a soft cap of 200,000
+tokens per month. Usage is tracked in the `ai_usage` table
+and resets on the first of each month. Requests over the cap
+return 429.
+
+### Endpoints
+
+| Route | Model | Purpose |
+|-------|-------|---------|
+| `POST /ai/complete` | MODEL_DEFAULT | General AI completion |
+| `POST /ai/parse-booking` | MODEL_FAST | NLP time booking with regex fallback |
+| `POST /ai/summarize` | MODEL_DEFAULT | Weekly/monthly summaries |
+| `GET /ai/usage` | -- | Current month token usage |
+
+---
+
 ### Common issues
 
 | Symptom                        | Likely cause                        | Fix                                           |
