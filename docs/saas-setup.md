@@ -55,10 +55,10 @@ code.
 
 Go to **Product catalog -> Add product** and create two products:
 
-| Product        | Price   | Billing |
-|----------------|---------|---------|
-| Cloud Sync     | $5.00   | Monthly |
-| Cloud Sync+AI  | $15.00  | Monthly |
+| Product        | Price    | Billing |
+|----------------|----------|---------|
+| Cloud Sync     | EUR 9.00  | Monthly |
+| Cloud Sync+AI  | EUR 19.00 | Monthly |
 
 After saving each product, copy the `price_xxx` ID:
 
