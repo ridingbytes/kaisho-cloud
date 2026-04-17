@@ -516,6 +516,43 @@ router.post(
   }),
 )
 
+// ── DELETE /sync/entries ─────────────────────────────────
+
+/**
+ * Hard-delete all clock entries for the authenticated
+ * user. Called by the desktop app during disconnect to
+ * ensure the cloud is a clean slate for the next
+ * connection.
+ *
+ * The local org file is the single source of truth —
+ * the cloud is a disposable mirror that gets rebuilt
+ * from a full push on the next connect.
+ *
+ * @route DELETE /sync/entries
+ */
+router.delete(
+  "/entries",
+  requireApiKey,
+  asyncHandler(async (req, res) => {
+    const { error, count } = await supabase
+      .from("clock_entries")
+      .delete()
+      .eq("user_id", req.userId)
+
+    if (error) {
+      req.log.error(
+        { err: error },
+        "Failed to wipe entries",
+      )
+      return res
+        .status(500)
+        .json({ error: "Failed to wipe entries" })
+    }
+
+    res.json({ deleted: count || 0 })
+  }),
+)
+
 // ── GET /sync/stats ─────────────────────────────────────
 
 /**
