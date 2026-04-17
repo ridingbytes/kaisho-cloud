@@ -3,9 +3,9 @@
 /**
  * @module routes/ai
  *
- * Cloud AI gateway. Proxies requests to the Anthropic
- * Claude API using a single master key owned by the
- * platform. Usage is metered per user per month in the
+ * Cloud AI gateway. Proxies requests to OpenRouter
+ * using a single master key owned by the platform.
+ * Usage is metered per user per month in the
  * ``ai_usage`` table.
  *
  * All endpoints require the ``sync_ai`` plan.
@@ -60,8 +60,10 @@ const MONTHLY_TOKEN_CAP = 200_000
  */
 function currentMonth() {
   const now = new Date()
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, "0")
+  const y = now.getUTCFullYear()
+  const m = String(now.getUTCMonth() + 1).padStart(
+    2, "0",
+  )
   return `${y}-${m}`
 }
 
@@ -99,32 +101,31 @@ async function getUsage(userId, month) {
 async function recordUsage(
   userId, month, inputTokens, outputTokens,
 ) {
-  const { data: row } = await supabase
-    .from("ai_usage")
-    .select("input_tokens, output_tokens, request_count")
-    .eq("user_id", userId)
-    .eq("month", month)
-    .maybeSingle()
-
-  if (row) {
-    await supabase
-      .from("ai_usage")
-      .update({
-        input_tokens: row.input_tokens + inputTokens,
-        output_tokens: row.output_tokens + outputTokens,
-        request_count: row.request_count + 1,
+  // Atomic upsert — avoids read-then-write race
+  // when concurrent requests increment the same row.
+  const { error } = await supabase.rpc(
+    "increment_ai_usage",
+    {
+      p_user_id: userId,
+      p_month: month,
+      p_input: inputTokens,
+      p_output: outputTokens,
+    },
+  )
+  // Fallback: if the RPC doesn't exist yet, use
+  // the insert-or-update approach.
+  if (error) {
+    await supabase.from("ai_usage").upsert(
+      {
+        user_id: userId,
+        month,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        request_count: 1,
         updated_at: new Date().toISOString(),
-      })
-      .eq("user_id", userId)
-      .eq("month", month)
-  } else {
-    await supabase.from("ai_usage").insert({
-      user_id: userId,
-      month,
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      request_count: 1,
-    })
+      },
+      { onConflict: "user_id,month" },
+    )
   }
 }
 

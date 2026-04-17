@@ -54,28 +54,26 @@ function parseDuration(str) {
  */
 function periodRange(period) {
   const now = new Date()
-  const today = new Date(
-    now.getFullYear(), now.getMonth(), now.getDate(),
-  )
+  // Use UTC to match stored TIMESTAMPTZ values.
+  const y = now.getUTCFullYear()
+  const m = now.getUTCMonth()
+  const d = now.getUTCDate()
+  const today = new Date(Date.UTC(y, m, d))
   switch (period) {
     case "today":
       return { from: today }
     case "week": {
-      const day = today.getDay()
+      const day = today.getUTCDay()
       const monday = new Date(today)
-      monday.setDate(today.getDate() - ((day + 6) % 7))
+      monday.setUTCDate(
+        today.getUTCDate() - ((day + 6) % 7),
+      )
       return { from: monday }
     }
     case "month":
-      return {
-        from: new Date(
-          today.getFullYear(), today.getMonth(), 1,
-        ),
-      }
+      return { from: new Date(Date.UTC(y, m, 1)) }
     case "year":
-      return {
-        from: new Date(today.getFullYear(), 0, 1),
-      }
+      return { from: new Date(Date.UTC(y, 0, 1)) }
     default:
       return { from: today }
   }
