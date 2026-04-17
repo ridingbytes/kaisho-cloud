@@ -76,7 +76,7 @@ const clockUpdateSchema = z.object({
   task_id: z.string().nullable().optional(),
   contract: z.string().nullable().optional(),
   notes: z.string().optional(),
-  booked: z.boolean().optional(),
+  invoiced: z.boolean().optional(),
 }).refine(
   (d) =>
     d.customer !== undefined ||
@@ -84,7 +84,7 @@ const clockUpdateSchema = z.object({
     d.task_id !== undefined ||
     d.contract !== undefined ||
     d.notes !== undefined ||
-    d.booked !== undefined,
+    d.invoiced !== undefined,
   { message: "Nothing to update" },
 )
 
@@ -109,22 +109,46 @@ const snapshotSchema = z.object({
   snapshot_at: z.string().optional(),
 })
 
-/** @type {z.ZodObject} Ack-clocks request body. */
-const ackSchema = z.object({
-  entry_ids: z.array(z.string().uuid()),
-})
+// ── Bidirectional sync schemas ──────────────────────────
 
-/** @type {z.ZodObject} Single triage entry. */
-const triageEntrySchema = z.object({
+/**
+ * @type {z.ZodObject} One entry in a POST /sync/apply
+ * batch. `id` is the shared sync_id; `deleted_at` marks
+ * a tombstone.
+ */
+const syncEntrySchema = z.object({
   id: z.string().uuid(),
-  customer: z.string().optional(),
+  customer: z.string().nullable().optional(),
+  description: z.string().optional().default(""),
+  start: z.string().min(1),
+  end: z.string().nullable().optional(),
   task_id: z.string().nullable().optional(),
   contract: z.string().nullable().optional(),
+  notes: z.string().optional().default(""),
+  invoiced: z.boolean().optional().default(false),
+  updated_at: z.string().min(1),
+  deleted_at: z.string().nullable().optional(),
 })
 
-/** @type {z.ZodObject} Triage request body. */
-const triageSchema = z.object({
-  entries: z.array(triageEntrySchema).min(1),
+/** @type {z.ZodObject} POST /sync/apply request body. */
+const syncApplySchema = z.object({
+  entries: z.array(syncEntrySchema).max(500),
+})
+
+/** @type {z.ZodObject} Active-timer start request. */
+const activeStartSchema = z.object({
+  id: z.string().uuid(),
+  customer: z.string().nullable().optional(),
+  description: z.string().optional().default(""),
+  task_id: z.string().nullable().optional(),
+  contract: z.string().nullable().optional(),
+  start: z.string().min(1),
+})
+
+/** @type {z.ZodObject} Active-timer stop request. */
+const activeStopSchema = z.object({
+  id: z.string().uuid().optional(),
+  end: z.string().min(1).optional(),
 })
 
 // ── Query schemas ───────────────────────────────────────
@@ -134,11 +158,12 @@ const periodQuerySchema = z.object({
   period: z
     .enum(["today", "week", "month", "year"])
     .optional(),
-  synced: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
 })
 
-/** @type {z.ZodObject} Pull-clocks query parameters. */
-const pullClocksQuerySchema = z.object({
+/** @type {z.ZodObject} /sync/changes query parameters. */
+const syncChangesQuerySchema = z.object({
   since: z.string().optional(),
   limit: z.coerce.number().int().positive().optional(),
 })
@@ -197,10 +222,12 @@ module.exports = {
   quickBookSchema,
   clockUpdateSchema,
   snapshotSchema,
-  ackSchema,
-  triageSchema,
+  syncEntrySchema,
+  syncApplySchema,
+  activeStartSchema,
+  activeStopSchema,
   periodQuerySchema,
-  pullClocksQuerySchema,
+  syncChangesQuerySchema,
   validate,
   validateQuery,
 }

@@ -91,16 +91,17 @@ function formatEntry(row) {
   return {
     id: row.id,
     customer: row.customer || null,
-    description: row.description,
+    description: row.description || "",
     start: row.start_at,
     end: row.end_at || null,
     duration_minutes: durationMinutes,
     task_id: row.task_id || null,
     contract: row.contract || null,
     notes: row.notes || "",
-    booked: row.booked || false,
-    synced: row.synced || false,
+    invoiced: row.invoiced || false,
     created_at: row.created_at,
+    updated_at: row.updated_at,
+    deleted_at: row.deleted_at || null,
   }
 }
 

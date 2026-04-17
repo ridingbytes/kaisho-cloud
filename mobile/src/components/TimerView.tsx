@@ -10,6 +10,7 @@ import {
 } from "../api"
 import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
+import { CustomerPicker } from "./CustomerPicker"
 
 function formatElapsed(startedAt: string): string {
   const ms = Date.now() - new Date(startedAt).getTime()
@@ -39,6 +40,17 @@ export function TimerView() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  const refreshActive = useCallback(async () => {
+    try {
+      const active = await getActive()
+      setTimer(active.active ? active : null)
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message)
+      }
+    }
+  }, [])
+
   const load = useCallback(async () => {
     try {
       const [active, custs, tsks] = await Promise.all([
@@ -59,6 +71,28 @@ export function TimerView() {
   useEffect(() => {
     load()
   }, [load])
+
+  // Poll /clocks/active every 5s so a timer started or
+  // stopped on another device propagates quickly. Also
+  // re-fetch when the tab regains focus — iOS PWAs pause
+  // timers while backgrounded.
+  useEffect(() => {
+    const id = setInterval(refreshActive, 5000)
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        refreshActive()
+      }
+    }
+    document.addEventListener(
+      "visibilitychange", onVisible,
+    )
+    return () => {
+      clearInterval(id)
+      document.removeEventListener(
+        "visibilitychange", onVisible,
+      )
+    }
+  }, [refreshActive])
 
   useEffect(() => {
     if (!timer?.start) return
@@ -88,6 +122,10 @@ export function TimerView() {
       setTimer(result)
       toast("Timer started")
       setDesc("")
+      // Re-sync so we pick up any server-side
+      // reconciliation (e.g. another device won the
+      // start race).
+      setTimeout(refreshActive, 500)
     } catch (err) {
       if (err instanceof ApiError) {
         if (
@@ -114,6 +152,7 @@ export function TimerView() {
       await stopTimer()
       setTimer(null)
       toast("Timer stopped")
+      setTimeout(refreshActive, 500)
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
@@ -161,20 +200,16 @@ export function TimerView() {
           message={error}
           onDismiss={() => setError(null)}
         />
-        <select
+        <CustomerPicker
           value={customer}
-          onChange={(e) => {
-            setCustomer(e.target.value)
+          customers={customers}
+          onChange={(v) => {
+            setCustomer(v)
             setContract("")
           }}
-        >
-          <option value="">Customer (optional)</option>
-          {customers.map((c) => (
-            <option key={c.name} value={c.name}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+          placeholder="Customer"
+          synced={customers.length > 0}
+        />
         {contracts.length > 0 && (
           <select
             value={contract}

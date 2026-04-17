@@ -21,19 +21,23 @@ export interface ActiveTimer {
   end?: string | null
   duration_minutes?: number | null
   notes?: string
-  booked?: boolean
-  synced?: boolean
+  invoiced?: boolean
+  updated_at?: string
 }
 
 export interface ClockEntry {
   id: string
   start: string
-  end: string
-  customer: string
+  end: string | null
+  customer: string | null
   description: string
-  duration_minutes: number
-  synced: boolean
-  contract?: string
+  duration_minutes: number | null
+  task_id?: string | null
+  contract?: string | null
+  notes?: string
+  invoiced?: boolean
+  created_at?: string
+  updated_at?: string
 }
 
 export interface Customer {

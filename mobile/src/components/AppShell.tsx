@@ -1,14 +1,21 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { TimerView } from "./TimerView"
 import { BookView } from "./BookView"
+import { DashboardView } from "./DashboardView"
 import { EntriesView } from "./EntriesView"
 import { ProfileView } from "./ProfileView"
 import { Logo } from "./Logo"
 
-type Tab = "timer" | "book" | "entries" | "profile"
+type Tab =
+  | "timer"
+  | "dashboard"
+  | "book"
+  | "entries"
+  | "profile"
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "timer", label: "Timer", icon: "play" },
+  { id: "dashboard", label: "Dashboard", icon: "chart" },
   { id: "book", label: "Book", icon: "plus" },
   { id: "entries", label: "Entries", icon: "list" },
   { id: "profile", label: "Profile", icon: "user" },
@@ -60,6 +67,17 @@ function TabIcon({ icon }: { icon: string }) {
           <path d="M3 18c0-3.3 3.1-6 7-6s7 2.7 7 6" />
         </svg>
       )
+    case "chart":
+      return (
+        <svg width="20" height="20" viewBox="0 0 20 20"
+          fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round"
+          strokeLinejoin="round">
+          <line x1="5" y1="16" x2="5" y2="10" />
+          <line x1="10" y1="16" x2="10" y2="6" />
+          <line x1="15" y1="16" x2="15" y2="12" />
+        </svg>
+      )
     default:
       return null
   }
@@ -67,6 +85,29 @@ function TabIcon({ icon }: { icon: string }) {
 
 export function AppShell() {
   const [tab, setTab] = useState<Tab>("timer")
+
+  // Dashboard drilldowns navigate to the Entries tab.
+  useEffect(() => {
+    const goEntries = () => setTab("entries")
+    window.addEventListener(
+      "navigate-dashboard-drilldown",
+      goEntries as EventListener,
+    )
+    window.addEventListener(
+      "navigate-dashboard-customer",
+      goEntries as EventListener,
+    )
+    return () => {
+      window.removeEventListener(
+        "navigate-dashboard-drilldown",
+        goEntries as EventListener,
+      )
+      window.removeEventListener(
+        "navigate-dashboard-customer",
+        goEntries as EventListener,
+      )
+    }
+  }, [])
 
   return (
     <div className="app-shell">
@@ -76,6 +117,7 @@ export function AppShell() {
       </header>
       <main className="app-content">
         {tab === "timer" && <TimerView />}
+        {tab === "dashboard" && <DashboardView />}
         {tab === "book" && <BookView />}
         {tab === "entries" && <EntriesView />}
         {tab === "profile" && <ProfileView />}

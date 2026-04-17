@@ -6,6 +6,12 @@ import type {
   Task,
   User,
 } from "./types"
+import {
+  configureQueue,
+  flushQueue,
+  queueRequest,
+  type QueuedRequest,
+} from "./offlineQueue"
 
 let accessToken: string | null = null
 let refreshToken: string | null = null
@@ -13,6 +19,17 @@ let onAuthExpired: (() => void) | null = null
 let onTokensRefreshed:
   | ((access: string, refresh: string) => void)
   | null = null
+
+const MUTATING_METHODS = new Set([
+  "POST", "PATCH", "PUT", "DELETE",
+])
+
+function isNetworkError(err: unknown): boolean {
+  return (
+    err instanceof TypeError &&
+    /fetch|network|load failed/i.test(err.message)
+  )
+}
 
 export function setTokens(
   access: string,
@@ -74,7 +91,29 @@ async function request<T>(
     headers["Authorization"] = `Bearer ${accessToken}`
   }
 
-  let res = await fetch(path, { ...opts, headers })
+  const method = (opts.method || "GET").toUpperCase()
+  const queueable =
+    MUTATING_METHODS.has(method) &&
+    !path.startsWith("/auth/")
+
+  let res: Response
+  try {
+    res = await fetch(path, { ...opts, headers })
+  } catch (err) {
+    if (queueable && isNetworkError(err)) {
+      queueRequest({
+        path,
+        method: method as QueuedRequest["method"],
+        body: opts.body
+          ? JSON.parse(opts.body as string)
+          : null,
+      })
+      throw new ApiError(
+        0, "Offline — queued for retry",
+      )
+    }
+    throw err
+  }
 
   if (res.status === 401 && refreshToken) {
     const refreshed = await refreshAccess()
@@ -97,9 +136,28 @@ async function request<T>(
     throw new ApiError(res.status, msg)
   }
 
+  // Best-effort flush whenever a mutation succeeds; any
+  // queued peers ride on the same online window.
+  if (queueable) flushQueue()
+
   if (res.status === 204) return undefined as T
   return res.json()
 }
+
+configureQueue(async (req) => {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  }
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`
+  }
+  return fetch(req.path, {
+    method: req.method,
+    headers,
+    body: req.body
+      ? JSON.stringify(req.body) : undefined,
+  })
+})
 
 // -- Auth --
 
@@ -180,8 +238,20 @@ export function quickBook(data: {
   })
 }
 
-export function getEntries(): Promise<ClockEntry[]> {
-  return request("/clocks/entries?period=week")
+export function getEntries(
+  params: {
+    period?: "today" | "week" | "month" | "year"
+    from?: string
+    to?: string
+  } = {},
+): Promise<ClockEntry[]> {
+  const qs = new URLSearchParams()
+  if (params.from) qs.set("from", params.from)
+  if (params.to) qs.set("to", params.to)
+  if (!params.from && !params.to) {
+    qs.set("period", params.period ?? "week")
+  }
+  return request(`/clocks/entries?${qs}`)
 }
 
 export async function deleteEntry(id: string): Promise<void> {

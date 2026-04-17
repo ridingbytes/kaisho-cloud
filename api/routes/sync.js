@@ -1,10 +1,21 @@
 "use strict"
 
 /**
- * Sync endpoints (API key auth, local kaisho client).
+ * Bidirectional sync endpoints (API key auth).
  *
- * Handles snapshot push, clock pull/ack, status, and
- * triage operations for the desktop sync client.
+ * Contract:
+ *   - GET  /sync/changes        Pull entries + tombstones
+ *                               changed after ?since cursor
+ *   - POST /sync/apply          Upsert a batch of entries
+ *                               (last-writer-wins on
+ *                               updated_at; soft-deletes)
+ *   - GET  /sync/active         Current running timer
+ *   - POST /sync/active/start   Start / reconcile timer
+ *                               (later start_at wins)
+ *   - POST /sync/active/stop    Stop the running timer
+ *   - GET  /sync/stats          Count, last_change_at
+ *   - POST /sync/push-snapshot  Replace ref customers/tasks
+ *                               (unchanged from v1)
  */
 
 const { Router } = require("express")
@@ -14,14 +25,37 @@ const {
   validate,
   validateQuery,
   snapshotSchema,
-  ackSchema,
-  triageSchema,
-  pullClocksQuerySchema,
+  syncApplySchema,
+  activeStartSchema,
+  activeStopSchema,
+  syncChangesQuerySchema,
 } = require("../validation")
 const { asyncHandler } = require("../utils/asyncHandler")
-const { buildUpdates } = require("../utils/updates")
 
 const router = Router()
+
+// ── Helpers ─────────────────────────────────────────────
+
+/**
+ * Shape a DB row into the wire format for /sync endpoints.
+ * Deleted rows carry deleted_at; end_at may be null for
+ * a running timer.
+ */
+function rowToWire(row) {
+  return {
+    id: row.id,
+    customer: row.customer || null,
+    description: row.description || "",
+    start: row.start_at,
+    end: row.end_at || null,
+    task_id: row.task_id || null,
+    contract: row.contract || null,
+    notes: row.notes || "",
+    invoiced: row.invoiced || false,
+    updated_at: row.updated_at,
+    deleted_at: row.deleted_at || null,
+  }
+}
 
 // ── POST /sync/push-snapshot ────────────────────────────
 
@@ -76,102 +110,179 @@ router.post(
   }),
 )
 
-// ── GET /sync/pull-clocks ───────────────────────────────
+// ── GET /sync/changes ───────────────────────────────────
 
 /**
- * Pull unsynced completed clock entries created after
- * the given cursor.
+ * Return all entries (live + tombstones) with
+ * updated_at > ?since, ordered for resumable pulling.
  *
- * @route GET /sync/pull-clocks?since=&limit=
+ * @route GET /sync/changes?since=<iso>&limit=<int>
  */
 router.get(
-  "/pull-clocks",
+  "/changes",
   requireApiKey,
-  validateQuery(pullClocksQuerySchema),
+  validateQuery(syncChangesQuerySchema),
   asyncHandler(async (req, res) => {
     const since =
       req.query.since || "1970-01-01T00:00:00Z"
     const limit = Math.min(
-      parseInt(req.query.limit) || 100, 500,
+      parseInt(req.query.limit) || 200, 500,
     )
 
     const { data: rows, error } = await supabase
       .from("clock_entries")
       .select("*")
       .eq("user_id", req.userId)
-      .eq("synced", false)
-      .not("end_at", "is", null)
-      .gte("created_at", since)
-      .order("created_at", { ascending: true })
+      .gt("updated_at", since)
+      .order("updated_at", { ascending: true })
       .limit(limit)
 
     if (error) {
       req.log.error(
         { err: error, since, limit },
-        "pull-clocks query failed",
+        "sync/changes query failed",
       )
       return res
         .status(500)
-        .json({ error: "Failed to pull clocks" })
+        .json({ error: "Failed to fetch changes" })
     }
-
-    const entries = rows.map((r) => ({
-      id: r.id,
-      customer: r.customer || null,
-      description: r.description,
-      start: r.start_at,
-      end: r.end_at,
-      task_id: r.task_id || null,
-      contract: r.contract || null,
-      notes: r.notes || "",
-      booked: r.booked || false,
-    }))
 
     const cursor =
       rows.length > 0
-        ? rows[rows.length - 1].created_at
+        ? rows[rows.length - 1].updated_at
         : since
 
-    res.json({ entries, cursor })
+    res.json({
+      now: new Date().toISOString(),
+      cursor,
+      entries: rows.map(rowToWire),
+      has_more: rows.length === limit,
+    })
   }),
 )
 
-// ── POST /sync/ack-clocks ───────────────────────────────
+// ── POST /sync/apply ────────────────────────────────────
+
+const APPLY_FIELDS = [
+  "customer", "description", "start_at", "end_at",
+  "task_id", "contract", "notes", "invoiced",
+]
 
 /**
- * Mark clock entries as synced by their IDs.
+ * Build the upsert payload for one incoming entry, mapping
+ * wire names to DB columns and omitting undefined fields.
+ */
+function wireToRow(entry, userId) {
+  return {
+    id: entry.id,
+    user_id: userId,
+    customer: entry.customer ?? null,
+    description: entry.description ?? "",
+    start_at: entry.start,
+    end_at: entry.end ?? null,
+    task_id: entry.task_id ?? null,
+    contract: entry.contract ?? null,
+    notes: entry.notes ?? "",
+    invoiced: entry.invoiced ?? false,
+    deleted_at: entry.deleted_at ?? null,
+    updated_at: new Date().toISOString(),
+  }
+}
+
+/**
+ * Last-writer-wins merge. Returns {action, reason} where
+ * action is "insert" | "update" | "skip".
+ */
+function decideMerge(existing, incoming) {
+  if (!existing) return { action: "insert" }
+  const existingUpd = new Date(existing.updated_at)
+  const incomingUpd = new Date(incoming.updated_at)
+  if (incomingUpd <= existingUpd) {
+    return { action: "skip", reason: "stale" }
+  }
+  return { action: "update" }
+}
+
+async function applyOneEntry(entry, userId) {
+  const { data: existing } = await supabase
+    .from("clock_entries")
+    .select("id, updated_at, deleted_at")
+    .eq("id", entry.id)
+    .eq("user_id", userId)
+    .maybeSingle()
+
+  const decision = decideMerge(existing, entry)
+  if (decision.action === "skip") {
+    return { action: "skip", id: entry.id }
+  }
+
+  const row = wireToRow(entry, userId)
+  if (decision.action === "insert") {
+    const { error } = await supabase
+      .from("clock_entries")
+      .insert(row)
+    if (error) {
+      return { action: "error", id: entry.id, error }
+    }
+    return { action: "insert", id: entry.id }
+  }
+
+  const updates = {}
+  for (const k of APPLY_FIELDS) updates[k] = row[k]
+  updates.deleted_at = row.deleted_at
+  updates.updated_at = row.updated_at
+
+  const { error } = await supabase
+    .from("clock_entries")
+    .update(updates)
+    .eq("id", entry.id)
+    .eq("user_id", userId)
+
+  if (error) {
+    return { action: "error", id: entry.id, error }
+  }
+  return { action: "update", id: entry.id }
+}
+
+/**
+ * Apply a batch of incoming entries. Idempotent.
  *
- * @route POST /sync/ack-clocks
+ * @route POST /sync/apply
  */
 router.post(
-  "/ack-clocks",
+  "/apply",
   requireApiKey,
-  validate(ackSchema),
+  validate(syncApplySchema),
   asyncHandler(async (req, res) => {
-    const { entry_ids } = req.body
-    const now = new Date().toISOString()
+    const { entries } = req.body
+    const counts = {
+      inserted: 0, updated: 0, skipped: 0, errors: 0,
+    }
+    const errorIds = []
 
-    const { error, count } = await supabase
-      .from("clock_entries")
-      .update({ synced: true, synced_at: now })
-      .eq("user_id", req.userId)
-      .in("id", entry_ids)
-
-    if (error) {
-      return res
-        .status(500)
-        .json({ error: "Failed to acknowledge" })
+    for (const entry of entries) {
+      const result = await applyOneEntry(entry, req.userId)
+      if (result.action === "insert") counts.inserted++
+      else if (result.action === "update") counts.updated++
+      else if (result.action === "skip") counts.skipped++
+      else {
+        counts.errors++
+        errorIds.push(result.id)
+      }
     }
 
-    res.json({ acked: count || entry_ids.length })
+    res.json({
+      ...counts,
+      errors: errorIds,
+      applied_at: new Date().toISOString(),
+    })
   }),
 )
 
 // ── GET /sync/active ────────────────────────────────────
 
 /**
- * Return the cloud-side running timer for this user, if
- * any. Used by the local app to show "running on mobile".
+ * Return the cloud-side running timer for this user.
  *
  * @route GET /sync/active
  */
@@ -181,46 +292,186 @@ router.get(
   asyncHandler(async (req, res) => {
     const { data: row } = await supabase
       .from("clock_entries")
-      .select(
-        "id, customer, description, start_at, " +
-        "task_id, contract",
-      )
+      .select("*")
       .eq("user_id", req.userId)
       .is("end_at", null)
+      .is("deleted_at", null)
       .maybeSingle()
 
     if (!row) return res.json({ active: false })
 
-    res.json({
+    res.json({ active: true, ...rowToWire(row) })
+  }),
+)
+
+// ── POST /sync/active/start ─────────────────────────────
+
+/**
+ * Start / reconcile an active timer across devices.
+ *
+ * Rule ("later start_at wins"):
+ *   - No active timer    -> insert the incoming one.
+ *   - Incoming.start_at later -> auto-stop the current
+ *     active timer at incoming.start_at, then insert the
+ *     incoming one.
+ *   - Incoming.start_at earlier or equal -> ignore the
+ *     incoming start; return the existing winner.
+ *
+ * @route POST /sync/active/start
+ */
+router.post(
+  "/active/start",
+  requireApiKey,
+  validate(activeStartSchema),
+  asyncHandler(async (req, res) => {
+    const incoming = req.body
+    const now = new Date().toISOString()
+
+    const { data: active } = await supabase
+      .from("clock_entries")
+      .select("*")
+      .eq("user_id", req.userId)
+      .is("end_at", null)
+      .is("deleted_at", null)
+      .maybeSingle()
+
+    if (active) {
+      // Same id already running — idempotent replay.
+      if (active.id === incoming.id) {
+        return res.json({
+          active: true,
+          winner: "existing",
+          ...rowToWire(active),
+        })
+      }
+      const existingStart = new Date(active.start_at)
+      const incomingStart = new Date(incoming.start)
+      if (incomingStart <= existingStart) {
+        return res.json({
+          active: true,
+          winner: "existing",
+          ...rowToWire(active),
+        })
+      }
+      await supabase
+        .from("clock_entries")
+        .update({
+          end_at: incoming.start,
+          updated_at: now,
+        })
+        .eq("id", active.id)
+    }
+
+    const { data: row, error } = await supabase
+      .from("clock_entries")
+      .insert({
+        id: incoming.id,
+        user_id: req.userId,
+        customer: incoming.customer || null,
+        description: incoming.description || "",
+        start_at: incoming.start,
+        task_id: incoming.task_id || null,
+        contract: incoming.contract || null,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      return res
+        .status(500)
+        .json({ error: "Failed to start timer" })
+    }
+
+    res.status(201).json({
       active: true,
-      id: row.id,
-      customer: row.customer || null,
-      description: row.description,
-      start: row.start_at,
-      task_id: row.task_id || null,
-      contract: row.contract || null,
+      winner: "incoming",
+      ...rowToWire(row),
     })
   }),
 )
 
-// ── GET /sync/status ────────────────────────────────────
+// ── POST /sync/active/stop ──────────────────────────────
 
 /**
- * Return the count of pending (unsynced) clock entries
- * and the user plan.
+ * Stop the currently running timer. Idempotent: returns
+ * the stopped entry (or 404 if there was none).
  *
- * @route GET /sync/status
+ * @route POST /sync/active/stop
+ */
+router.post(
+  "/active/stop",
+  requireApiKey,
+  validate(activeStopSchema),
+  asyncHandler(async (req, res) => {
+    const { id, end } = req.body
+    const now = new Date().toISOString()
+    const endAt = end || now
+
+    let query = supabase
+      .from("clock_entries")
+      .select("*")
+      .eq("user_id", req.userId)
+      .is("end_at", null)
+      .is("deleted_at", null)
+    if (id) query = query.eq("id", id)
+
+    const { data: active } = await query.maybeSingle()
+
+    if (!active) {
+      return res
+        .status(404)
+        .json({ error: "No running timer" })
+    }
+
+    const { data: row, error } = await supabase
+      .from("clock_entries")
+      .update({ end_at: endAt, updated_at: now })
+      .eq("id", active.id)
+      .select()
+      .single()
+
+    if (error) {
+      return res
+        .status(500)
+        .json({ error: "Failed to stop timer" })
+    }
+
+    res.json(rowToWire(row))
+  }),
+)
+
+// ── GET /sync/stats ─────────────────────────────────────
+
+/**
+ * Lightweight snapshot of sync state for observability.
+ *
+ * @route GET /sync/stats
  */
 router.get(
-  "/status",
+  "/stats",
   requireApiKey,
   asyncHandler(async (req, res) => {
-    const { count: pending } = await supabase
+    const { count: entryCount } = await supabase
       .from("clock_entries")
       .select("id", { count: "exact", head: true })
       .eq("user_id", req.userId)
-      .eq("synced", false)
-      .not("end_at", "is", null)
+      .is("deleted_at", null)
+
+    const { data: latest } = await supabase
+      .from("clock_entries")
+      .select("updated_at")
+      .eq("user_id", req.userId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const { data: active } = await supabase
+      .from("clock_entries")
+      .select("id")
+      .eq("user_id", req.userId)
+      .is("end_at", null)
+      .is("deleted_at", null)
+      .maybeSingle()
 
     const { data: user } = await supabase
       .from("users")
@@ -229,44 +480,32 @@ router.get(
       .single()
 
     res.json({
-      pending: pending || 0,
+      entry_count: entryCount || 0,
+      last_change_at: latest?.updated_at || null,
+      active_timer_id: active?.id || null,
       plan: user?.plan || "free",
     })
   }),
 )
 
-// ── POST /sync/triage ───────────────────────────────────
-
-const TRIAGE_FIELDS = ["customer", "task_id", "contract"]
+// ── GET /sync/status (legacy alias) ─────────────────────
 
 /**
- * Batch-update customer, task, and contract fields on
- * multiple clock entries.
+ * Back-compat shim pointing at /sync/stats. The local app
+ * may probe this endpoint from older builds.
  *
- * @route POST /sync/triage
+ * @route GET /sync/status
  */
-router.post(
-  "/triage",
+router.get(
+  "/status",
   requireApiKey,
-  validate(triageSchema),
   asyncHandler(async (req, res) => {
-    const { entries } = req.body
-    let updated = 0
-
-    for (const entry of entries) {
-      const updates = buildUpdates(entry, TRIAGE_FIELDS)
-      updates.updated_at = new Date().toISOString()
-
-      const { error } = await supabase
-        .from("clock_entries")
-        .update(updates)
-        .eq("id", entry.id)
-        .eq("user_id", req.userId)
-
-      if (!error) updated++
-    }
-
-    res.json({ updated })
+    const { data: user } = await supabase
+      .from("users")
+      .select("plan")
+      .eq("id", req.userId)
+      .single()
+    res.json({ plan: user?.plan || "free", pending: 0 })
   }),
 )
 

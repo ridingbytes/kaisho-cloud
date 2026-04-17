@@ -45,7 +45,8 @@ router.get(
       .select("*")
       .eq("user_id", req.userId)
       .is("end_at", null)
-      .single()
+      .is("deleted_at", null)
+      .maybeSingle()
 
     if (!row) {
       return res.json({ active: false })
@@ -58,27 +59,41 @@ router.get(
 // ── GET /clocks/entries ─────────────────────────────────
 
 /**
- * List clock entries for a given period.
+ * List clock entries for a given period or explicit date
+ * range. `from` and `to` (inclusive ISO dates or full
+ * timestamps) override `period` when supplied.
  *
  * @route GET /clocks/entries?period=today|week|month|year
+ *          |from=<iso>&to=<iso>
  */
 router.get(
   "/entries",
   validateQuery(periodQuerySchema),
   asyncHandler(async (req, res) => {
-    const period = req.query.period || "today"
-    const { from } = periodRange(period)
+    const { from: fromStr, to: toStr } = req.query
+    let fromDate, toDate
+    if (fromStr || toStr) {
+      fromDate = fromStr
+        ? new Date(fromStr)
+        : new Date("1970-01-01T00:00:00Z")
+      toDate = toStr ? new Date(toStr) : new Date()
+    } else {
+      const period = req.query.period || "today"
+      ;({ from: fromDate } = periodRange(period))
+      toDate = null
+    }
 
     let query = supabase
       .from("clock_entries")
       .select("*")
       .eq("user_id", req.userId)
-      .gte("start_at", from.toISOString())
+      .is("deleted_at", null)
+      .gte("start_at", fromDate.toISOString())
       .order("start_at", { ascending: false })
-      .limit(200)
+      .limit(500)
 
-    if (req.query.synced === "false") {
-      query = query.eq("synced", false)
+    if (toDate) {
+      query = query.lte("start_at", toDate.toISOString())
     }
 
     const { data: rows, error } = await query
@@ -111,7 +126,8 @@ router.post(
       .select("id")
       .eq("user_id", req.userId)
       .is("end_at", null)
-      .single()
+      .is("deleted_at", null)
+      .maybeSingle()
 
     if (active) {
       return res
@@ -157,7 +173,8 @@ router.post(
       .select("*")
       .eq("user_id", req.userId)
       .is("end_at", null)
-      .single()
+      .is("deleted_at", null)
+      .maybeSingle()
 
     if (!active) {
       return res
@@ -247,7 +264,7 @@ router.post(
 
 const CLOCK_UPDATE_FIELDS = [
   "customer", "description", "task_id",
-  "contract", "notes", "booked",
+  "contract", "notes", "invoiced",
 ]
 
 /**
@@ -269,6 +286,7 @@ router.patch(
       .update(updates)
       .eq("id", req.params.id)
       .eq("user_id", req.userId)
+      .is("deleted_at", null)
       .select()
       .single()
 
@@ -285,20 +303,25 @@ router.patch(
 // ── DELETE /clocks/:id ──────────────────────────────────
 
 /**
- * Delete a clock entry by ID.
+ * Soft-delete a clock entry by ID. Sets deleted_at so the
+ * delete propagates through /sync/changes to other clients.
  *
  * @route DELETE /clocks/:id
  */
 router.delete(
   "/:id",
   asyncHandler(async (req, res) => {
-    const { error } = await supabase
+    const now = new Date().toISOString()
+    const { data: row, error } = await supabase
       .from("clock_entries")
-      .delete()
+      .update({ deleted_at: now, updated_at: now })
       .eq("id", req.params.id)
       .eq("user_id", req.userId)
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle()
 
-    if (error) {
+    if (error || !row) {
       return res
         .status(404)
         .json({ error: "Entry not found" })

@@ -7,6 +7,7 @@ import {
 } from "../api"
 import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
+import { CustomerPicker } from "./CustomerPicker"
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10)
@@ -80,17 +81,13 @@ export function BookView() {
           onChange={(e) => setDuration(e.target.value)}
           required
         />
-        <select
+        <CustomerPicker
           value={customer}
-          onChange={(e) => setCustomer(e.target.value)}
-        >
-          <option value="">Customer (optional)</option>
-          {customers.map((c) => (
-            <option key={c.name} value={c.name}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+          customers={customers}
+          onChange={setCustomer}
+          placeholder="Customer"
+          synced={customers.length > 0}
+        />
         <input
           type="text"
           placeholder="Description (optional)"
