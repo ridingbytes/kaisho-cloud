@@ -126,27 +126,44 @@ async function requireAuth(req, res, next) {
  * @param {...string} plans - Allowed plan names.
  * @returns {Function} Express middleware.
  */
+// Cache plan lookups to avoid a Supabase round-trip
+// on every request (free tier can be 100-300ms away).
+const PLAN_CACHE = new Map()
+const PLAN_CACHE_TTL = 60_000
+
 function requirePlan(...plans) {
   return async (req, res, next) => {
-    // Look up by auth UID. If the user row doesn't
-    // exist yet (first login), auto-create it with
-    // the free plan.
+    const userId = req.userId
+    const cached = PLAN_CACHE.get(userId)
+    if (cached && Date.now() - cached.ts < PLAN_CACHE_TTL) {
+      if (!plans.includes(cached.plan)) {
+        return res.status(403).json({
+          error: "Plan upgrade required",
+          current_plan: cached.plan,
+        })
+      }
+      req.userPlan = cached.plan
+      return next()
+    }
+
     let { data: user } = await supabase
       .from("users")
       .select("plan")
-      .eq("id", req.userId)
+      .eq("id", userId)
       .single()
 
     if (!user) {
       const { data: created } = await supabase
         .from("users")
-        .upsert({ id: req.userId, plan: "free" })
+        .upsert({ id: userId, plan: "free" })
         .select("plan")
         .single()
       user = created
     }
 
     const plan = user?.plan || "free"
+    PLAN_CACHE.set(userId, { plan, ts: Date.now() })
+
     if (!plans.includes(plan)) {
       return res.status(403).json({
         error: "Plan upgrade required",
