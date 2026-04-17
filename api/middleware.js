@@ -128,11 +128,21 @@ async function requireAuth(req, res, next) {
  */
 function requirePlan(...plans) {
   return async (req, res, next) => {
-    const { data: user } = await supabase
+    // Look up by auth UID first, then by email
+    let { data: user } = await supabase
       .from("users")
       .select("plan")
       .eq("id", req.userId)
       .single()
+
+    if (!user && req.userEmail) {
+      const { data: byEmail } = await supabase
+        .from("users")
+        .select("plan")
+        .eq("email", req.userEmail)
+        .single()
+      user = byEmail
+    }
 
     const plan = user?.plan || "free"
     if (!plans.includes(plan)) {

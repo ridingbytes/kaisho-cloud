@@ -10,6 +10,7 @@ import {
   ApiError,
 } from "../api"
 import { ErrorBanner } from "./ErrorBanner"
+import { planLabel } from "../utils/planLabel"
 
 const THEME_OPTIONS: { id: Theme; label: string }[] = [
   { id: "light", label: "Light" },
@@ -110,7 +111,7 @@ export function ProfileView() {
         </div>
         <div className="profile-row">
           <span className="text-muted">Plan</span>
-          <span className="plan-badge">{plan}</span>
+          <span className="plan-badge">{planLabel(plan)}</span>
         </div>
       </div>
 
@@ -119,7 +120,7 @@ export function ProfileView() {
         <h3>Subscription</h3>
         {isPaid ? (
           <p className="text-muted">
-            You are on the <strong>{plan}</strong> plan.
+            You are on the <strong>{planLabel(plan)}</strong> plan.
             {plan === "sync" && (
               <>
                 {" "}
