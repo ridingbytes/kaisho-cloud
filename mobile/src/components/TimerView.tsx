@@ -130,28 +130,34 @@ export function TimerView() {
       setTaskId(detail.task_id || "")
       setContract(detail.contract || "")
       if (detail.autoStart && !timer) {
-        // Delay slightly so React commits the state
-        // updates before we trigger the start.
-        setTimeout(async () => {
-          setLoading(true)
-          setError(null)
-          try {
-            const result = await startTimer({
-              customer: detail.customer || undefined,
-              description: detail.description || "",
-              task_id: detail.task_id || undefined,
-              contract: detail.contract || undefined,
-            })
+        // Optimistic: show timer immediately
+        setTimer({
+          active: true,
+          id: "",
+          customer: detail.customer || null,
+          description: detail.description || "",
+          start: new Date().toISOString(),
+          end: null,
+          task_id: detail.task_id || null,
+          contract: detail.contract || null,
+        })
+        // Fire API call in background
+        startTimer({
+          customer: detail.customer || undefined,
+          description: detail.description || "",
+          task_id: detail.task_id || undefined,
+          contract: detail.contract || undefined,
+        })
+          .then((result) => {
             setTimer(result)
             toast("Timer started")
-          } catch (err) {
+          })
+          .catch((err) => {
+            setTimer(null)
             if (err instanceof ApiError) {
               setError(err.message)
             }
-          } finally {
-            setLoading(false)
-          }
-        }, 100)
+          })
       }
     }
     window.addEventListener(
