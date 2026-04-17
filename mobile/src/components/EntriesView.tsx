@@ -499,11 +499,10 @@ export function EntriesView() {
             <div
               key={e.id}
               className={
-                "card entry-card entry-card--tap" +
+                "card entry-card" +
                 (isRunning(e)
                   ? " entry-card--running" : "")
               }
-              onClick={() => setEditingEntry(e)}
             >
               <div className="entry-header">
                 <span className="entry-time">
@@ -518,16 +517,32 @@ export function EntriesView() {
                 </span>
               </div>
               {e.customer && (
-                <div
-                  className="entry-customer entry-customer--tap"
-                  onClick={(ev) => {
-                    ev.stopPropagation()
-                    setCustomerFilter(e.customer!)
-                  }}
-                >
-                  {e.customer}
-                  {e.contract
-                    ? ` / ${e.contract}` : ""}
+                <div className="entry-customer">
+                  <span>{e.customer}
+                    {e.contract
+                      ? ` / ${e.contract}` : ""}
+                  </span>
+                  <button
+                    className="entry-filter-btn"
+                    onClick={() =>
+                      setCustomerFilter(e.customer!)
+                    }
+                    aria-label="Filter by customer"
+                    title={`Filter by ${e.customer}`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                         viewBox="0 0 24 24"
+                         width="12" height="12"
+                         fill="none"
+                         stroke="currentColor"
+                         strokeWidth="2"
+                         strokeLinecap="round"
+                         strokeLinejoin="round">
+                      <polygon
+                        points="22 3 2 3 10 12.5
+                        10 19 14 21 14 12.5"/>
+                    </svg>
+                  </button>
                 </div>
               )}
               {e.description && (
@@ -546,10 +561,26 @@ export function EntriesView() {
                     : "Pending sync"
                 }
               />
-              <div
-                className="entry-actions"
-                onClick={(ev) => ev.stopPropagation()}
-              >
+              <div className="entry-actions">
+                <button
+                  className="entry-action-btn"
+                  onClick={() => setEditingEntry(e)}
+                  aria-label="Edit entry"
+                  title="Edit entry"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg"
+                       viewBox="0 0 24 24"
+                       width="15" height="15"
+                       fill="none"
+                       stroke="currentColor"
+                       strokeWidth="2"
+                       strokeLinecap="round"
+                       strokeLinejoin="round">
+                    <path d="M17 3a2.83 2.83 0 1 1
+                      4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                    <path d="m15 5 4 4"/>
+                  </svg>
+                </button>
                 {!isRunning(e) && (
                   <button
                     className="entry-action-btn"
