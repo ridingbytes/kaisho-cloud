@@ -173,6 +173,23 @@ export function TimerView() {
     e.preventDefault()
     setError(null)
     setLoading(true)
+
+    // Optimistic UI: show timer immediately so the
+    // user gets instant feedback while the API call
+    // completes in the background.
+    const optimistic: ActiveTimer = {
+      active: true,
+      id: "",
+      customer: customer || null,
+      description: desc,
+      start: new Date().toISOString(),
+      end: null,
+      task_id: taskId || null,
+      contract: contract || null,
+    }
+    setTimer(optimistic)
+    setDesc("")
+
     try {
       const result = await startTimer({
         customer: customer || undefined,
@@ -182,12 +199,9 @@ export function TimerView() {
       })
       setTimer(result)
       toast("Timer started")
-      setDesc("")
-      // Re-sync so we pick up any server-side
-      // reconciliation (e.g. another device won the
-      // start race).
-      setTimeout(refreshActive, 500)
     } catch (err) {
+      // Revert optimistic update
+      setTimer(null)
       if (err instanceof ApiError) {
         if (
           err.status === 403 &&
