@@ -13,6 +13,7 @@ import {
   ApiError,
 } from "../api"
 import { useToast } from "../toast"
+import { useConfirm } from "./ConfirmDialog"
 import { ErrorBanner } from "./ErrorBanner"
 import { EditEntrySheet } from "./EditEntrySheet"
 
@@ -243,6 +244,7 @@ function sumMinutes(entries: ClockEntry[]): number {
 
 export function EntriesView() {
   const { toast } = useToast()
+  const [confirm, confirmDialog] = useConfirm()
   const [range, setRange] = useState<Range>(
     () =>
       (localStorage.getItem("entries_range") as Range) ||
@@ -349,7 +351,7 @@ export function EntriesView() {
     const label = e.description
       ? `"${e.description}"`
       : `${formatDate(e.start)} ${formatTime(e.start)}`
-    if (!confirm(`Delete entry ${label}?`)) return
+    if (!await confirm(`Delete entry ${label}?`)) return
     setDeletingId(e.id)
     try {
       await deleteEntry(e.id)
@@ -390,7 +392,7 @@ export function EntriesView() {
 
   async function handleResume(e: ClockEntry) {
     if (hasRunning) {
-      const ok = confirm(
+      const ok = await confirm(
         "A timer is running. Stop it and start a " +
         "new one?",
       )
@@ -633,6 +635,8 @@ export function EntriesView() {
           ))}
         </section>
       ))}
+
+      {confirmDialog}
 
       {editingEntry && (
         <EditEntrySheet

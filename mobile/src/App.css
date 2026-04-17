@@ -817,6 +817,46 @@ select {
   cursor: not-allowed;
 }
 
+/* -- Confirm dialog -- */
+
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: fade-in 0.12s ease-out;
+}
+
+.confirm-dialog {
+  width: 100%;
+  max-width: 320px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
+.confirm-message {
+  font-size: 15px;
+  color: var(--t1);
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.confirm-actions button {
+  flex: 1;
+}
+
 /* -- Edit entry sheet -- */
 
 .edit-sheet-backdrop {
