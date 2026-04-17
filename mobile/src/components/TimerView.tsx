@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from "react"
+import {
+  useCallback, useEffect, useRef, useState,
+} from "react"
 import type { ActiveTimer, Customer, Task } from "../types"
 import {
   getActive,
@@ -42,6 +44,9 @@ export function TimerView() {
   const [error, setError] = useState<string | null>(null)
   const [needsUpgrade, setNeedsUpgrade] = useState(false)
   const [loading, setLoading] = useState(false)
+  // Suppress WS refreshes while a local start/stop is
+  // in-flight to prevent the optimistic UI from flickering.
+  const pendingRef = useRef(false)
 
   const refreshActive = useCallback(async () => {
     try {
@@ -80,10 +85,14 @@ export function TimerView() {
   // Visibility fallback for iOS PWA background resume.
   useEffect(() => {
     const offStart = onWsEvent(
-      "timer:started", () => refreshActive(),
+      "timer:started", () => {
+        if (!pendingRef.current) refreshActive()
+      },
     )
     const offStop = onWsEvent(
-      "timer:stopped", () => refreshActive(),
+      "timer:stopped", () => {
+        if (!pendingRef.current) refreshActive()
+      },
     )
     const onVisible = () => {
       if (document.visibilityState === "visible") {
@@ -131,6 +140,7 @@ export function TimerView() {
       setContract(detail.contract || "")
       if (detail.autoStart && !timer) {
         // Optimistic: show timer immediately
+        pendingRef.current = true
         setTimer({
           active: true,
           id: "",
@@ -158,6 +168,9 @@ export function TimerView() {
               setError(err.message)
             }
           })
+          .finally(() => {
+            pendingRef.current = false
+          })
       }
     }
     window.addEventListener(
@@ -183,6 +196,7 @@ export function TimerView() {
     // Optimistic UI: show timer immediately so the
     // user gets instant feedback while the API call
     // completes in the background.
+    pendingRef.current = true
     const optimistic: ActiveTimer = {
       active: true,
       id: "",
@@ -220,6 +234,7 @@ export function TimerView() {
         }
       }
     } finally {
+      pendingRef.current = false
       setLoading(false)
     }
   }
