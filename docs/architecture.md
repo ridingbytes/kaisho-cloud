@@ -1,0 +1,302 @@
+# Kaisho Cloud Architecture
+
+This document describes the data flows, authentication, sync
+protocol, and AI gateway that connect the local Kaisho desktop
+app, the Kaisho Cloud server, and the mobile PWA.
+
+
+## System Overview
+
+```
++------------------+     +-----------------+     +-------------+
+|  Kaisho Desktop  |<--->|  Kaisho Cloud   |<--->|  Mobile PWA |
+|  (local app)     |     |  (Express/VPS)  |     |  (browser)  |
++------------------+     +-----------------+     +-------------+
+        |                        |
+        v                        v
+   Local files            +------------+     +-------------+
+   (org/md/json)          |  Supabase  |     |  OpenRouter  |
+                          |  (Postgres)|     |  (AI proxy)  |
+                          +------------+     +-------------+
+```
+
+**Local app**: Python/FastAPI backend + React frontend. Stores
+all data as plain text files (org-mode, Markdown, or JSON).
+Runs `kai serve` on port 8765.
+
+**Cloud server**: Node.js/Express on a VPS. Handles
+authentication, clock entry sync, mobile PWA serving, Stripe
+billing, and AI gateway proxying.
+
+**Mobile PWA**: React SPA served by the cloud server. Provides
+timer, entries, dashboard, and AI features on mobile.
+
+**Supabase**: Managed Postgres database for user accounts, clock
+entries, reference data, Stripe events, and AI usage tracking.
+
+**OpenRouter**: AI inference gateway. Provides access to Claude,
+Gemini, GPT-4 and other models through a single API.
+
+
+## Authentication
+
+Two auth paths depending on the client:
+
+### Mobile PWA (JWT)
+
+```
+Mobile -> POST /auth/login { email, password }
+       <- { access_token, refresh_token }
+       -> Bearer <access_token> on all requests
+       -> POST /auth/refresh when 401 received
+```
+
+JWTs are issued by Supabase Auth. The cloud server validates
+them via `supabase.auth.getUser(token)`. The user ID from the
+JWT is used for all database queries.
+
+### Desktop App (API Key)
+
+```
+Desktop -> x-api-key header on all requests
+        -> Cloud compares bcrypt hash against users.api_key_hash
+        -> Cached for 60s after first validation
+```
+
+API keys are generated in the mobile PWA's profile view. The
+key is shown once and stored as a bcrypt hash in the `users`
+table. The desktop app stores it in `settings.yaml`.
+
+### Combined Auth Middleware
+
+The `requireAuth` middleware tries JWT first (tokens longer than
+50 characters), then falls back to API key auth. This allows
+both the mobile PWA and the desktop app to use the same
+endpoints.
+
+
+## Bidirectional Sync Protocol
+
+The sync protocol ensures clock entries stay consistent between
+the local app and the cloud. Local files are always the source
+of truth.
+
+### Identity
+
+Every clock entry carries a UUID (`SYNC_ID` in org files,
+`clock_entries.id` in the cloud). This ID is shared between
+local and cloud representations of the same entry.
+
+### Sync Cycle
+
+The local app runs a sync cycle periodically (default: every
+5 minutes) and on every local mutation:
+
+```
+1. PULL  — GET /sync/changes?since=<cursor>
+           Fetch entries changed since last pull.
+           Apply to local files using last-writer-wins.
+
+2. PUSH TOMBSTONES — POST /sync/apply
+           Push local deletes (soft-delete on cloud).
+
+3. PUSH LIVE — POST /sync/apply
+           Push locally-changed entries in 400-entry batches.
+           Running timers use POST /sync/active/start instead.
+
+4. SNAPSHOT — POST /sync/push-snapshot
+           Push customer and task reference data so the
+           mobile PWA has dropdown options.
+```
+
+### Conflict Resolution
+
+**Last-writer-wins** by `updated_at` timestamp. When pulling:
+
+- If the cloud entry is newer than local, overwrite local.
+- If local is newer, skip (it will be pushed in step 3).
+- Deleted entries carry `deleted_at` and are removed locally.
+
+### Cursor Semantics
+
+- `last_pull_cursor`: tracks the cloud's latest `updated_at`.
+- `last_push_cursor`: bumped after each push so already-synced
+  entries don't round-trip.
+- On initial connect, push cursor starts at epoch so all local
+  entries are pushed.
+
+### Active Timer Reconciliation
+
+Only one timer can be active per user. When the local app and
+mobile both start a timer, the "later `start_at` wins" rule
+applies. The losing timer is auto-stopped at the winner's
+start time.
+
+### Timezone Handling
+
+Local timestamps are naive (system timezone). Cloud timestamps
+are UTC (TIMESTAMPTZ). The sync layer converts:
+
+- **Push**: `_local_to_utc()` before sending to cloud
+- **Pull**: `_utc_to_local()` before writing to local files
+
+### Disconnect
+
+When a user disconnects:
+
+1. Final pull (best-effort)
+2. DELETE /sync/entries — wipes all clock entries, ref_customers,
+   and ref_tasks from the cloud
+3. Clear local cursor and tombstones
+
+Local files are untouched. Reconnecting triggers a full push.
+
+
+## AI Gateway
+
+The cloud server proxies AI requests to OpenRouter, providing
+a single API key and metered usage per user.
+
+### Architecture
+
+```
+Local App                Cloud Gateway           OpenRouter
+     |                        |                       |
+     |-- prompt + tools ----->|--- forward ---------->|
+     |                        |   (add API key,       |
+     |                        |    meter tokens)      |
+     |<-- tool_calls ---------|<-- tool_calls --------|
+     |                        |                       |
+     | (execute tools         |                       |
+     |  locally in Python)    |                       |
+     |                        |                       |
+     |-- results + tools ---->|--- forward ---------->|
+     |                        |                       |
+     |<-- final answer -------|<-- answer ------------|
+```
+
+### Agentic Tool Calling
+
+The local app runs a multi-turn agentic loop:
+
+1. Send prompt + tool definitions to `POST /ai/complete`
+2. Cloud forwards to OpenRouter with tools
+3. If the model returns `tool_calls`, the local app executes
+   them (Python functions accessing local data)
+4. Tool results are appended to the message history
+5. Next turn is sent to the cloud
+6. Repeat until the model returns a final text answer
+
+**Max turns**: 15 per request (prevents runaway loops).
+
+### Available Tools (45)
+
+| Category | Tools |
+|----------|-------|
+| Tasks | list, add, move, update, archive, set tags |
+| Clock | list, book, start, stop, update, invoice |
+| Customers | list, list contracts |
+| Inbox | list, add |
+| Notes | list, add, update, delete |
+| Knowledge | search, read, write, list files |
+| Web | search, fetch URL |
+| GitHub | list issues, list projects |
+| YouTube | transcribe |
+| CLI | execute kai subcommands |
+| Cron | list jobs, trigger |
+| Backup | create, list |
+
+### Security Guardrails
+
+**Cloud mode restrictions** (enforced by the local executor):
+
+- Blocked tools: `delete_profile`, `rename_profile`,
+  `trigger_cron_job`, `create_backup`, `approve_url_domain`
+- `execute_cli`: only safe `kai` subcommands allowed
+  (`ask`, `briefing`, `customer`, `clock`, `task`, `note`,
+  `kb`, `cron`, `tag`, `config`, `version`)
+- Write limit: 3 mutations per cron job run
+- URL fetch: domain allowlist enforced
+- No shell injection: `shlex.split()` + subprocess list form
+- 60-second timeout per CLI command
+
+### Models
+
+| Use Case | Model | Config |
+|----------|-------|--------|
+| Fast parsing (NLP booking) | gemini-2.0-flash-lite | AI_MODEL_FAST |
+| Summaries and advisor | claude-sonnet-4 | AI_MODEL_DEFAULT |
+
+### Token Metering
+
+Usage is tracked per user per month in the `ai_usage` table.
+The `increment_ai_usage` Postgres function provides atomic
+counter updates. Each `/ai/complete` call records input and
+output tokens. Monthly soft cap: 200,000 tokens (returns 429
+when exceeded).
+
+### Kaisho AI Toggle
+
+- **Global toggle** in Cloud Sync settings enables Kaisho AI
+- **Advisor**: always uses Kaisho AI when the toggle is on
+- **Cron jobs**: per-job `use_kaisho_ai` flag. Jobs that need
+  external access (web search, URL fetch) work through the
+  agentic loop. Jobs can opt out to use local Ollama instead.
+
+### Mobile AI Endpoints
+
+| Endpoint | Model | Purpose |
+|----------|-------|---------|
+| POST /ai/parse-booking | FAST | NLP time entry parsing |
+| POST /ai/summarize | DEFAULT | Weekly/monthly summaries |
+| POST /ai/complete | DEFAULT | General completion + tools |
+| GET /ai/usage | -- | Current month token stats |
+
+
+## Plans and Billing
+
+### Plan Tiers
+
+| Plan | Price | Features |
+|------|-------|----------|
+| Free | 0 | Desktop app, CLI, all storage backends |
+| Cloud Sync | 9/mo | Bidirectional sync, mobile PWA |
+| Sync + AI | 19/mo | Everything + Kaisho AI, 200K tokens |
+
+### Stripe Integration
+
+Subscriptions are managed through Stripe Checkout. The flow:
+
+1. User clicks upgrade in the mobile PWA
+2. `POST /billing/create-checkout` creates a Stripe session
+3. User completes payment on Stripe
+4. Webhook `POST /billing/webhook` updates the `users.plan`
+5. Plan change takes effect immediately
+
+Event deduplication via the `stripe_events` table.
+
+
+## Database Schema
+
+### Tables
+
+| Table | Purpose |
+|-------|---------|
+| `users` | Extends Supabase Auth with plan, Stripe IDs, API key hash |
+| `clock_entries` | Synced time entries (TIMESTAMPTZ, soft-delete) |
+| `ref_customers` | Read-only customer snapshots from local app |
+| `ref_tasks` | Read-only task snapshots from local app |
+| `stripe_events` | Webhook event IDs for idempotency |
+| `ai_usage` | Per-user per-month token counters |
+
+All tables have RLS enabled with deny-all policies. The API
+server uses the service role key to bypass RLS.
+
+
+## Deployment
+
+The cloud server runs as a Docker container on a VPS behind
+nginx with TLS. Environment variables configure all external
+services (Supabase, Stripe, Resend, OpenRouter).
+
+See `docs/saas-setup.md` for the full setup guide.
