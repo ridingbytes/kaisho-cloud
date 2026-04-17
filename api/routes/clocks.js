@@ -1,8 +1,11 @@
 "use strict"
 
 /**
+ * @module routes/clocks
+ *
  * Clock entry routes — start, stop, book, list, update,
- * and delete time entries.
+ * and delete time entries. All routes require JWT auth
+ * and an active "sync" or "sync_ai" plan.
  */
 
 const { Router } = require("express")
@@ -45,6 +48,7 @@ router.get(
       .select("*")
       .eq("user_id", req.userId)
       .is("end_at", null)
+      // Soft-delete filter: exclude logically deleted rows
       .is("deleted_at", null)
       .maybeSingle()
 
@@ -87,6 +91,7 @@ router.get(
       .from("clock_entries")
       .select("*")
       .eq("user_id", req.userId)
+      // Soft-delete filter: only show live entries
       .is("deleted_at", null)
       .gte("start_at", fromDate.toISOString())
       .order("start_at", { ascending: false })
@@ -262,6 +267,14 @@ router.post(
 
 // ── PATCH /clocks/:id ───────────────────────────────────
 
+/**
+ * Allowlisted fields for PATCH /clocks/:id. Only these
+ * columns are copied from the request body into the
+ * update payload, preventing writes to protected fields
+ * like user_id or start_at.
+ *
+ * @type {string[]}
+ */
 const CLOCK_UPDATE_FIELDS = [
   "customer", "description", "task_id",
   "contract", "notes", "invoiced",
@@ -286,6 +299,7 @@ router.patch(
       .update(updates)
       .eq("id", req.params.id)
       .eq("user_id", req.userId)
+      // Soft-delete filter: cannot update deleted entries
       .is("deleted_at", null)
       .select()
       .single()
@@ -317,6 +331,7 @@ router.delete(
       .update({ deleted_at: now, updated_at: now })
       .eq("id", req.params.id)
       .eq("user_id", req.userId)
+      // Only delete entries that are not already deleted
       .is("deleted_at", null)
       .select("id")
       .maybeSingle()

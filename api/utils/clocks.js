@@ -1,14 +1,20 @@
 "use strict"
 
 /**
+ * @module utils/clocks
+ *
  * Shared clock-entry helpers used by routes/clocks.js
- * and routes/sync.js.
+ * and routes/sync.js. Provides duration parsing, period
+ * date-range calculation, and DB-row-to-API formatting.
  */
 
 // ── Duration parser ─────────────────────────────────────
 
+/** Matches "1h", "30m", "1.5 hours", "90 minutes". */
 const DURATION_SIMPLE =
   /^(\d+(?:\.\d+)?)\s*(h|hours?|m|min|mins|minutes?)$/i
+
+/** Matches compound forms like "1h30m", "2h 15min". */
 const DURATION_COMPOUND =
   /^(\d+)\s*h\s*(\d+)\s*(?:m|min|mins|minutes?)?$/i
 
@@ -18,7 +24,7 @@ const DURATION_COMPOUND =
  * Supports formats like "1h", "30m", "1h30m", "1.5h",
  * "90 minutes".
  *
- * @param {string} str - Duration string.
+ * @param {string} str - Duration string to parse.
  * @returns {number|null} Duration in minutes, or null
  *   if the string is not recognised.
  */
@@ -37,11 +43,14 @@ function parseDuration(str) {
 }
 
 /**
- * Return a date range for a named period.
+ * Return the start date for a named calendar period.
+ *
+ * Week starts on Monday (ISO convention).
  *
  * @param {string} period - One of "today", "week",
  *   "month", "year".
- * @returns {{ from: Date }} Start of the period.
+ * @returns {{ from: Date }} Object with the period
+ *   start date; callers compare entries against this.
  */
 function periodRange(period) {
   const now = new Date()
@@ -74,10 +83,14 @@ function periodRange(period) {
 
 /**
  * Format a clock_entries DB row into the API response
- * shape.
+ * shape expected by the mobile app and web frontend.
+ *
+ * Computes duration_minutes from start_at/end_at when
+ * the entry is complete (end_at present).
  *
  * @param {object} row - Supabase clock_entries row.
- * @returns {object} Formatted clock entry.
+ * @returns {object} Formatted clock entry with
+ *   camelCase-friendly field names.
  */
 function formatEntry(row) {
   const durationMinutes =

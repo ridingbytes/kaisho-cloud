@@ -1,21 +1,25 @@
 "use strict"
 
 /**
- * Bidirectional sync endpoints (API key auth).
+ * @module routes/sync
  *
- * Contract:
- *   - GET  /sync/changes        Pull entries + tombstones
- *                               changed after ?since cursor
- *   - POST /sync/apply          Upsert a batch of entries
- *                               (last-writer-wins on
- *                               updated_at; soft-deletes)
- *   - GET  /sync/active         Current running timer
- *   - POST /sync/active/start   Start / reconcile timer
- *                               (later start_at wins)
- *   - POST /sync/active/stop    Stop the running timer
- *   - GET  /sync/stats          Count, last_change_at
- *   - POST /sync/push-snapshot  Replace ref customers/tasks
- *                               (unchanged from v1)
+ * Bidirectional sync endpoints (API-key auth). These
+ * routes let the local Kaisho desktop app push and pull
+ * clock entries against the Supabase cloud store using a
+ * cursor-based, last-writer-wins merge protocol.
+ *
+ * Endpoint contract:
+ *   GET  /sync/changes        Pull entries + tombstones
+ *                              changed after ?since cursor
+ *   POST /sync/apply          Upsert a batch of entries
+ *                              (last-writer-wins on
+ *                              updated_at; soft-deletes)
+ *   GET  /sync/active         Current running timer
+ *   POST /sync/active/start   Start / reconcile timer
+ *                              (later start_at wins)
+ *   POST /sync/active/stop    Stop the running timer
+ *   GET  /sync/stats          Count, last_change_at
+ *   POST /sync/push-snapshot  Replace ref customers/tasks
  */
 
 const { Router } = require("express")
@@ -40,6 +44,10 @@ const router = Router()
  * Shape a DB row into the wire format for /sync endpoints.
  * Deleted rows carry deleted_at; end_at may be null for
  * a running timer.
+ *
+ * @param {object} row - Supabase clock_entries row.
+ * @returns {object} Wire-format entry with renamed
+ *   fields (start_at -> start, end_at -> end).
  */
 function rowToWire(row) {
   return {
@@ -163,14 +171,27 @@ router.get(
 
 // ── POST /sync/apply ────────────────────────────────────
 
+/**
+ * Allowlisted DB columns for sync/apply updates. Only
+ * these fields are written during an update to prevent
+ * overwriting user_id or id.
+ *
+ * @type {string[]}
+ */
 const APPLY_FIELDS = [
   "customer", "description", "start_at", "end_at",
   "task_id", "contract", "notes", "invoiced",
 ]
 
 /**
- * Build the upsert payload for one incoming entry, mapping
- * wire names to DB columns and omitting undefined fields.
+ * Build the upsert payload for one incoming entry,
+ * mapping wire names to DB columns (start -> start_at,
+ * end -> end_at). Always stamps a fresh updated_at.
+ *
+ * @param {object} entry - Wire-format sync entry.
+ * @param {string} userId - Authenticated user ID.
+ * @returns {object} Row object ready for Supabase
+ *   insert or update.
  */
 function wireToRow(entry, userId) {
   return {
@@ -190,8 +211,16 @@ function wireToRow(entry, userId) {
 }
 
 /**
- * Last-writer-wins merge. Returns {action, reason} where
- * action is "insert" | "update" | "skip".
+ * Last-writer-wins merge decision. Compares updated_at
+ * timestamps to decide whether to insert, update, or
+ * skip the incoming entry.
+ *
+ * @param {object|null} existing - Current DB row, or
+ *   null if no row exists for this id.
+ * @param {object} incoming - Wire-format entry with
+ *   updated_at timestamp.
+ * @returns {{ action: string, reason?: string }}
+ *   action is "insert" | "update" | "skip".
  */
 function decideMerge(existing, incoming) {
   if (!existing) return { action: "insert" }
@@ -203,6 +232,16 @@ function decideMerge(existing, incoming) {
   return { action: "update" }
 }
 
+/**
+ * Apply a single incoming sync entry: fetch the existing
+ * row (if any), run the merge decision, then insert or
+ * update accordingly.
+ *
+ * @param {object} entry - Wire-format sync entry.
+ * @param {string} userId - Authenticated user ID.
+ * @returns {Promise<{action: string, id: string}>}
+ *   Result with the action taken and entry id.
+ */
 async function applyOneEntry(entry, userId) {
   const { data: existing } = await supabase
     .from("clock_entries")

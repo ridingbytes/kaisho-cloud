@@ -1,8 +1,11 @@
 "use strict"
 
 /**
+ * @module validation
+ *
  * Request validation schemas (Zod) and middleware
- * factories for body and query validation.
+ * factories for body and query-string validation.
+ * Each schema documents which endpoint consumes it.
  */
 
 const { z } = require("zod")
@@ -13,7 +16,10 @@ const emailSchema = z
   .string()
   .email("Invalid email address")
 
-/** @type {z.ZodObject} Signup request body. */
+/**
+ * POST /auth/signup request body.
+ * @type {z.ZodObject}
+ */
 const signupSchema = z.object({
   email: emailSchema,
   password: z
@@ -21,18 +27,27 @@ const signupSchema = z.object({
     .min(8, "Password must be at least 8 characters"),
 })
 
-/** @type {z.ZodObject} Login request body. */
+/**
+ * POST /auth/login request body.
+ * @type {z.ZodObject}
+ */
 const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, "Password is required"),
 })
 
-/** @type {z.ZodObject} Key rotation request body. */
+/**
+ * POST /auth/rotate-key request body.
+ * @type {z.ZodObject}
+ */
 const rotateKeySchema = z.object({
   email: emailSchema,
 })
 
-/** @type {z.ZodObject} Token refresh request body. */
+/**
+ * POST /auth/refresh request body.
+ * @type {z.ZodObject}
+ */
 const refreshSchema = z.object({
   refresh_token: z
     .string()
@@ -41,7 +56,10 @@ const refreshSchema = z.object({
 
 // ── Billing schemas ─────────────────────────────────────
 
-/** @type {z.ZodObject} Checkout request body. */
+/**
+ * POST /billing/checkout request body.
+ * @type {z.ZodObject}
+ */
 const checkoutSchema = z.object({
   plan: z.enum(
     ["sync", "sync_ai"],
@@ -51,7 +69,10 @@ const checkoutSchema = z.object({
 
 // ── Clock schemas ───────────────────────────────────────
 
-/** @type {z.ZodObject} Clock start request body. */
+/**
+ * POST /clocks/start request body.
+ * @type {z.ZodObject}
+ */
 const clockStartSchema = z.object({
   customer: z.string().nullable().optional(),
   description: z.string().optional().default(""),
@@ -59,7 +80,10 @@ const clockStartSchema = z.object({
   contract: z.string().nullable().optional(),
 })
 
-/** @type {z.ZodObject} Quick-book request body. */
+/**
+ * POST /clocks/quick-book request body.
+ * @type {z.ZodObject}
+ */
 const quickBookSchema = z.object({
   duration: z.string().min(1, "Duration is required"),
   customer: z.string().nullable().optional(),
@@ -69,7 +93,11 @@ const quickBookSchema = z.object({
   date: z.string().nullable().optional(),
 })
 
-/** @type {z.ZodObject} Clock entry update body. */
+/**
+ * PATCH /clocks/:id request body. At least one field
+ * must be present (enforced by the refine check).
+ * @type {z.ZodObject}
+ */
 const clockUpdateSchema = z.object({
   customer: z.string().nullable().optional(),
   description: z.string().optional(),
@@ -90,7 +118,11 @@ const clockUpdateSchema = z.object({
 
 // ── Sync schemas ────────────────────────────────────────
 
-/** @type {z.ZodObject} Snapshot push request body. */
+/**
+ * POST /sync/push-snapshot request body. Replaces all
+ * reference customers and tasks for the user.
+ * @type {z.ZodObject}
+ */
 const snapshotSchema = z.object({
   customers: z.array(z.object({
     name: z.string(),
@@ -112,9 +144,10 @@ const snapshotSchema = z.object({
 // ── Bidirectional sync schemas ──────────────────────────
 
 /**
- * @type {z.ZodObject} One entry in a POST /sync/apply
- * batch. `id` is the shared sync_id; `deleted_at` marks
- * a tombstone.
+ * One entry in a POST /sync/apply batch. The `id` field
+ * is the shared sync UUID; `deleted_at` marks a
+ * tombstone (soft-delete propagation).
+ * @type {z.ZodObject}
  */
 const syncEntrySchema = z.object({
   id: z.string().uuid(),
@@ -130,12 +163,19 @@ const syncEntrySchema = z.object({
   deleted_at: z.string().nullable().optional(),
 })
 
-/** @type {z.ZodObject} POST /sync/apply request body. */
+/**
+ * POST /sync/apply request body. Accepts up to 500
+ * entries per batch.
+ * @type {z.ZodObject}
+ */
 const syncApplySchema = z.object({
   entries: z.array(syncEntrySchema).max(500),
 })
 
-/** @type {z.ZodObject} Active-timer start request. */
+/**
+ * POST /sync/active/start request body.
+ * @type {z.ZodObject}
+ */
 const activeStartSchema = z.object({
   id: z.string().uuid(),
   customer: z.string().nullable().optional(),
@@ -145,7 +185,10 @@ const activeStartSchema = z.object({
   start: z.string().min(1),
 })
 
-/** @type {z.ZodObject} Active-timer stop request. */
+/**
+ * POST /sync/active/stop request body.
+ * @type {z.ZodObject}
+ */
 const activeStopSchema = z.object({
   id: z.string().uuid().optional(),
   end: z.string().min(1).optional(),
@@ -153,7 +196,10 @@ const activeStopSchema = z.object({
 
 // ── Query schemas ───────────────────────────────────────
 
-/** @type {z.ZodObject} Period query parameter. */
+/**
+ * GET /clocks/entries query parameters.
+ * @type {z.ZodObject}
+ */
 const periodQuerySchema = z.object({
   period: z
     .enum(["today", "week", "month", "year"])
@@ -162,7 +208,10 @@ const periodQuerySchema = z.object({
   to: z.string().optional(),
 })
 
-/** @type {z.ZodObject} /sync/changes query parameters. */
+/**
+ * GET /sync/changes query parameters.
+ * @type {z.ZodObject}
+ */
 const syncChangesQuerySchema = z.object({
   since: z.string().optional(),
   limit: z.coerce.number().int().positive().optional(),
