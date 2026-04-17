@@ -86,9 +86,9 @@ function TabIcon({ icon }: { icon: string }) {
 export function AppShell() {
   const [tab, setTab] = useState<Tab>("timer")
 
-  // Dashboard drilldowns navigate to the Entries tab.
   useEffect(() => {
     const goEntries = () => setTab("entries")
+    const goTimer = () => setTab("timer")
     window.addEventListener(
       "navigate-dashboard-drilldown",
       goEntries as EventListener,
@@ -96,6 +96,10 @@ export function AppShell() {
     window.addEventListener(
       "navigate-dashboard-customer",
       goEntries as EventListener,
+    )
+    window.addEventListener(
+      "resume-entry",
+      goTimer as EventListener,
     )
     return () => {
       window.removeEventListener(
@@ -105,6 +109,10 @@ export function AppShell() {
       window.removeEventListener(
         "navigate-dashboard-customer",
         goEntries as EventListener,
+      )
+      window.removeEventListener(
+        "resume-entry",
+        goTimer as EventListener,
       )
     }
   }, [])

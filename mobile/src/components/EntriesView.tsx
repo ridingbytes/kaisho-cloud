@@ -4,8 +4,13 @@ import {
   useMemo,
   useState,
 } from "react"
-import type { ClockEntry } from "../types"
-import { deleteEntry, getEntries, ApiError } from "../api"
+import type { ClockEntry, Customer } from "../types"
+import {
+  deleteEntry,
+  getCustomers,
+  getEntries,
+  ApiError,
+} from "../api"
 import { ErrorBanner } from "./ErrorBanner"
 
 type Range = "day" | "week" | "month"
@@ -215,6 +220,11 @@ export function EntriesView() {
   )
   const [anchor, setAnchor] = useState<Date>(new Date())
   const [entries, setEntries] = useState<ClockEntry[]>([])
+  const [customers, setCustomers] = useState<Customer[]>(
+    [],
+  )
+  const [customerFilter, setCustomerFilter] =
+    useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] =
@@ -224,8 +234,14 @@ export function EntriesView() {
     localStorage.setItem("entries_range", range)
   }, [range])
 
-  // React to drilldown navigation from the Dashboard:
-  // point the view at the picked day / range.
+  // Load customer list for the filter dropdown.
+  useEffect(() => {
+    getCustomers()
+      .then(setCustomers)
+      .catch(() => {})
+  }, [])
+
+  // React to drilldown navigation from the Dashboard.
   useEffect(() => {
     function onDrill(event: Event) {
       const detail = (
@@ -246,14 +262,28 @@ export function EntriesView() {
         setRange("month")
       }
     }
+    function onCustomer(event: Event) {
+      const detail = (
+        event as CustomEvent<{ customer: string }>
+      ).detail
+      setCustomerFilter(detail.customer)
+    }
     window.addEventListener(
       "navigate-dashboard-drilldown",
       onDrill as EventListener,
+    )
+    window.addEventListener(
+      "navigate-dashboard-customer",
+      onCustomer as EventListener,
     )
     return () => {
       window.removeEventListener(
         "navigate-dashboard-drilldown",
         onDrill as EventListener,
+      )
+      window.removeEventListener(
+        "navigate-dashboard-customer",
+        onCustomer as EventListener,
       )
     }
   }, [])
@@ -303,10 +333,38 @@ export function EntriesView() {
     }
   }
 
-  const totalMinutes = sumMinutes(entries)
-  const groups = groupByDay(entries)
+  const filtered = customerFilter
+    ? entries.filter(
+        (e) => e.customer === customerFilter,
+      )
+    : entries
+  const totalMinutes = sumMinutes(filtered)
+  const groups = groupByDay(filtered)
   const todayIso = isoDate(new Date())
   const anchorIso = isoDate(anchor)
+
+  // Unique customers from loaded entries + ref list.
+  const allCustomerNames = useMemo(() => {
+    const names = new Set<string>()
+    for (const e of entries) {
+      if (e.customer) names.add(e.customer)
+    }
+    for (const c of customers) names.add(c.name)
+    return [...names].sort()
+  }, [entries, customers])
+
+  function handleResume(e: ClockEntry) {
+    window.dispatchEvent(
+      new CustomEvent("resume-entry", {
+        detail: {
+          customer: e.customer ?? "",
+          description: e.description ?? "",
+          task_id: e.task_id ?? "",
+          contract: e.contract ?? "",
+        },
+      }),
+    )
+  }
 
   return (
     <div className="view">
@@ -322,13 +380,43 @@ export function EntriesView() {
         showReset={anchorIso !== todayIso}
       />
 
+      <div className="entries-filter-bar">
+        <select
+          value={customerFilter}
+          onChange={(e) =>
+            setCustomerFilter(e.target.value)
+          }
+          className="entries-filter-select"
+        >
+          <option value="">All customers</option>
+          {allCustomerNames.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+        {customerFilter && (
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => setCustomerFilter("")}
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
       <ErrorBanner
         message={error}
         onDismiss={() => setError(null)}
       />
 
       <div className="entries-total">
-        <span className="text-muted">Total</span>
+        <span className="text-muted">
+          {customerFilter
+            ? `Total · ${customerFilter}`
+            : "Total"}
+        </span>
         <span className="entries-total-value">
           {formatMins(totalMinutes || null)}
         </span>
@@ -388,26 +476,53 @@ export function EntriesView() {
                     : "Pending sync"
                 }
               />
-              <button
-                className="entry-delete"
-                onClick={() => handleDelete(e)}
-                disabled={deletingId === e.id}
-                aria-label="Delete entry"
-                title="Delete entry"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg"
-                     viewBox="0 0 24 24"
-                     width="16" height="16"
-                     fill="none" stroke="currentColor"
-                     strokeWidth="2"
-                     strokeLinecap="round"
-                     strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6"/>
-                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                  <path d="M10 11v6M14 11v6"/>
-                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                </svg>
-              </button>
+              <div className="entry-actions">
+                <button
+                  className="entry-action-btn"
+                  onClick={() => handleResume(e)}
+                  aria-label="Resume"
+                  title="Resume timer"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg"
+                       viewBox="0 0 24 24"
+                       width="15" height="15"
+                       fill="none"
+                       stroke="currentColor"
+                       strokeWidth="2"
+                       strokeLinecap="round"
+                       strokeLinejoin="round">
+                    <polygon
+                      points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                </button>
+                <button
+                  className="entry-action-btn
+                    entry-action-btn--danger"
+                  onClick={() => handleDelete(e)}
+                  disabled={deletingId === e.id}
+                  aria-label="Delete entry"
+                  title="Delete entry"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg"
+                       viewBox="0 0 24 24"
+                       width="15" height="15"
+                       fill="none"
+                       stroke="currentColor"
+                       strokeWidth="2"
+                       strokeLinecap="round"
+                       strokeLinejoin="round">
+                    <polyline
+                      points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-1 14a2 2 0
+                      0 1-2 2H8a2 2 0 0
+                      1-2-2L5 6"/>
+                    <path d="M10 11v6M14 11v6"/>
+                    <path d="M9 6V4a1 1 0 0
+                      1 1-1h4a1 1 0 0
+                      1 1 1v2"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           ))}
         </section>

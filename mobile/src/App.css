@@ -584,6 +584,28 @@ select {
   color: var(--t4);
 }
 
+/* -- Entries filter bar -- */
+
+.entries-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.entries-filter-select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--t1);
+  font-family: var(--font);
+  font-size: 13px;
+  appearance: none;
+  cursor: pointer;
+}
+
 /* -- Entries nav -- */
 
 .entries-nav {
@@ -716,10 +738,15 @@ select {
   background: var(--t4);
 }
 
-.entry-delete {
+.entry-actions {
   position: absolute;
   bottom: 10px;
   right: 10px;
+  display: flex;
+  gap: 4px;
+}
+
+.entry-action-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -733,13 +760,19 @@ select {
   transition: color 0.15s, background 0.15s;
 }
 
-.entry-delete:hover,
-.entry-delete:focus-visible {
+.entry-action-btn:hover,
+.entry-action-btn:focus-visible {
+  color: var(--t1);
+  background: var(--raised);
+}
+
+.entry-action-btn--danger:hover,
+.entry-action-btn--danger:focus-visible {
   color: var(--red);
   background: rgba(239, 68, 68, 0.08);
 }
 
-.entry-delete:disabled {
+.entry-action-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }

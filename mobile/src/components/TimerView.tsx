@@ -103,6 +103,32 @@ export function TimerView() {
     return () => clearInterval(id)
   }, [timer?.start])
 
+  // Resume: pre-fill form from an Entries-view tap.
+  useEffect(() => {
+    function onResume(event: Event) {
+      const detail = (
+        event as CustomEvent<{
+          customer: string
+          description: string
+          task_id: string
+          contract: string
+        }>
+      ).detail
+      setCustomer(detail.customer || "")
+      setDesc(detail.description || "")
+      setTaskId(detail.task_id || "")
+      setContract(detail.contract || "")
+    }
+    window.addEventListener(
+      "resume-entry", onResume as EventListener,
+    )
+    return () => {
+      window.removeEventListener(
+        "resume-entry", onResume as EventListener,
+      )
+    }
+  }, [])
+
   const selectedCustomer = customers.find(
     (c) => c.name === customer,
   )
