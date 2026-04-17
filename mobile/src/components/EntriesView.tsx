@@ -12,6 +12,7 @@ import {
   stopTimer,
   ApiError,
 } from "../api"
+import { onWsEvent } from "../ws"
 import { useToast } from "../toast"
 import { useConfirm } from "./ConfirmDialog"
 import { ErrorBanner } from "./ErrorBanner"
@@ -347,11 +348,18 @@ export function EntriesView() {
     load()
   }, [load])
 
-  // Refresh entries every 30s so changes from other
-  // devices (e.g. desktop deletes) propagate.
+  // Re-fetch when another device changes entries
   useEffect(() => {
-    const id = setInterval(load, 30000)
-    return () => clearInterval(id)
+    const off1 = onWsEvent(
+      "entries:changed", () => load(),
+    )
+    const off2 = onWsEvent(
+      "entries:deleted", () => load(),
+    )
+    const off3 = onWsEvent(
+      "timer:stopped", () => load(),
+    )
+    return () => { off1(); off2(); off3() }
   }, [load])
 
   async function handleDelete(e: ClockEntry) {

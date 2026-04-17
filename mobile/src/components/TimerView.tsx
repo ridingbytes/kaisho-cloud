@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from "react"
+import {
+  useCallback, useEffect, useRef, useState,
+} from "react"
 import type { ActiveTimer, Customer, Task } from "../types"
 import {
   getActive,
@@ -8,6 +10,7 @@ import {
   stopTimer,
   ApiError,
 } from "../api"
+import { onWsEvent } from "../ws"
 import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
 import { CustomerPicker } from "./CustomerPicker"
@@ -41,6 +44,11 @@ export function TimerView() {
   const [error, setError] = useState<string | null>(null)
   const [needsUpgrade, setNeedsUpgrade] = useState(false)
   const [loading, setLoading] = useState(false)
+  // Suppress WS refreshes while a local mutation is
+  // in-flight or recently completed. Prevents the
+  // optimistic UI from flickering when the server's
+  // broadcast arrives after our own API response.
+  const suppressUntilRef = useRef(0)
 
   const refreshActive = useCallback(async () => {
     try {
@@ -74,12 +82,20 @@ export function TimerView() {
     load()
   }, [load])
 
-  // Poll /clocks/active every 5s so a timer started or
-  // stopped on another device propagates quickly. Also
-  // re-fetch when the tab regains focus — iOS PWAs pause
-  // timers while backgrounded.
+  // Real-time updates via WebSocket. Refresh active
+  // timer when another device starts or stops.
+  // Visibility fallback for iOS PWA background resume.
   useEffect(() => {
-    const id = setInterval(refreshActive, 5000)
+    const offStart = onWsEvent(
+      "timer:started", () => {
+        if (Date.now() > suppressUntilRef.current) refreshActive()
+      },
+    )
+    const offStop = onWsEvent(
+      "timer:stopped", () => {
+        if (Date.now() > suppressUntilRef.current) refreshActive()
+      },
+    )
     const onVisible = () => {
       if (document.visibilityState === "visible") {
         refreshActive()
@@ -89,7 +105,8 @@ export function TimerView() {
       "visibilitychange", onVisible,
     )
     return () => {
-      clearInterval(id)
+      offStart()
+      offStop()
       document.removeEventListener(
         "visibilitychange", onVisible,
       )
@@ -124,28 +141,35 @@ export function TimerView() {
       setTaskId(detail.task_id || "")
       setContract(detail.contract || "")
       if (detail.autoStart && !timer) {
-        // Delay slightly so React commits the state
-        // updates before we trigger the start.
-        setTimeout(async () => {
-          setLoading(true)
-          setError(null)
-          try {
-            const result = await startTimer({
-              customer: detail.customer || undefined,
-              description: detail.description || "",
-              task_id: detail.task_id || undefined,
-              contract: detail.contract || undefined,
-            })
+        // Optimistic: show timer immediately
+        suppressUntilRef.current = Date.now() + 3000
+        setTimer({
+          active: true,
+          id: "",
+          customer: detail.customer || null,
+          description: detail.description || "",
+          start: new Date().toISOString(),
+          end: null,
+          task_id: detail.task_id || null,
+          contract: detail.contract || null,
+        })
+        // Fire API call in background
+        startTimer({
+          customer: detail.customer || undefined,
+          description: detail.description || "",
+          task_id: detail.task_id || undefined,
+          contract: detail.contract || undefined,
+        })
+          .then((result) => {
             setTimer(result)
             toast("Timer started")
-          } catch (err) {
+          })
+          .catch((err) => {
+            setTimer(null)
             if (err instanceof ApiError) {
               setError(err.message)
             }
-          } finally {
-            setLoading(false)
-          }
-        }, 100)
+          })
       }
     }
     window.addEventListener(
@@ -167,6 +191,24 @@ export function TimerView() {
     e.preventDefault()
     setError(null)
     setLoading(true)
+
+    // Optimistic UI: show timer immediately so the
+    // user gets instant feedback while the API call
+    // completes in the background.
+    suppressUntilRef.current = Date.now() + 3000
+    const optimistic: ActiveTimer = {
+      active: true,
+      id: "",
+      customer: customer || null,
+      description: desc,
+      start: new Date().toISOString(),
+      end: null,
+      task_id: taskId || null,
+      contract: contract || null,
+    }
+    setTimer(optimistic)
+    setDesc("")
+
     try {
       const result = await startTimer({
         customer: customer || undefined,
@@ -176,12 +218,9 @@ export function TimerView() {
       })
       setTimer(result)
       toast("Timer started")
-      setDesc("")
-      // Re-sync so we pick up any server-side
-      // reconciliation (e.g. another device won the
-      // start race).
-      setTimeout(refreshActive, 500)
     } catch (err) {
+      // Revert optimistic update
+      setTimer(null)
       if (err instanceof ApiError) {
         if (
           err.status === 403 &&
@@ -200,18 +239,19 @@ export function TimerView() {
 
   async function handleStop() {
     setError(null)
-    setLoading(true)
+    // Optimistic: clear timer immediately
+    suppressUntilRef.current = Date.now() + 3000
+    const prev = timer
+    setTimer(null)
+    toast("Timer stopped")
     try {
       await stopTimer()
-      setTimer(null)
-      toast("Timer stopped")
-      setTimeout(refreshActive, 500)
     } catch (err) {
+      // Revert on failure
+      setTimer(prev)
       if (err instanceof ApiError) {
         setError(err.message)
       }
-    } finally {
-      setLoading(false)
     }
   }
 

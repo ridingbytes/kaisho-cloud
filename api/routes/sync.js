@@ -243,46 +243,6 @@ function decideMerge(existing, incoming) {
  * @returns {Promise<{action: string, id: string}>}
  *   Result with the action taken and entry id.
  */
-async function applyOneEntry(entry, userId) {
-  const { data: existing } = await supabase
-    .from("clock_entries")
-    .select("id, updated_at, deleted_at")
-    .eq("id", entry.id)
-    .eq("user_id", userId)
-    .maybeSingle()
-
-  const decision = decideMerge(existing, entry)
-  if (decision.action === "skip") {
-    return { action: "skip", id: entry.id }
-  }
-
-  const row = wireToRow(entry, userId)
-  if (decision.action === "insert") {
-    const { error } = await supabase
-      .from("clock_entries")
-      .insert(row)
-    if (error) {
-      return { action: "error", id: entry.id, error }
-    }
-    return { action: "insert", id: entry.id }
-  }
-
-  const updates = {}
-  for (const k of APPLY_FIELDS) updates[k] = row[k]
-  updates.deleted_at = row.deleted_at
-  updates.updated_at = row.updated_at
-
-  const { error } = await supabase
-    .from("clock_entries")
-    .update(updates)
-    .eq("id", entry.id)
-    .eq("user_id", userId)
-
-  if (error) {
-    return { action: "error", id: entry.id, error }
-  }
-  return { action: "update", id: entry.id }
-}
 
 /**
  * Apply a batch of incoming entries. Idempotent.
@@ -485,12 +445,14 @@ router.post(
     }
 
     const wire = rowToWire(row)
-    broadcast(req.userId, "timer:started", wire)
     res.status(201).json({
       active: true,
       winner: "incoming",
       ...wire,
     })
+    process.nextTick(() =>
+      broadcast(req.userId, "timer:started", wire),
+    )
   }),
 )
 
@@ -541,8 +503,10 @@ router.post(
     }
 
     const wire = rowToWire(row)
-    broadcast(req.userId, "timer:stopped", wire)
     res.json(wire)
+    process.nextTick(() =>
+      broadcast(req.userId, "timer:stopped", wire),
+    )
   }),
 )
 

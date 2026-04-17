@@ -29,7 +29,6 @@ const userSockets = new Map()
 
 // Heartbeat interval (30s ping, 60s timeout)
 const HEARTBEAT_MS = 30000
-const TIMEOUT_MS = 60000
 
 /**
  * Authenticate a WebSocket connection from query params.
@@ -191,34 +190,7 @@ function broadcast(userId, event, data = {}) {
   }
 }
 
-/**
- * Broadcast to all clients of a user except the sender.
- * Useful when the mutation response already updates the
- * calling client — only other devices need the push.
- *
- * @param {string} userId - Target user.
- * @param {WebSocket|null} sender - Socket to exclude.
- * @param {string} event - Event name.
- * @param {object} [data={}] - Event payload.
- */
-function broadcastExcept(
-  userId, sender, event, data = {},
-) {
-  const sockets = userSockets.get(userId)
-  if (!sockets || sockets.size === 0) return
-  const msg = JSON.stringify({ event, data })
-  for (const ws of sockets) {
-    if (
-      ws !== sender &&
-      ws.readyState === WebSocket.OPEN
-    ) {
-      ws.send(msg)
-    }
-  }
-}
-
 module.exports = {
   setupWebSocket,
   broadcast,
-  broadcastExcept,
 }

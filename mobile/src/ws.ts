@@ -2,8 +2,8 @@
  * WebSocket client for real-time events from the cloud.
  *
  * Connects with the user's access token for auth.
- * Emits custom DOM events that components can listen to
- * without coupling to the WebSocket directly.
+ * Components register handlers via onWsEvent() without
+ * coupling to the socket directly.
  */
 
 let ws: WebSocket | null = null
@@ -14,10 +14,14 @@ let token = ""
 
 const MAX_RECONNECT_DELAY = 30000
 
-type EventHandler = (data: Record<string, unknown>) => void
+type EventHandler = (
+  data: Record<string, unknown>,
+) => void
+
 const listeners = new Map<string, Set<EventHandler>>()
 
-/** Register a handler for a WS event type. */
+/** Register a handler for a WS event type.
+ *  Returns an unsubscribe function. */
 export function onWsEvent(
   event: string,
   handler: EventHandler,
@@ -29,7 +33,6 @@ export function onWsEvent(
   return () => listeners.get(event)?.delete(handler)
 }
 
-/** Dispatch to registered handlers. */
 function dispatch(
   event: string,
   data: Record<string, unknown>,
@@ -39,8 +42,10 @@ function dispatch(
   for (const fn of handlers) {
     try {
       fn(data)
-    } catch {
-      /* handler errors don't break the WS loop */
+    } catch (err) {
+      console.error(
+        `[ws] handler error for ${event}:`, err,
+      )
     }
   }
 }
@@ -67,10 +72,8 @@ export function disconnectWs() {
 /** Update the access token (after refresh). */
 export function updateWsToken(newToken: string) {
   token = newToken
-  // Reconnect with new token if currently connected
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.close()
-    // onclose handler will trigger reconnect
   }
 }
 
@@ -90,13 +93,13 @@ function doConnect() {
 
   ws.onmessage = (e) => {
     try {
-      const msg = JSON.parse(e.data) as {
+      const msg = JSON.parse(e.data as string) as {
         event: string
         data: Record<string, unknown>
       }
       dispatch(msg.event, msg.data || {})
-    } catch {
-      /* ignore malformed messages */
+    } catch (err) {
+      console.warn("[ws] malformed message:", err)
     }
   }
 
@@ -106,12 +109,18 @@ function doConnect() {
   }
 
   ws.onerror = () => {
-    // onclose fires after onerror, reconnect happens there
+    // onclose fires after onerror
   }
+}
+
+/** Add +/- 20% jitter to prevent thundering herd. */
+function jitter(ms: number): number {
+  return ms * (0.8 + 0.4 * Math.random())
 }
 
 function scheduleReconnect() {
   if (reconnectTimer) return
+  const delay = jitter(reconnectDelay)
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null
     reconnectDelay = Math.min(
@@ -119,5 +128,5 @@ function scheduleReconnect() {
       MAX_RECONNECT_DELAY,
     )
     doConnect()
-  }, reconnectDelay)
+  }, delay)
 }
