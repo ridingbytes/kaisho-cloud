@@ -44,9 +44,11 @@ export function TimerView() {
   const [error, setError] = useState<string | null>(null)
   const [needsUpgrade, setNeedsUpgrade] = useState(false)
   const [loading, setLoading] = useState(false)
-  // Suppress WS refreshes while a local start/stop is
-  // in-flight to prevent the optimistic UI from flickering.
-  const pendingRef = useRef(false)
+  // Suppress WS refreshes while a local mutation is
+  // in-flight or recently completed. Prevents the
+  // optimistic UI from flickering when the server's
+  // broadcast arrives after our own API response.
+  const suppressUntilRef = useRef(0)
 
   const refreshActive = useCallback(async () => {
     try {
@@ -86,12 +88,12 @@ export function TimerView() {
   useEffect(() => {
     const offStart = onWsEvent(
       "timer:started", () => {
-        if (!pendingRef.current) refreshActive()
+        if (Date.now() > suppressUntilRef.current) refreshActive()
       },
     )
     const offStop = onWsEvent(
       "timer:stopped", () => {
-        if (!pendingRef.current) refreshActive()
+        if (Date.now() > suppressUntilRef.current) refreshActive()
       },
     )
     const onVisible = () => {
@@ -140,7 +142,7 @@ export function TimerView() {
       setContract(detail.contract || "")
       if (detail.autoStart && !timer) {
         // Optimistic: show timer immediately
-        pendingRef.current = true
+        suppressUntilRef.current = Date.now() + 3000
         setTimer({
           active: true,
           id: "",
@@ -168,9 +170,6 @@ export function TimerView() {
               setError(err.message)
             }
           })
-          .finally(() => {
-            pendingRef.current = false
-          })
       }
     }
     window.addEventListener(
@@ -196,7 +195,7 @@ export function TimerView() {
     // Optimistic UI: show timer immediately so the
     // user gets instant feedback while the API call
     // completes in the background.
-    pendingRef.current = true
+    suppressUntilRef.current = Date.now() + 3000
     const optimistic: ActiveTimer = {
       active: true,
       id: "",
@@ -234,7 +233,6 @@ export function TimerView() {
         }
       }
     } finally {
-      pendingRef.current = false
       setLoading(false)
     }
   }
@@ -242,7 +240,7 @@ export function TimerView() {
   async function handleStop() {
     setError(null)
     // Optimistic: clear timer immediately
-    pendingRef.current = true
+    suppressUntilRef.current = Date.now() + 3000
     const prev = timer
     setTimer(null)
     toast("Timer stopped")
@@ -254,8 +252,6 @@ export function TimerView() {
       if (err instanceof ApiError) {
         setError(err.message)
       }
-    } finally {
-      pendingRef.current = false
     }
   }
 
