@@ -241,18 +241,21 @@ export function TimerView() {
 
   async function handleStop() {
     setError(null)
-    setLoading(true)
+    // Optimistic: clear timer immediately
+    pendingRef.current = true
+    const prev = timer
+    setTimer(null)
+    toast("Timer stopped")
     try {
       await stopTimer()
-      setTimer(null)
-      toast("Timer stopped")
-      setTimeout(refreshActive, 500)
     } catch (err) {
+      // Revert on failure
+      setTimer(prev)
       if (err instanceof ApiError) {
         setError(err.message)
       }
     } finally {
-      setLoading(false)
+      pendingRef.current = false
     }
   }
 
