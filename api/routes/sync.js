@@ -440,6 +440,43 @@ router.post(
   }),
 )
 
+// ── POST /sync/ack ──────────────────────────────────────
+
+/**
+ * Mark entries as synced (pulled by the local app).
+ * Stamps ``synced_at`` so the mobile UI can show whether
+ * the local app has seen each entry.
+ *
+ * @route POST /sync/ack
+ */
+router.post(
+  "/ack",
+  requireApiKey,
+  asyncHandler(async (req, res) => {
+    const { ids } = req.body
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        error: "ids must be a non-empty array",
+      })
+    }
+    const now = new Date().toISOString()
+    const { error, count } = await supabase
+      .from("clock_entries")
+      .update({ synced_at: now })
+      .eq("user_id", req.userId)
+      .in("id", ids.slice(0, 500))
+      .is("synced_at", null)
+
+    if (error) {
+      return res
+        .status(500)
+        .json({ error: "Failed to ack" })
+    }
+
+    res.json({ acked: count || ids.length })
+  }),
+)
+
 // ── GET /sync/stats ─────────────────────────────────────
 
 /**

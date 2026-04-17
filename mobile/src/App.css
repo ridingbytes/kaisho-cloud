@@ -699,23 +699,21 @@ select {
   color: var(--t2);
 }
 
-.entry-tag {
+.sync-dot {
   position: absolute;
-  top: 12px;
+  top: 16px;
   right: 16px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  background: var(--raised);
-  color: var(--t3);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
-.entry-tag--invoiced {
-  background: rgba(34, 197, 94, 0.12);
-  color: var(--green);
+.sync-dot.synced {
+  background: var(--green);
+}
+
+.sync-dot.pending {
+  background: var(--t4);
 }
 
 .entry-delete {

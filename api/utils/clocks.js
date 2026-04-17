@@ -99,6 +99,7 @@ function formatEntry(row) {
     contract: row.contract || null,
     notes: row.notes || "",
     invoiced: row.invoiced || false,
+    synced_at: row.synced_at || null,
     created_at: row.created_at,
     updated_at: row.updated_at,
     deleted_at: row.deleted_at || null,

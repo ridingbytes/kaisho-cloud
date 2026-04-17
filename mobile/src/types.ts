@@ -36,6 +36,7 @@ export interface ClockEntry {
   contract?: string | null
   notes?: string
   invoiced?: boolean
+  synced_at?: string | null
   created_at?: string
   updated_at?: string
 }

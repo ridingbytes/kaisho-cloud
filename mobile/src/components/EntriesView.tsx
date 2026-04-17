@@ -377,16 +377,17 @@ export function EntriesView() {
                   {e.description}
                 </div>
               )}
-              {e.invoiced && (
-                <span
-                  className={
-                    "entry-tag entry-tag--invoiced"
-                  }
-                  title="Invoiced"
-                >
-                  Invoiced
-                </span>
-              )}
+              <span
+                className={
+                  "sync-dot " +
+                  (e.synced_at ? "synced" : "pending")
+                }
+                title={
+                  e.synced_at
+                    ? "Synced to local app"
+                    : "Pending sync"
+                }
+              />
               <button
                 className="entry-delete"
                 onClick={() => handleDelete(e)}
