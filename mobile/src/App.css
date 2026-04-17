@@ -281,6 +281,9 @@ select {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* Extra padding so the last item isn't hidden
+     behind the tab bar on devices without safe area */
+  padding-bottom: 16px;
 }
 
 /* -- Tab bar -- */
