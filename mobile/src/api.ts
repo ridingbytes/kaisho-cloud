@@ -263,6 +263,8 @@ export function updateEntry(
     contract?: string | null
     notes?: string
     invoiced?: boolean
+    start_at?: string
+    end_at?: string
   },
 ): Promise<ClockEntry> {
   return request(

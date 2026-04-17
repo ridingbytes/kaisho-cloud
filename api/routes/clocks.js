@@ -288,6 +288,7 @@ router.post(
 const CLOCK_UPDATE_FIELDS = [
   "customer", "description", "task_id",
   "contract", "notes", "invoiced",
+  "start_at", "end_at",
 ]
 
 /**
