@@ -882,8 +882,7 @@ select {
   box-shadow: var(--shadow);
   animation: slide-up 0.2s ease-out;
   overflow: hidden;
-  /* Push above the tab bar */
-  margin-bottom: 60px;
+  margin-bottom: 52px;
 }
 
 .edit-sheet-header {
