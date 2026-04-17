@@ -18,6 +18,9 @@ import { useConfirm } from "./ConfirmDialog"
 import { ErrorBanner } from "./ErrorBanner"
 import { EditEntrySheet } from "./EditEntrySheet"
 import { formatElapsed } from "../utils/formatElapsed"
+import {
+  formatMins, formatDate, formatTime,
+} from "../utils/time"
 
 type Range = "day" | "week" | "month"
 
@@ -34,33 +37,6 @@ function isoDate(d: Date): string {
     pad(d.getDate())
   )
 }
-
-function formatMins(m: number | null): string {
-  if (m === null) return "—"
-  const h = Math.floor(m / 60)
-  const min = m % 60
-  if (h === 0) return `${min}m`
-  if (min === 0) return `${h}h`
-  return `${h}h ${min}m`
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  })
-}
-
-function formatTime(iso: string | null): string {
-  if (!iso) return "—"
-  return new Date(iso).toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
-
-// formatElapsed imported from utils
 
 
 function RunningElapsed({ start }: { start: string }) {
@@ -266,7 +242,7 @@ export function EntriesView() {
   useEffect(() => {
     getCustomers()
       .then(setCustomers)
-      .catch(() => {})
+      .catch((e) => console.warn("customers:", e))
   }, [])
 
   // React to drilldown navigation from the Dashboard.
@@ -495,17 +471,17 @@ export function EntriesView() {
         </p>
       )}
 
-      {groups.map(({ day, entries }) => (
+      {groups.map(({ day, entries: dayEntries }) => (
         <section key={day} className="entries-day">
           <header className="entries-day-header">
             <span className="entry-date">
               {formatDate(day + "T00:00:00")}
             </span>
             <span className="entry-duration">
-              {formatMins(sumMinutes(entries))}
+              {formatMins(sumMinutes(dayEntries))}
             </span>
           </header>
-          {entries.map((e) => (
+          {dayEntries.map((e) => (
             <div
               key={e.id}
               className={

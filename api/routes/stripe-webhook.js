@@ -11,6 +11,7 @@ const Stripe = require("stripe")
 const { supabase } = require("../db")
 const { logger } = require("../logger")
 const { planFromPriceId } = require("../config")
+const { clearPlanCache } = require("../middleware")
 const {
   sendPlanUpgradeEmail,
   sendPlanCancelledEmail,
@@ -38,6 +39,8 @@ async function onCheckoutCompleted(session) {
       stripe_subscription_id: session.subscription,
     })
     .eq("id", user_id)
+
+  clearPlanCache(user_id)
 
   const { data: authData } =
     await supabase.auth.admin.getUserById(user_id)
@@ -86,6 +89,12 @@ async function onSubscriptionUpdated(sub) {
     }
   }
 
+  const { data: subUser } = await supabase
+    .from("users")
+    .select("id")
+    .eq("stripe_customer_id", sub.customer)
+    .single()
+
   await supabase
     .from("users")
     .update({
@@ -93,6 +102,8 @@ async function onSubscriptionUpdated(sub) {
       stripe_subscription_id: sub.id,
     })
     .eq("stripe_customer_id", sub.customer)
+
+  if (subUser) clearPlanCache(subUser.id)
 
   logger.info(
     { customer: sub.customer, plan: newPlan },
@@ -127,10 +138,18 @@ async function onInvoicePaid(invoice) {
   const paidPlan = planFromPriceId(paidPriceId)
   if (!paidPlan) return
 
+  const { data: invUser } = await supabase
+    .from("users")
+    .select("id")
+    .eq("stripe_customer_id", invoice.customer)
+    .single()
+
   await supabase
     .from("users")
     .update({ plan: paidPlan })
     .eq("stripe_customer_id", invoice.customer)
+
+  if (invUser) clearPlanCache(invUser.id)
 
   logger.info(
     { invoice: invoice.id, plan: paidPlan },
@@ -162,6 +181,7 @@ async function onSubscriptionDeleted(sub) {
     .eq("stripe_customer_id", sub.customer)
 
   if (user) {
+    clearPlanCache(user.id)
     const { data: authData } =
       await supabase.auth.admin.getUserById(user.id)
     if (authData?.user?.email) {
@@ -185,6 +205,12 @@ async function onSubscriptionDeleted(sub) {
  * @param {string} customerId - Stripe customer ID.
  */
 async function onCustomerDeleted(customerId) {
+  const { data: delUser } = await supabase
+    .from("users")
+    .select("id")
+    .eq("stripe_customer_id", customerId)
+    .single()
+
   await supabase
     .from("users")
     .update({
@@ -193,6 +219,8 @@ async function onCustomerDeleted(customerId) {
       plan: "free",
     })
     .eq("stripe_customer_id", customerId)
+
+  if (delUser) clearPlanCache(delUser.id)
 
   logger.info(
     { customer: customerId },
@@ -231,4 +259,4 @@ async function handleStripeEvent(event) {
   }
 }
 
-module.exports = { handleStripeEvent }
+module.exports = { handleStripeEvent, stripe }

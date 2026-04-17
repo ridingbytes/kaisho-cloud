@@ -8,6 +8,7 @@ import {
 import { useToast } from "../toast"
 import { CustomerPicker } from "./CustomerPicker"
 import { ErrorBanner } from "./ErrorBanner"
+import { formatDate, formatTime } from "../utils/time"
 
 /**
  * Props for the EditEntrySheet.
@@ -70,29 +71,13 @@ export function EditEntrySheet(props: Props) {
   useEffect(() => {
     getCustomers()
       .then(setCustomers)
-      .catch(() => {})
+      .catch((e) => console.warn("customers:", e))
   }, [])
 
   const selectedCustomer = customers.find(
     (c) => c.name === customer,
   )
   const contracts = selectedCustomer?.contracts ?? []
-
-  function formatTime(iso: string | null): string {
-    if (!iso) return "—"
-    return new Date(iso).toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  }
-
-  function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString(undefined, {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    })
-  }
 
   function parseDuration(s: string): number | null {
     const m1 = s.match(/^(\d+)\s*h\s*(\d+)\s*m?$/i)

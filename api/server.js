@@ -7,6 +7,8 @@
  * error handling.
  */
 
+const path = require("path")
+const http = require("http")
 const express = require("express")
 const cors = require("cors")
 const cookieParser = require("cookie-parser")
@@ -15,7 +17,7 @@ const { logger, httpLogger } = require("./logger")
 const { supabase } = require("./db")
 const { asyncHandler } = require("./utils/asyncHandler")
 const {
-  handleStripeEvent,
+  handleStripeEvent, stripe,
 } = require("./routes/stripe-webhook")
 
 const authRoutes = require("./routes/auth")
@@ -52,7 +54,6 @@ app.use("/ai", aiRoutes)
 
 // ── Mobile SPA ──────────────────────────────────────────
 
-const path = require("path")
 const mobileDir = path.join(
   __dirname, "..", "mobile", "dist",
 )
@@ -88,10 +89,6 @@ app.get("/health", (_req, res) => {
 app.post(
   "/billing/webhook/stripe",
   asyncHandler(async (req, res) => {
-    const Stripe = require("stripe")
-    const stripe = new Stripe(
-      process.env.STRIPE_SECRET_KEY,
-    )
     const sig = req.headers["stripe-signature"]
 
     let event
@@ -146,7 +143,6 @@ app.use((err, _req, res, _next) => {
 
 // ── Start ───────────────────────────────────────────────
 
-const http = require("http")
 const { setupWebSocket } = require("./ws")
 
 const server = http.createServer(app)

@@ -38,7 +38,7 @@ export function ProfileView() {
   useEffect(() => {
     getSubscription()
       .then(setSub)
-      .catch(() => {})
+      .catch((e) => console.warn("subscription:", e))
   }, [])
 
   async function handleRegenerate() {

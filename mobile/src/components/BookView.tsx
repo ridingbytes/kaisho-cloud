@@ -36,7 +36,7 @@ export function BookView() {
   useEffect(() => {
     getCustomers()
       .then(setCustomers)
-      .catch(() => {})
+      .catch((e) => console.warn("load:", e))
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {

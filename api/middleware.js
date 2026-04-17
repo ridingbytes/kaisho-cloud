@@ -182,9 +182,20 @@ function requirePlan(...plans) {
   }
 }
 
+/**
+ * Remove a user from the plan cache so the next
+ * ``requirePlan`` call fetches fresh data from Supabase.
+ *
+ * @param {string} userId - User UUID.
+ */
+function clearPlanCache(userId) {
+  PLAN_CACHE.delete(userId)
+}
+
 module.exports = {
   requireJwt,
   requireApiKey,
   requireAuth,
   requirePlan,
+  clearPlanCache,
 }

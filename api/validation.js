@@ -108,15 +108,7 @@ const clockUpdateSchema = z.object({
   start_at: z.string().optional(),
   end_at: z.string().nullable().optional(),
 }).refine(
-  (d) =>
-    d.customer !== undefined ||
-    d.description !== undefined ||
-    d.task_id !== undefined ||
-    d.contract !== undefined ||
-    d.notes !== undefined ||
-    d.invoiced !== undefined ||
-    d.start_at !== undefined ||
-    d.end_at !== undefined,
+  (d) => Object.values(d).some((v) => v !== undefined),
   { message: "Nothing to update" },
 )
 
@@ -221,6 +213,37 @@ const syncChangesQuerySchema = z.object({
   limit: z.coerce.number().int().positive().optional(),
 })
 
+// ── AI schemas ─────────────────────────────────────────
+
+/**
+ * POST /ai/complete request body.
+ * @type {z.ZodObject}
+ */
+const aiCompleteSchema = z.object({
+  system: z.string().optional(),
+  messages: z.array(z.any()),
+  max_tokens: z.number().optional(),
+  model: z.string().optional(),
+  tools: z.array(z.any()).optional(),
+})
+
+/**
+ * POST /ai/parse-booking request body.
+ * @type {z.ZodObject}
+ */
+const aiParseBookingSchema = z.object({
+  text: z.string().min(1, "text is required"),
+})
+
+/**
+ * POST /ai/summarize request body.
+ * @type {z.ZodObject}
+ */
+const aiSummarizeSchema = z.object({
+  entries: z.array(z.any()),
+  period: z.string().optional(),
+})
+
 // ── Middleware factories ─────────────────────────────────
 
 /**
@@ -281,6 +304,9 @@ module.exports = {
   activeStopSchema,
   periodQuerySchema,
   syncChangesQuerySchema,
+  aiCompleteSchema,
+  aiParseBookingSchema,
+  aiSummarizeSchema,
   validate,
   validateQuery,
 }

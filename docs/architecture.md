@@ -256,7 +256,7 @@ The local app runs a multi-turn agentic loop:
 
 **Max turns**: 15 per request (prevents runaway loops).
 
-### Available Tools (45)
+### Available Tools
 
 | Category | Tools |
 |----------|-------|
@@ -343,7 +343,7 @@ refreshed on expiry, not evicted proactively.
 Subscriptions are managed through Stripe Checkout. The flow:
 
 1. User clicks upgrade in the mobile PWA
-2. `POST /billing/create-checkout` creates a Stripe session
+2. `POST /billing/checkout` creates a Stripe session
 3. User completes payment on Stripe
 4. Webhook `POST /billing/webhook` updates the `users.plan`
 5. Plan change takes effect immediately

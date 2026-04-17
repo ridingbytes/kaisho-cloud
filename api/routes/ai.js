@@ -51,6 +51,42 @@ const MODEL_DEFAULT = process.env.AI_MODEL_DEFAULT
 // runaway costs while keeping the UX friendly.
 const MONTHLY_TOKEN_CAP = 200_000
 
+// ── Guard middleware ───────────────────────────────────
+
+/**
+ * Reject early when the OpenRouter key is not configured.
+ */
+function requireOpenRouterKey(req, res, next) {
+  if (!OPENROUTER_API_KEY) {
+    return res
+      .status(503)
+      .json({ error: "AI not configured" })
+  }
+  next()
+}
+
+/**
+ * Reject when the user has exceeded the monthly token
+ * cap. Attaches ``req.aiMonth`` and ``req.aiUsage`` for
+ * downstream handlers.
+ */
+async function requireTokenQuota(req, res, next) {
+  const month = currentMonth()
+  const usage = await getUsage(req.userId, month)
+  const total =
+    usage.input_tokens + usage.output_tokens
+  if (total >= MONTHLY_TOKEN_CAP) {
+    return res.status(429).json({
+      error: "Monthly AI quota exceeded",
+      usage: total,
+      cap: MONTHLY_TOKEN_CAP,
+    })
+  }
+  req.aiMonth = month
+  req.aiUsage = usage
+  next()
+}
+
 // ── Helpers ─────────────────────────────────────────────
 
 /**
@@ -115,6 +151,10 @@ async function recordUsage(
   // Fallback: if the RPC doesn't exist yet, use
   // the insert-or-update approach.
   if (error) {
+    logger.warn(
+      { error },
+      "increment_ai_usage RPC failed, using upsert",
+    )
     await supabase.from("ai_usage").upsert(
       {
         user_id: userId,
@@ -220,24 +260,10 @@ function extractUsage(result) {
  */
 router.post(
   "/complete",
+  requireOpenRouterKey,
+  asyncHandler(requireTokenQuota),
   asyncHandler(async (req, res) => {
-    if (!OPENROUTER_API_KEY) {
-      return res
-        .status(503)
-        .json({ error: "AI not configured" })
-    }
-
-    const month = currentMonth()
-    const usage = await getUsage(req.userId, month)
-    const total =
-      usage.input_tokens + usage.output_tokens
-    if (total >= MONTHLY_TOKEN_CAP) {
-      return res.status(429).json({
-        error: "Monthly AI quota exceeded",
-        usage: total,
-        cap: MONTHLY_TOKEN_CAP,
-      })
-    }
+    const month = req.aiMonth
 
     const {
       system, messages, max_tokens, model, tools,
@@ -298,7 +324,7 @@ const PARSE_SYSTEM =
  */
 router.post(
   "/parse-booking",
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req, res, next) => {
     const { text } = req.body
     if (!text) {
       return res.status(400).json({
@@ -315,22 +341,12 @@ router.post(
       })
     }
 
-    if (!OPENROUTER_API_KEY) {
-      return res.status(503).json({
-        error: "AI not configured",
-      })
-    }
-
-    const month = currentMonth()
-    const usage = await getUsage(req.userId, month)
-    if (
-      usage.input_tokens + usage.output_tokens
-      >= MONTHLY_TOKEN_CAP
-    ) {
-      return res.status(429).json({
-        error: "Monthly AI quota exceeded",
-      })
-    }
+    next()
+  }),
+  requireOpenRouterKey,
+  asyncHandler(requireTokenQuota),
+  asyncHandler(async (req, res) => {
+    const month = req.aiMonth
 
     // Use the fast/cheap model for structured
     // extraction — no need for a large LLM here.
@@ -398,30 +414,19 @@ const SUMMARY_SYSTEM =
  */
 router.post(
   "/summarize",
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req, res, next) => {
     const { entries } = req.body
     if (!entries || !Array.isArray(entries)) {
       return res.status(400).json({
         error: "entries array is required",
       })
     }
-
-    if (!OPENROUTER_API_KEY) {
-      return res.status(503).json({
-        error: "AI not configured",
-      })
-    }
-
-    const month = currentMonth()
-    const usage = await getUsage(req.userId, month)
-    if (
-      usage.input_tokens + usage.output_tokens
-      >= MONTHLY_TOKEN_CAP
-    ) {
-      return res.status(429).json({
-        error: "Monthly AI quota exceeded",
-      })
-    }
+    next()
+  }),
+  requireOpenRouterKey,
+  asyncHandler(requireTokenQuota),
+  asyncHandler(async (req, res) => {
+    const month = req.aiMonth
 
     // Compact representation to save tokens.
     const compact = entries.map((e) => ({

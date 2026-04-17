@@ -3,17 +3,9 @@ import type { ClockEntry } from "../types"
 import { ApiError, aiSummarize, getEntries } from "../api"
 import { useAuth } from "../auth"
 import { ErrorBanner } from "./ErrorBanner"
+import { formatMins } from "../utils/time"
 
 // ── Formatters ──────────────────────────────────────────
-
-function formatMins(m: number): string {
-  if (m === 0) return "0m"
-  const h = Math.floor(m / 60)
-  const min = m % 60
-  if (h === 0) return `${min}m`
-  if (min === 0) return `${h}h`
-  return `${h}h ${min}m`
-}
 
 function startOfDay(d: Date): Date {
   const out = new Date(d)
