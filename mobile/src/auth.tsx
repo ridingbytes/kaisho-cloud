@@ -16,6 +16,11 @@ import {
   setTokens,
   signup as apiSignup,
 } from "./api"
+import {
+  connectWs,
+  disconnectWs,
+  updateWsToken,
+} from "./ws"
 
 type AuthView = "login" | "signup-success" | "recover"
 
@@ -95,13 +100,25 @@ export function AuthProvider(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Connect WebSocket when user is authenticated
+  useEffect(() => {
+    if (user?.access_token) {
+      connectWs(user.access_token)
+    } else {
+      disconnectWs()
+    }
+    return () => disconnectWs()
+  }, [user?.access_token])
+
   useEffect(() => {
     setOnAuthExpired(() => {
+      disconnectWs()
       setUser(null)
       localStorage.removeItem(STORAGE_KEY)
       clearTokens()
     })
     setOnTokensRefreshed((access, refresh) => {
+      updateWsToken(access)
       setUser((prev) => {
         if (!prev) return prev
         const next = {

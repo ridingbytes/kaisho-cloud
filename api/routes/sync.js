@@ -25,6 +25,7 @@
 const { Router } = require("express")
 const { supabase } = require("../db")
 const { requireApiKey } = require("../middleware")
+const { broadcast } = require("../ws")
 const {
   validate,
   validateQuery,
@@ -310,6 +311,12 @@ router.post(
       }
     }
 
+    const applied = counts.inserted + counts.updated
+    if (applied > 0) {
+      broadcast(req.userId, "entries:changed", {
+        count: applied,
+      })
+    }
     res.json({
       ...counts,
       errors: errorIds,
@@ -421,10 +428,12 @@ router.post(
         .json({ error: "Failed to start timer" })
     }
 
+    const wire = rowToWire(row)
+    broadcast(req.userId, "timer:started", wire)
     res.status(201).json({
       active: true,
       winner: "incoming",
-      ...rowToWire(row),
+      ...wire,
     })
   }),
 )
@@ -475,7 +484,9 @@ router.post(
         .json({ error: "Failed to stop timer" })
     }
 
-    res.json(rowToWire(row))
+    const wire = rowToWire(row)
+    broadcast(req.userId, "timer:stopped", wire)
+    res.json(wire)
   }),
 )
 

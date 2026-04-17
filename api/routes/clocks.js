@@ -12,6 +12,7 @@ const { Router } = require("express")
 const { supabase } = require("../db")
 const { requireAuth, requirePlan } = require("../middleware")
 const { apiLimiter } = require("../config")
+const { broadcast } = require("../ws")
 const {
   validate,
   validateQuery,
@@ -159,7 +160,9 @@ router.post(
         .json({ error: "Failed to start timer" })
     }
 
-    res.status(201).json(formatEntry(row))
+    const entry = formatEntry(row)
+    broadcast(req.userId, "timer:started", entry)
+    res.status(201).json(entry)
   }),
 )
 
@@ -201,7 +204,9 @@ router.post(
         .json({ error: "Failed to stop timer" })
     }
 
-    res.json(formatEntry(row))
+    const entry = formatEntry(row)
+    broadcast(req.userId, "timer:stopped", entry)
+    res.json(entry)
   }),
 )
 
@@ -262,7 +267,11 @@ router.post(
         .json({ error: "Failed to book entry" })
     }
 
-    res.status(201).json(formatEntry(row))
+    const booked = formatEntry(row)
+    broadcast(req.userId, "entries:changed", {
+      count: 1,
+    })
+    res.status(201).json(booked)
   }),
 )
 
@@ -311,7 +320,11 @@ router.patch(
         .json({ error: "Entry not found" })
     }
 
-    res.json(formatEntry(row))
+    const updated = formatEntry(row)
+    broadcast(req.userId, "entries:changed", {
+      count: 1,
+    })
+    res.json(updated)
   }),
 )
 
@@ -343,6 +356,9 @@ router.delete(
         .json({ error: "Entry not found" })
     }
 
+    broadcast(req.userId, "entries:deleted", {
+      ids: [row.id],
+    })
     res.sendStatus(204)
   }),
 )

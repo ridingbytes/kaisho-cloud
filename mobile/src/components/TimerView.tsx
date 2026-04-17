@@ -8,6 +8,7 @@ import {
   stopTimer,
   ApiError,
 } from "../api"
+import { onWsEvent } from "../ws"
 import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
 import { CustomerPicker } from "./CustomerPicker"
@@ -74,12 +75,16 @@ export function TimerView() {
     load()
   }, [load])
 
-  // Poll /clocks/active every 5s so a timer started or
-  // stopped on another device propagates quickly. Also
-  // re-fetch when the tab regains focus — iOS PWAs pause
-  // timers while backgrounded.
+  // Real-time updates via WebSocket. Refresh active
+  // timer when another device starts or stops.
+  // Visibility fallback for iOS PWA background resume.
   useEffect(() => {
-    const id = setInterval(refreshActive, 5000)
+    const offStart = onWsEvent(
+      "timer:started", () => refreshActive(),
+    )
+    const offStop = onWsEvent(
+      "timer:stopped", () => refreshActive(),
+    )
     const onVisible = () => {
       if (document.visibilityState === "visible") {
         refreshActive()
@@ -89,7 +94,8 @@ export function TimerView() {
       "visibilitychange", onVisible,
     )
     return () => {
-      clearInterval(id)
+      offStart()
+      offStop()
       document.removeEventListener(
         "visibilitychange", onVisible,
       )

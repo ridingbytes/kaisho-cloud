@@ -146,6 +146,15 @@ app.use((err, _req, res, _next) => {
 
 // ── Start ───────────────────────────────────────────────
 
-app.listen(PORT, () => {
-  logger.info({ port: PORT }, "Kaisho Cloud API started")
+const http = require("http")
+const { setupWebSocket } = require("./ws")
+
+const server = http.createServer(app)
+setupWebSocket(server)
+
+server.listen(PORT, () => {
+  logger.info(
+    { port: PORT },
+    "Kaisho Cloud API started (WS enabled)",
+  )
 })
