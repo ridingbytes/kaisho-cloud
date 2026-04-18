@@ -296,17 +296,29 @@ export function getTasks(): Promise<Task[]> {
 
 export function getSubscription(): Promise<{
   plan: string
-  active: boolean
+  subscription?: {
+    current_period_end: number
+    cancel_at_period_end: boolean
+    status: string
+  } | null
 }> {
   return request("/billing/subscription")
 }
 
 export function createCheckout(
   plan: "sync" | "sync_ai",
-): Promise<{ url: string }> {
+): Promise<{ url?: string; success?: boolean; plan?: string }> {
   return request("/billing/checkout", {
     method: "POST",
     body: JSON.stringify({ plan }),
+  })
+}
+
+export function createPortalSession(): Promise<{
+  url: string
+}> {
+  return request("/billing/portal", {
+    method: "POST",
   })
 }
 

@@ -5,6 +5,7 @@ import { useTheme } from "../theme"
 import type { Theme } from "../theme"
 import {
   createCheckout,
+  createPortalSession,
   getSubscription,
   regenerateApiKey,
   ApiError,
@@ -30,16 +31,21 @@ export function ProfileView() {
   const [copied, setCopied] = useState(false)
   const [sub, setSub] = useState<{
     plan: string
-    active: boolean
+    subscription?: {
+      current_period_end: number
+      cancel_at_period_end: boolean
+      status: string
+    } | null
   } | null>(null)
   const [upgrading, setUpgrading] = useState(false)
 
-  // Fetch subscription details for the plan section.
-  useEffect(() => {
+  function refreshSub() {
     getSubscription()
       .then(setSub)
       .catch((e) => console.warn("subscription:", e))
-  }, [])
+  }
+
+  useEffect(() => { refreshSub() }, [])
 
   async function handleRegenerate() {
     setError(null)
@@ -74,14 +80,35 @@ export function ProfileView() {
   async function handleUpgrade(
     target: "sync" | "sync_ai",
   ) {
+    if (upgrading) return
     setUpgrading(true)
+    setError(null)
     try {
-      const { url } = await createCheckout(target)
-      if (url) window.open(url, "_blank")
+      const result = await createCheckout(target)
+      if (result.url) {
+        window.open(result.url, "_blank")
+      } else if (result.success) {
+        toast(`Upgraded to ${planLabel(target)}`)
+        refreshSub()
+      }
     } catch (err) {
-      if (err instanceof ApiError) setError(err.message)
+      if (err instanceof ApiError) {
+        setError(err.message)
+      }
     } finally {
       setUpgrading(false)
+    }
+  }
+
+  async function handleManage() {
+    setError(null)
+    try {
+      const { url } = await createPortalSession()
+      if (url) window.open(url, "_blank")
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message)
+      }
     }
   }
 
@@ -119,24 +146,64 @@ export function ProfileView() {
       <div className="card">
         <h3>Subscription</h3>
         {isPaid ? (
-          <p className="text-muted">
-            You are on the <strong>{planLabel(plan)}</strong> plan.
-            {plan === "sync" && (
-              <>
-                {" "}
+          <>
+            <p className="text-muted">
+              You are on the{" "}
+              <strong>{planLabel(plan)}</strong> plan.
+            </p>
+            {sub?.subscription && (
+              <div
+                className="text-muted"
+                style={{ fontSize: 12, marginTop: 8 }}
+              >
+                <p>
+                  Status:{" "}
+                  <strong>
+                    {sub.subscription.status}
+                  </strong>
+                </p>
+                <p>
+                  Renews:{" "}
+                  {new Date(
+                    sub.subscription
+                      .current_period_end * 1000,
+                  ).toLocaleDateString()}
+                </p>
+                {sub.subscription
+                  .cancel_at_period_end && (
+                  <p style={{ color: "#ef4444" }}>
+                    Cancels at end of period
+                  </p>
+                )}
+              </div>
+            )}
+            <div
+              className="upgrade-actions"
+              style={{ marginTop: 12 }}
+            >
+              {plan === "sync" && (
                 <button
                   type="button"
-                  className="link-btn"
+                  className="btn-primary upgrade-btn"
                   onClick={() =>
                     handleUpgrade("sync_ai")
                   }
                   disabled={upgrading}
                 >
-                  Upgrade to Sync + AI
+                  {upgrading
+                    ? "Upgrading..."
+                    : "Upgrade to Sync + AI"}
                 </button>
-              </>
-            )}
-          </p>
+              )}
+              <button
+                type="button"
+                className="btn-secondary upgrade-btn"
+                onClick={handleManage}
+              >
+                Manage Subscription
+              </button>
+            </div>
+          </>
         ) : (
           <>
             <p className="text-muted">
@@ -150,7 +217,9 @@ export function ProfileView() {
                 onClick={() => handleUpgrade("sync")}
                 disabled={upgrading}
               >
-                Cloud Sync
+                {upgrading
+                  ? "Processing..."
+                  : "Cloud Sync"}
               </button>
               <button
                 type="button"
@@ -160,7 +229,9 @@ export function ProfileView() {
                 }
                 disabled={upgrading}
               >
-                Sync + AI
+                {upgrading
+                  ? "Processing..."
+                  : "Sync + AI"}
               </button>
             </div>
           </>
