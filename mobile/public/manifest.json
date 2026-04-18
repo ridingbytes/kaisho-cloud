@@ -1,16 +1,37 @@
 {
   "name": "Kaisho",
   "short_name": "Kaisho",
+  "description": "Time tracking for freelancers",
   "start_url": "/m/",
+  "scope": "/m/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#09090b",
   "theme_color": "#09090b",
+  "categories": ["productivity", "business"],
   "icons": [
     {
       "src": "/m/icon.svg",
       "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/m/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/m/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/m/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

@@ -57,6 +57,15 @@ app.use("/ai", aiRoutes)
 const mobileDir = path.join(
   __dirname, "..", "mobile", "dist",
 )
+// Service worker must not be cached by the browser
+// so updates propagate immediately.
+app.get("/m/sw.js", (_req, res) => {
+  res.setHeader(
+    "Cache-Control",
+    "no-cache, no-store, must-revalidate",
+  )
+  res.sendFile(path.join(mobileDir, "sw.js"))
+})
 app.use("/m", express.static(mobileDir))
 app.get("/m/*", (_req, res) => {
   res.sendFile(path.join(mobileDir, "index.html"))
