@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { AdvisorView } from "./AdvisorView"
 import { TimerView } from "./TimerView"
 import { BookView } from "./BookView"
 import { DashboardView } from "./DashboardView"
@@ -10,6 +11,7 @@ type Tab =
   | "timer"
   | "dashboard"
   | "book"
+  | "advisor"
   | "entries"
   | "profile"
 
@@ -17,6 +19,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "timer", label: "Timer", icon: "play" },
   { id: "dashboard", label: "Dashboard", icon: "chart" },
   { id: "book", label: "Book", icon: "plus" },
+  { id: "advisor", label: "AI", icon: "ai" },
   { id: "entries", label: "Entries", icon: "list" },
   { id: "profile", label: "Profile", icon: "user" },
 ]
@@ -65,6 +68,20 @@ function TabIcon({ icon }: { icon: string }) {
           strokeLinejoin="round">
           <circle cx="10" cy="7" r="3" />
           <path d="M3 18c0-3.3 3.1-6 7-6s7 2.7 7 6" />
+        </svg>
+      )
+    case "ai":
+      return (
+        <svg width="20" height="20" viewBox="0 0 20 20"
+          fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round"
+          strokeLinejoin="round">
+          <circle cx="10" cy="10" r="7" />
+          <circle cx="8" cy="8" r="1"
+            fill="currentColor" />
+          <circle cx="12" cy="8" r="1"
+            fill="currentColor" />
+          <path d="M7 12c1.5 1.5 4.5 1.5 6 0" />
         </svg>
       )
     case "chart":
@@ -162,6 +179,7 @@ export function AppShell() {
         {tab === "timer" && <TimerView />}
         {tab === "dashboard" && <DashboardView />}
         {tab === "book" && <BookView />}
+        {tab === "advisor" && <AdvisorView />}
         {tab === "entries" && <EntriesView />}
         {tab === "profile" && <ProfileView />}
       </main>

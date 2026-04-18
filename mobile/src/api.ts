@@ -324,6 +324,19 @@ export function createPortalSession(): Promise<{
 
 // -- AI --
 
+export async function aiComplete(
+  system: string,
+  messages: { role: string; content: string }[],
+): Promise<string> {
+  const data = await request<{
+    text: string
+  }>("/ai/complete", {
+    method: "POST",
+    body: JSON.stringify({ system, messages }),
+  })
+  return data.text || ""
+}
+
 export function aiParseBooking(
   text: string,
 ): Promise<{
