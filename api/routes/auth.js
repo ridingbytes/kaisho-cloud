@@ -198,8 +198,15 @@ router.post(
 
 const RESET_SECRET =
   process.env.RESET_TOKEN_SECRET ||
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  "kaisho-reset-fallback"
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!RESET_SECRET) {
+  console.warn(
+    "WARNING: RESET_TOKEN_SECRET and "
+    + "SUPABASE_SERVICE_ROLE_KEY are both unset. "
+    + "Password reset is disabled.",
+  )
+}
 const RESET_TTL_MS = 60 * 60 * 1000 // 1 hour
 
 /**
@@ -258,6 +265,11 @@ router.post(
   rotateKeyLimiter,
   validate(rotateKeySchema),
   asyncHandler(async (req, res) => {
+    if (!RESET_SECRET) {
+      return res.status(503).json({
+        error: "Password reset is not configured.",
+      })
+    }
     const { email } = req.body
 
     const { data: authUsers } =

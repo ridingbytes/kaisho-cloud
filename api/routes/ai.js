@@ -354,6 +354,7 @@ router.post(
   requireOpenRouterKey,
   asyncHandler(requireTokenQuota),
   asyncHandler(async (req, res) => {
+    const { text: input } = req.body
     const month = req.aiMonth
 
     // Use the fast/cheap model for structured
@@ -361,7 +362,7 @@ router.post(
     const result = await callModel({
       model: MODEL_FAST,
       system: PARSE_SYSTEM,
-      messages: [{ role: "user", content: text }],
+      messages: [{ role: "user", content: input }],
       maxTokens: 256,
     })
 
@@ -435,6 +436,7 @@ router.post(
   requireOpenRouterKey,
   asyncHandler(requireTokenQuota),
   asyncHandler(async (req, res) => {
+    const { entries } = req.body
     const month = req.aiMonth
 
     // Compact representation to save tokens.
