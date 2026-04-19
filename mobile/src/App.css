@@ -1371,6 +1371,7 @@ select {
 }
 
 .advisor-input .btn-primary {
+  width: auto;
   flex-shrink: 0;
   padding: 10px 16px;
 }
