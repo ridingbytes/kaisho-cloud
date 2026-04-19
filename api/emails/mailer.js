@@ -45,22 +45,6 @@ async function sendWelcomeEmail({ email, apiKey }) {
  * @param {string} params.email - Recipient address.
  * @param {string} params.apiKey - New API key.
  */
-async function sendNewApiKeyEmail({ email, apiKey }) {
-  try {
-    await resend.emails.send({
-      from: FROM,
-      to: email,
-      subject: "New Kaisho Cloud API key",
-      html: renderWelcome({ apiKey }),
-    })
-  } catch (err) {
-    logger.error(
-      { err, email },
-      "sendNewApiKeyEmail failed",
-    )
-  }
-}
-
 /**
  * Send a plan upgrade confirmation email.
  *
@@ -136,7 +120,6 @@ async function sendPasswordResetEmail({
 
 module.exports = {
   sendWelcomeEmail,
-  sendNewApiKeyEmail,
   sendPlanUpgradeEmail,
   sendPlanCancelledEmail,
   sendPasswordResetEmail,

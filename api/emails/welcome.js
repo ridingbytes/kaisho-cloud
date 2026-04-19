@@ -3,7 +3,7 @@
 const { wrap, h1, p, hr, label, codeBlock, note } =
   require("./base")
 
-function renderWelcome({ apiKey, appUrl }) {
+function renderWelcome({ apiKey }) {
   return wrap({
     title: "Welcome to Kaisho Cloud",
     preview: "Your API key for local sync.",
