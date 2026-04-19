@@ -142,6 +142,8 @@ export function EditEntrySheet(props: Props) {
     <div className="edit-sheet-backdrop" onClick={onClose}>
       <div
         className="edit-sheet"
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="edit-sheet-header">

@@ -12,6 +12,7 @@ export function ErrorBanner({ message, onDismiss }: Props) {
         <button
           className="error-dismiss"
           onClick={onDismiss}
+          aria-label="Dismiss"
         >
           x
         </button>

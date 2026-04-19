@@ -61,10 +61,13 @@ async function requireApiKey(req, res, next) {
     return next()
   }
 
+  // TODO: store a key prefix or SHA-256 hash in an
+  // indexed column to avoid scanning all users.
   const { data: users } = await supabase
     .from("users")
     .select("id, plan, api_key_hash")
     .not("api_key_hash", "is", null)
+    .limit(200)
 
   if (!users) {
     return res.status(401).json({ error: "Unauthorized" })

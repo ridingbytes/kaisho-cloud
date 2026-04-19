@@ -76,6 +76,41 @@ async function authenticate(token, apiKey) {
 }
 
 /**
+ * Register a newly authenticated WebSocket connection.
+ *
+ * @param {WebSocket} ws - The WebSocket instance.
+ * @param {string} userId - Authenticated user ID.
+ */
+function registerSocket(ws, userId) {
+  if (!userSockets.has(userId)) {
+    userSockets.set(userId, new Set())
+  }
+  userSockets.get(userId).add(ws)
+
+  logger.info(
+    { userId, clients: userSockets.get(userId).size },
+    "WS client connected",
+  )
+
+  ws.send(JSON.stringify({
+    event: "connected",
+    data: {
+      devices: userSockets.get(userId).size,
+    },
+  }))
+
+  ws.on("close", () => {
+    removeSocket(ws)
+    logger.info({ userId }, "WS client disconnected")
+  })
+
+  ws.on("error", (err) => {
+    logger.error({ err, userId }, "WS error")
+    removeSocket(ws)
+  })
+}
+
+/**
  * Set up the WebSocket server on an existing HTTP server.
  *
  * @param {import("http").Server} server
@@ -105,52 +140,53 @@ function setupWebSocket(server) {
     ws.isAlive = true
     ws.on("pong", () => { ws.isAlive = true })
 
-    // Parse auth from query string
+    // Auth via query string (legacy) or first message
     const params = new url.URL(
       req.url, "http://localhost",
     ).searchParams
-    const token = params.get("token") || ""
-    const apiKey = params.get("api_key") || ""
+    const qToken = params.get("token") || ""
+    const qKey = params.get("api_key") || ""
 
-    const userId = await authenticate(token, apiKey)
-    if (!userId) {
-      ws.close(4001, "Unauthorized")
+    if (qToken || qKey) {
+      // Legacy: auth from query string
+      const userId = await authenticate(qToken, qKey)
+      if (!userId) {
+        ws.close(4001, "Unauthorized")
+        return
+      }
+      ws.userId = userId
+      registerSocket(ws, userId)
+    } else {
+      // Auth via first message: {"type":"auth",
+      //   "token":"..."}
+      const authTimeout = setTimeout(() => {
+        if (!ws.userId) ws.close(4001, "Auth timeout")
+      }, 5000)
+
+      ws.once("message", async (raw) => {
+        clearTimeout(authTimeout)
+        try {
+          const msg = JSON.parse(String(raw))
+          if (msg.type !== "auth" || !msg.token) {
+            ws.close(4001, "Invalid auth message")
+            return
+          }
+          const userId = await authenticate(
+            msg.token, "",
+          )
+          if (!userId) {
+            ws.close(4001, "Unauthorized")
+            return
+          }
+          ws.userId = userId
+          registerSocket(ws, userId)
+        } catch {
+          ws.close(4001, "Invalid auth message")
+        }
+      })
       return
     }
 
-    ws.userId = userId
-
-    // Register connection
-    if (!userSockets.has(userId)) {
-      userSockets.set(userId, new Set())
-    }
-    userSockets.get(userId).add(ws)
-
-    logger.info(
-      { userId, clients: userSockets.get(userId).size },
-      "WS client connected",
-    )
-
-    // Send welcome with connection count
-    ws.send(JSON.stringify({
-      event: "connected",
-      data: {
-        devices: userSockets.get(userId).size,
-      },
-    }))
-
-    ws.on("close", () => {
-      removeSocket(ws)
-      logger.info(
-        { userId },
-        "WS client disconnected",
-      )
-    })
-
-    ws.on("error", (err) => {
-      logger.error({ err, userId }, "WS error")
-      removeSocket(ws)
-    })
   })
 
   logger.info("WebSocket server attached to /ws")

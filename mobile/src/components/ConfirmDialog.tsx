@@ -1,5 +1,5 @@
-import type { ReactNode } from "react"
-import { useState } from "react"
+import type { KeyboardEvent, ReactNode } from "react"
+import { useRef, useState } from "react"
 
 /**
  * Inline confirmation dialog that replaces browser
@@ -31,6 +31,7 @@ export function useConfirm(): [
 ] {
   const [state, setState] =
     useState<ConfirmState | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
 
   function confirm(message: string): Promise<boolean> {
     return new Promise((resolve) => {
@@ -43,13 +44,38 @@ export function useConfirm(): [
     setState(null)
   }
 
+  function trapFocus(e: KeyboardEvent) {
+    if (e.key !== "Tab" || !dialogRef.current) return
+    const focusable =
+      dialogRef.current.querySelectorAll<HTMLElement>(
+        "button, [href], input, select, " +
+        "textarea, [tabindex]:not([tabindex=\"-1\"])",
+      )
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (
+      !e.shiftKey && document.activeElement === last
+    ) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
+
   const dialog = state ? (
     <div
       className="confirm-backdrop"
       onClick={() => handleResult(false)}
     >
       <div
+        ref={dialogRef}
         className="confirm-dialog"
+        role="dialog"
+        aria-modal="true"
+        onKeyDown={trapFocus}
         onClick={(e) => e.stopPropagation()}
       >
         <p className="confirm-message">

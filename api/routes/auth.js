@@ -307,6 +307,7 @@ router.post(
  */
 router.post(
   "/reset-password",
+  authLimiter,
   asyncHandler(async (req, res) => {
     const { token, password } = req.body
 

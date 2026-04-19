@@ -82,11 +82,15 @@ function doConnect() {
 
   const base = window.location.origin
     .replace(/^http/, "ws")
-  const url = `${base}/ws?token=${token}`
+  const url = `${base}/ws`
 
   ws = new WebSocket(url)
 
   ws.onopen = () => {
+    ws?.send(JSON.stringify({
+      type: "auth",
+      token,
+    }))
     reconnectDelay = 1000
     dispatch("ws:connected", {})
   }
