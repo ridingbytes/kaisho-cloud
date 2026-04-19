@@ -26,27 +26,12 @@
    chmod 600 .env
    ```
 
-3. If using Traefik, add labels to `docker-compose.yml`:
-
-   ```yaml
-   services:
-     api:
-       build: .
-       container_name: kaisho-cloud
-       restart: unless-stopped
-       env_file: .env
-       labels:
-         - "traefik.enable=true"
-         - "traefik.http.routers.kaisho-cloud.rule=Host(`cloud.kaisho.dev`)"
-         - "traefik.http.routers.kaisho-cloud.tls.certresolver=letsencrypt"
-         - "traefik.http.services.kaisho-cloud.loadbalancer.server.port=3000"
-       networks:
-         - traefik
-
-   networks:
-     traefik:
-       external: true
-   ```
+3. The production compose file (`docker-compose.prod.yml`)
+   pulls a pre-built image from GHCR and connects to the
+   shared `traefik-public` network. Traefik routing is
+   configured via a file provider (`traefik/kaisho-cloud.yml`)
+   rather than Docker labels. The deploy workflow copies this
+   file to `/home/docker/traefik/conf.d/` automatically.
 
 4. Start:
 
@@ -89,7 +74,7 @@ SCPs `docker-compose.prod.yml` to the VPS and runs
 
 ### Repository secrets
 
-In **Settings → Secrets and variables → Actions**, set:
+In **Settings > Secrets and variables > Actions**, set:
 
 | Secret          | Value                                         |
 |-----------------|-----------------------------------------------|
@@ -100,7 +85,7 @@ In **Settings → Secrets and variables → Actions**, set:
 `VPS_SSH_KEY` is the private half of the ed25519 key pair
 whose public key (`github-actions-deploy`) sits in
 `/home/docker/.ssh/authorized_keys` on the VPS. The
-**same private key is used for the senaity repo** — one
+**same private key is used for the senaity repo** -- one
 shared deploy key, one authorised_keys line.
 
 ### VPS one-time prep
@@ -120,12 +105,24 @@ docker network inspect traefik-public >/dev/null 2>&1 \
 ```
 
 The GHCR package is private by default; either make it
-public under **Packages → kaisho-cloud → Settings →
+public under **Packages > kaisho-cloud > Settings >
 Visibility**, or run `docker login ghcr.io` on the VPS
 with a read-scoped PAT.
 
-The Traefik file-provider config
-(`traefik/kaisho-cloud.yml`) is SCPed into
-`/home/docker/traefik/conf.d/` by the deploy workflow
-automatically on every push. Traefik hot-reloads it, so
-no manual copy or restart is needed.
+### Traefik routing
+
+Routing is handled by a Traefik file provider config
+(`traefik/kaisho-cloud.yml`), not Docker labels. The
+deploy workflow SCPs this file into
+`/home/docker/traefik/conf.d/` on every push. Traefik
+hot-reloads file provider configs, so no manual copy or
+restart is needed. The config routes
+`cloud.kaisho.dev` to the `kaisho-cloud` container on
+port 3000 inside the `traefik-public` network.
+
+### Image pinning
+
+The deploy workflow pins the image to the exact Git SHA
+instead of `:latest`. It writes the SHA to `.deploy-sha`
+and keeps the previous value in `.deploy-sha.prev` for
+rollback reference.

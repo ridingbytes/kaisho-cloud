@@ -85,16 +85,33 @@ endpoints.
 The cloud server runs a WebSocket endpoint at `/ws` for
 pushing state changes to connected clients in real time.
 
-### Connection
+### Connection and Auth
+
+Two auth mechanisms are supported:
+
+**First-message auth** (preferred): the client connects
+without credentials in the URL and sends a JSON message
+as its first frame:
 
 ```
-Mobile PWA -> wss://cloud.kaisho.dev/ws?token=<jwt>
-Desktop    -> wss://cloud.kaisho.dev/ws?api_key=<key>
+ws.send({"type": "auth", "token": "<jwt>"})
 ```
 
-Auth uses the same JWT/API-key validation as HTTP routes.
-Each authenticated connection is registered in a per-user
-socket map (`userId -> Set<WebSocket>`).
+The server waits up to 5 seconds for this message. If no
+valid auth message arrives, the connection is closed with
+code 4001.
+
+**Query-string auth** (legacy): credentials are passed as
+URL parameters:
+
+```
+wss://cloud.kaisho.dev/ws?token=<jwt>
+wss://cloud.kaisho.dev/ws?api_key=<key>
+```
+
+Both paths use the same JWT/API-key validation as HTTP
+routes. Each authenticated connection is registered in a
+per-user socket map (`userId -> Set<WebSocket>`).
 
 ### Events
 
@@ -371,7 +388,13 @@ server uses the service role key to bypass RLS.
 ## Deployment
 
 The cloud server runs as a Docker container on a VPS behind
-nginx with TLS. Environment variables configure all external
-services (Supabase, Stripe, Resend, OpenRouter).
+Traefik with automatic TLS (Let's Encrypt). A file provider
+config (`traefik/kaisho-cloud.yml`) routes
+`cloud.kaisho.dev` to the container. The deploy workflow
+pins images to the exact Git SHA for reproducible deploys.
 
-See `docs/saas-setup.md` for the full setup guide.
+Environment variables configure all external services
+(Supabase, Stripe, Resend, OpenRouter). See
+[deployment.md](deployment.md) for the full setup and
+[saas-setup.md](saas-setup.md) for third-party service
+configuration.

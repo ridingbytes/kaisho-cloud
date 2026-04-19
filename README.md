@@ -11,11 +11,13 @@ for time tracking that syncs back to the local app.
 |  Mobile PWA     | <-->  |  Express API       |
 |  (React/Vite)   |       |  kaisho-cloud      |
 |  mobile/        |       |  api/              |
-+-----------------+       +---+-----+------+---+
-                              |     |      |
-                         Supabase  Stripe Resend
-                         (DB+Auth) (billing) (email)
-
++-----------------+       +---+--+--+--+---+---+
+                              |  |  |  |   |
+                       Supabase Stripe | Resend
+                       (DB+Auth) (pay) | (email)
+                                       |
+                                  OpenRouter
+                                  (AI proxy)
                                 |
                                 v
                          +-----------------+
@@ -26,22 +28,28 @@ for time tracking that syncs back to the local app.
 ```
 
 Two parts:
-- **`api/`** — Express server (auth, clocks, sync, billing)
-- **`mobile/`** — React PWA served at `/m/` (users sign up,
-  track time on their phone)
+- **`api/`** -- Node.js/Express server (auth, clocks, sync,
+  billing, AI gateway, WebSocket)
+- **`mobile/`** -- React 19 PWA served at `/m/` (users sign
+  up, track time on their phone)
 
 ## Features
 
 - Start/stop timers and book time from any device
 - Customer and task reference data synced from local app
-- Clock entries sync back to local kaisho on reconnect
-- API key auth for local sync client, JWT for mobile
-- Subscription management (Cloud Sync, +AI)
+- Clock entries sync back to local Kaisho on reconnect
+- API key auth for desktop sync, JWT for mobile PWA
+- Password reset via HMAC-signed tokens + Resend emails
+- WebSocket push for real-time updates across devices
+- AI gateway proxying to OpenRouter with token metering
+- Subscription management (free, sync, sync_ai)
+- Stripe billing with webhook idempotency
 
 ## Documentation
 
-| Document                                     | Contents                       |
-|----------------------------------------------|--------------------------------|
+| Document | Contents |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | System design, auth, sync, AI |
 | [docs/saas-setup.md](docs/saas-setup.md)     | Supabase, Stripe, Resend setup |
 | [docs/development.md](docs/development.md)   | Local development              |
 | [docs/deployment.md](docs/deployment.md)     | VPS deployment with Docker     |
@@ -63,9 +71,9 @@ pnpm dev
 ```
 
 Then open:
-- `http://localhost:3000/m/` — mobile PWA (sign up, track
+- `http://localhost:3000/m/` -- mobile PWA (sign up, track
   time)
-- `http://localhost:3000/health` — API health check
+- `http://localhost:3000/health` -- API health check
 
 See [docs/development.md](docs/development.md) for full
 setup.

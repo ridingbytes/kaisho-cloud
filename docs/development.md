@@ -41,11 +41,12 @@ Starts on `http://localhost:3000`. The server auto-loads
 
 ### Mobile PWA
 
-The mobile app lives in `mobile/` and is a Vite + React + TS
-PWA. In production it's served by the Express API at `/m/`
-from `mobile/dist/`. For local dev you have two options:
+The mobile app lives in `mobile/` and is a Vite + React 19 +
+TypeScript PWA. In production it is served by the Express
+API at `/m/` from `mobile/dist/`. For local dev you have
+two options:
 
-**Option A — use the built mobile app through the API:**
+**Option A -- use the built mobile app through the API:**
 
 ```bash
 cd mobile && pnpm install && pnpm build && cd ..
@@ -55,10 +56,10 @@ pnpm dev
 
 Rebuild after any frontend change.
 
-**Option B — run Vite dev server with hot reload:**
+**Option B -- run Vite dev server with hot reload:**
 
 ```bash
-# Terminal 1: API
+# Terminal 1: API (port 3000 by default)
 pnpm dev
 
 # Terminal 2: Vite dev server
@@ -66,8 +67,10 @@ cd mobile && pnpm dev
 # Open http://localhost:5173/m/
 ```
 
-Vite proxies `/auth`, `/clocks`, `/sync`, `/ref`, `/billing`
-to `http://localhost:3000` (see `mobile/vite.config.ts`).
+Vite proxies `/auth`, `/clocks`, `/sync`, `/ref`,
+`/billing`, `/ai`, and `/health` to `http://localhost:3030`
+(see `mobile/vite.config.ts`). Set `PORT=3030` in your
+`.env` or adjust the proxy target to match your API port.
 
 ## Testing the API
 
@@ -109,11 +112,39 @@ curl -X POST http://localhost:3000/sync/push-snapshot \
   -d '{"customers":[{"name":"Acme","contracts":[]}],"tasks":[]}'
 ```
 
-### Pull unsynced clocks (with API key)
+### Pull changes (with API key)
 
 ```bash
-curl http://localhost:3000/sync/pull-clocks \
+curl "http://localhost:3000/sync/changes?since=2024-01-01" \
   -H "Authorization: Bearer <api_key>"
+```
+
+### Password reset flow
+
+```bash
+# Request reset email
+curl -X POST http://localhost:3000/auth/forgot-password \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com"}'
+
+# Reset with token (from email link)
+curl -X POST http://localhost:3000/auth/reset-password \
+  -H "Content-Type: application/json" \
+  -d '{"token":"<token>","password":"newpass123"}'
+```
+
+### AI endpoints (requires sync_ai plan)
+
+```bash
+# Parse a natural-language booking
+curl -X POST http://localhost:3000/ai/parse-booking \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"text":"2h acme fix login"}'
+
+# Check AI usage
+curl http://localhost:3000/ai/usage \
+  -H "Authorization: Bearer <access_token>"
 ```
 
 ## Stripe webhook testing
@@ -140,4 +171,22 @@ Build and run with Docker:
 docker compose up --build
 ```
 
-The API is available at `http://localhost:3000`.
+The API is available at `http://localhost:3000`. The
+Dockerfile uses a two-stage build: stage 1 builds the
+mobile PWA with `pnpm`, stage 2 installs API dependencies
+with `npm ci` and copies the built PWA into `mobile/dist`.
+
+## Environment variables
+
+See `.env.example` for the full list. Required variables:
+
+| Variable | Purpose |
+|---|---|
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key |
+| `STRIPE_SECRET_KEY` | Stripe API key |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
+| `STRIPE_PRICE_SYNC` | Stripe price ID for sync plan |
+| `STRIPE_PRICE_SYNC_AI` | Stripe price ID for sync_ai plan |
+| `RESEND_API_KEY` | Resend API key for emails |
+| `OPENROUTER_API_KEY` | OpenRouter key (sync_ai only) |
