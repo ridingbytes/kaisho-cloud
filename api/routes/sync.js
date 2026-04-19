@@ -24,7 +24,10 @@
 
 const { Router } = require("express")
 const { supabase } = require("../db")
-const { requireApiKey } = require("../middleware")
+const {
+  requireApiKey, requirePlan,
+} = require("../middleware")
+const requireSync = requirePlan("sync", "sync_ai")
 const { broadcast } = require("../ws")
 const {
   validate,
@@ -77,6 +80,7 @@ function rowToWire(row) {
 router.post(
   "/push-snapshot",
   requireApiKey,
+  requireSync,
   validate(snapshotSchema),
   asyncHandler(async (req, res) => {
     const { customers, tasks } = req.body
@@ -130,6 +134,7 @@ router.post(
 router.get(
   "/changes",
   requireApiKey,
+  requireSync,
   validateQuery(syncChangesQuerySchema),
   asyncHandler(async (req, res) => {
     const since =
@@ -241,6 +246,7 @@ function decideMerge(existing, incoming) {
 router.post(
   "/apply",
   requireApiKey,
+  requireSync,
   validate(syncApplySchema),
   asyncHandler(async (req, res) => {
     const { entries } = req.body
@@ -343,6 +349,7 @@ router.post(
 router.get(
   "/active",
   requireApiKey,
+  requireSync,
   asyncHandler(async (req, res) => {
     const { data: row } = await supabase
       .from("clock_entries")
@@ -376,6 +383,7 @@ router.get(
 router.post(
   "/active/start",
   requireApiKey,
+  requireSync,
   validate(activeStartSchema),
   asyncHandler(async (req, res) => {
     const incoming = req.body
@@ -459,6 +467,7 @@ router.post(
 router.post(
   "/active/stop",
   requireApiKey,
+  requireSync,
   validate(activeStopSchema),
   asyncHandler(async (req, res) => {
     const { id, end } = req.body
@@ -514,6 +523,7 @@ router.post(
 router.post(
   "/ack",
   requireApiKey,
+  requireSync,
   asyncHandler(async (req, res) => {
     const { ids } = req.body
     if (!Array.isArray(ids) || ids.length === 0) {
@@ -556,6 +566,7 @@ router.post(
 router.delete(
   "/entries",
   requireApiKey,
+  requireSync,
   asyncHandler(async (req, res) => {
     // Wipe all user data: clock entries + reference
     // snapshots. The local org file is the single
