@@ -97,9 +97,11 @@ export function LoginForm() {
         {mode === "login" && (
           <button
             className="link-btn"
-            onClick={() => setAuthView("recover")}
+            onClick={() =>
+              setAuthView("forgot-password")
+            }
           >
-            Lost your API key?
+            Forgot password?
           </button>
         )}
       </div>

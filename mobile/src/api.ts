@@ -181,12 +181,25 @@ export function login(
   })
 }
 
-export function rotateKey(
+export function forgotPassword(
   email: string,
 ): Promise<{ message: string }> {
-  return request("/auth/rotate-key", {
+  return request("/auth/forgot-password", {
     method: "POST",
     body: JSON.stringify({ email }),
+  })
+}
+
+export function resetPassword(
+  accessToken: string,
+  password: string,
+): Promise<{ message: string }> {
+  return request("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({
+      access_token: accessToken,
+      password,
+    }),
   })
 }
 

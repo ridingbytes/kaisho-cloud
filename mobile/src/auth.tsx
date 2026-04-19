@@ -23,7 +23,11 @@ import {
   updateWsToken,
 } from "./ws"
 
-type AuthView = "login" | "signup-success" | "recover"
+type AuthView =
+  | "login"
+  | "signup-success"
+  | "forgot-password"
+  | "reset-password"
 
 interface AuthCtx {
   user: User | null

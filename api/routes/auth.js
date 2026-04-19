@@ -23,7 +23,7 @@ const {
   refreshSchema,
 } = require("../validation")
 const {
-  sendWelcomeEmail, sendNewApiKeyEmail,
+  sendWelcomeEmail,
 } = require("../emails/mailer")
 const { asyncHandler } = require("../utils/asyncHandler")
 
@@ -193,47 +193,85 @@ router.post(
   }),
 )
 
-// ── POST /auth/rotate-key ───────────────────────────────
+// ── POST /auth/forgot-password ──────────────────────────
 
 /**
- * Rotate the API key by email address (recovery without
- * login). Sends the new key via email.
+ * Send a password reset email via Supabase Auth.
+ * Always returns 200 to prevent email enumeration.
  *
- * @route POST /auth/rotate-key
+ * @route POST /auth/forgot-password
  */
 router.post(
-  "/rotate-key",
+  "/forgot-password",
   rotateKeyLimiter,
   validate(rotateKeySchema),
   asyncHandler(async (req, res) => {
     const { email } = req.body
 
-    const { data: authUsers } =
-      await supabase.auth.admin.listUsers()
+    const redirectTo =
+      process.env.MOBILE_URL ||
+      "https://cloud.kaisho.dev/m/"
 
-    const authUser = authUsers?.users?.find(
-      (u) => u.email === email,
-    )
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${redirectTo}#reset-password`,
+    })
 
-    if (!authUser) {
-      return res
-        .status(404)
-        .json({ error: "No account found" })
+    // Always 200 to prevent email enumeration
+    res.json({
+      message: "If an account exists, a reset "
+        + "link has been sent.",
+    })
+  }),
+)
+
+// ── POST /auth/reset-password ──────────────────────────
+
+/**
+ * Set a new password using the access token from
+ * the Supabase reset link.
+ *
+ * @route POST /auth/reset-password
+ */
+router.post(
+  "/reset-password",
+  asyncHandler(async (req, res) => {
+    const { access_token, password } = req.body
+
+    if (!access_token || !password) {
+      return res.status(400).json({
+        error: "access_token and password required",
+      })
+    }
+    if (password.length < 8) {
+      return res.status(400).json({
+        error: "Password must be at least "
+          + "8 characters",
+      })
     }
 
-    const apiKey = crypto.randomUUID()
-    const keyHash = await bcrypt.hash(apiKey, 10)
+    const { error } =
+      await supabaseAuth.auth.admin.updateUserById(
+        // Decode the JWT to get the user ID
+        (() => {
+          const payload = JSON.parse(
+            Buffer.from(
+              access_token.split(".")[1],
+              "base64",
+            ).toString(),
+          )
+          return payload.sub
+        })(),
+        { password },
+      )
 
-    await supabase
-      .from("users")
-      .update({ api_key_hash: keyHash })
-      .eq("id", authUser.id)
+    if (error) {
+      return res.status(400).json({
+        error: "Reset failed. The link may have "
+          + "expired.",
+      })
+    }
 
-    invalidateAuthCache(authUser.id)
-
-    sendNewApiKeyEmail({ email, apiKey })
-
-    res.json({ api_key: apiKey })
+    res.json({ message: "Password updated." })
   }),
 )
 
