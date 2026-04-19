@@ -6,6 +6,8 @@ import { DashboardView } from "./DashboardView"
 import { EntriesView } from "./EntriesView"
 import { ProfileView } from "./ProfileView"
 import { Logo } from "./Logo"
+import { useAuth } from "../auth"
+import { planLabel } from "../utils/planLabel"
 
 type Tab =
   | "timer"
@@ -111,6 +113,9 @@ function tabFromHash(): Tab {
 }
 
 export function AppShell() {
+  const { user } = useAuth()
+  const isPaid = user?.plan === "sync"
+    || user?.plan === "sync_ai"
   const [tab, setTab] = useState<Tab>(() => {
     // After Stripe checkout, land on Profile so the user
     // can generate a connect key for the desktop app.
@@ -174,6 +179,14 @@ export function AppShell() {
       <header className="app-header">
         <Logo size={22} className="app-header-logo" />
         <span className="app-header-title">Kaisho</span>
+        {isPaid && (
+          <button
+            className="header-plan-badge"
+            onClick={() => setTab("profile")}
+          >
+            {planLabel(user!.plan)}
+          </button>
+        )}
       </header>
       <main className="app-content">
         {tab === "timer" && <TimerView />}

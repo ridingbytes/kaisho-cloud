@@ -277,6 +277,34 @@ select {
   letter-spacing: 0.04em;
 }
 
+.header-plan-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--t2);
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: var(--font);
+  line-height: 1.4;
+}
+
+[data-theme="light"] .header-plan-badge {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.header-plan-badge:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+[data-theme="light"] .header-plan-badge:hover {
+  background: rgba(0, 0, 0, 0.10);
+}
+
 .app-content {
   flex: 1;
   overflow-y: auto;
