@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import {
+  useCallback, useEffect, useRef, useState,
+} from "react"
 import { Markdown } from "./Markdown"
 import {
   aiComplete,
@@ -83,6 +85,7 @@ export function AdvisorView() {
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -90,6 +93,12 @@ export function AdvisorView() {
       behavior: "smooth",
     })
   }, [messages, loading])
+
+  function stopRequest() {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setLoading(false)
+  }
 
   const send = useCallback(
     async (question: string) => {
@@ -101,6 +110,9 @@ export function AdvisorView() {
         { role: "user", text: question },
       ])
       setLoading(true)
+
+      const controller = new AbortController()
+      abortRef.current = controller
 
       try {
         const context = await buildContext()
@@ -114,17 +126,21 @@ export function AdvisorView() {
           + "concise and actionable.",
           [{ role: "user", content: prompt }],
         )
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", text: result },
-        ])
+        if (!controller.signal.aborted) {
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", text: result },
+          ])
+        }
       } catch (err) {
+        if (controller.signal.aborted) return
         if (err instanceof ApiError) {
           setError(err.message)
         } else {
           setError("Request failed")
         }
       } finally {
+        abortRef.current = null
         setLoading(false)
       }
     },
@@ -172,7 +188,7 @@ export function AdvisorView() {
                   key={i}
                   type="button"
                   className="advisor-example"
-                  onClick={() => send(q)}
+                  onClick={() => setInput(q)}
                 >
                   {q}
                 </button>
@@ -221,13 +237,23 @@ export function AdvisorView() {
           placeholder="Ask the advisor..."
           disabled={loading}
         />
-        <button
-          type="submit"
-          className="btn-primary"
-          disabled={loading || !input.trim()}
-        >
-          {loading ? "..." : "Send"}
-        </button>
+        {loading ? (
+          <button
+            type="button"
+            className="btn-stop"
+            onClick={stopRequest}
+          >
+            Stop
+          </button>
+        ) : (
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={!input.trim()}
+          >
+            Send
+          </button>
+        )}
       </form>
     </div>
   )
