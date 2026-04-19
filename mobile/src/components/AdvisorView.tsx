@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { Markdown } from "./Markdown"
 import {
   aiComplete,
   getEntries,
@@ -189,7 +190,11 @@ export function AdvisorView() {
             }
           >
             <div className="advisor-msg-text">
-              {msg.text}
+              {msg.role === "assistant" ? (
+                <Markdown>{msg.text}</Markdown>
+              ) : (
+                msg.text
+              )}
             </div>
           </div>
         ))}
