@@ -24,6 +24,7 @@ const {
 } = require("../validation")
 const {
   sendWelcomeEmail,
+  sendPasswordResetEmail,
 } = require("../emails/mailer")
 const { asyncHandler } = require("../utils/asyncHandler")
 
@@ -195,8 +196,59 @@ router.post(
 
 // ── POST /auth/forgot-password ──────────────────────────
 
+const RESET_SECRET =
+  process.env.RESET_TOKEN_SECRET ||
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  "kaisho-reset-fallback"
+const RESET_TTL_MS = 60 * 60 * 1000 // 1 hour
+
 /**
- * Send a password reset email via Supabase Auth.
+ * Create an HMAC-signed reset token.
+ *
+ * @param {string} userId - User UUID.
+ * @param {number} timestamp - Unix ms.
+ * @returns {string} Base64url-encoded token.
+ */
+function createResetToken(userId, timestamp) {
+  const payload = `${userId}.${timestamp}`
+  const sig = crypto
+    .createHmac("sha256", RESET_SECRET)
+    .update(payload)
+    .digest("base64url")
+  return Buffer.from(`${payload}.${sig}`)
+    .toString("base64url")
+}
+
+/**
+ * Verify a reset token and return the userId if
+ * valid, or null if expired/invalid.
+ *
+ * @param {string} token - Base64url token.
+ * @returns {string|null} userId or null.
+ */
+function verifyResetToken(token) {
+  try {
+    const decoded = Buffer.from(
+      token, "base64url",
+    ).toString()
+    const [userId, ts, sig] = decoded.split(".")
+    const timestamp = Number(ts)
+    if (Date.now() - timestamp > RESET_TTL_MS) {
+      return null
+    }
+    const expected = crypto
+      .createHmac("sha256", RESET_SECRET)
+      .update(`${userId}.${ts}`)
+      .digest("base64url")
+    if (sig !== expected) return null
+    return userId
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Send a branded password reset email.
  * Always returns 200 to prevent email enumeration.
  *
  * @route POST /auth/forgot-password
@@ -208,13 +260,23 @@ router.post(
   asyncHandler(async (req, res) => {
     const { email } = req.body
 
-    const redirectTo =
-      process.env.MOBILE_URL ||
-      "https://cloud.kaisho.dev/m/"
+    const { data: authUsers } =
+      await supabase.auth.admin.listUsers()
+    const authUser = authUsers?.users?.find(
+      (u) => u.email === email,
+    )
 
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${redirectTo}#reset-password`,
-    })
+    if (authUser) {
+      const token = createResetToken(
+        authUser.id, Date.now(),
+      )
+      const baseUrl =
+        process.env.MOBILE_URL ||
+        "https://cloud.kaisho.dev/m/"
+      const resetUrl =
+        `${baseUrl}#reset-password=${token}`
+      sendPasswordResetEmail({ email, resetUrl })
+    }
 
     // Always 200 to prevent email enumeration
     res.json({
@@ -227,47 +289,42 @@ router.post(
 // ── POST /auth/reset-password ──────────────────────────
 
 /**
- * Set a new password using the access token from
- * the Supabase reset link.
+ * Set a new password using a signed reset token.
  *
  * @route POST /auth/reset-password
  */
 router.post(
   "/reset-password",
   asyncHandler(async (req, res) => {
-    const { access_token, password } = req.body
+    const { token, password } = req.body
 
-    if (!access_token || !password) {
+    if (!token || !password) {
       return res.status(400).json({
-        error: "access_token and password required",
+        error: "Token and password required.",
       })
     }
     if (password.length < 8) {
       return res.status(400).json({
         error: "Password must be at least "
-          + "8 characters",
+          + "8 characters.",
+      })
+    }
+
+    const userId = verifyResetToken(token)
+    if (!userId) {
+      return res.status(400).json({
+        error: "Reset link expired or invalid.",
       })
     }
 
     const { error } =
-      await supabaseAuth.auth.admin.updateUserById(
-        // Decode the JWT to get the user ID
-        (() => {
-          const payload = JSON.parse(
-            Buffer.from(
-              access_token.split(".")[1],
-              "base64",
-            ).toString(),
-          )
-          return payload.sub
-        })(),
-        { password },
+      await supabase.auth.admin.updateUserById(
+        userId, { password },
       )
 
     if (error) {
-      return res.status(400).json({
-        error: "Reset failed. The link may have "
-          + "expired.",
+      return res.status(500).json({
+        error: "Could not update password.",
       })
     }
 

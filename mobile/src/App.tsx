@@ -9,7 +9,7 @@ import { AppShell } from "./components/AppShell"
 function extractResetToken(): string | null {
   const hash = window.location.hash
   const match = hash.match(
-    /access_token=([^&]+)/,
+    /reset-password=([^&]+)/,
   )
   return match ? match[1] : null
 }
@@ -42,7 +42,7 @@ export function App() {
     case "reset-password":
       return (
         <ResetPassword
-          accessToken={resetToken || ""}
+          token={resetToken || ""}
         />
       )
     default:

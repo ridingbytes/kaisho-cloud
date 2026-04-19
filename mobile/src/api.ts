@@ -191,15 +191,12 @@ export function forgotPassword(
 }
 
 export function resetPassword(
-  accessToken: string,
+  token: string,
   password: string,
 ): Promise<{ message: string }> {
   return request("/auth/reset-password", {
     method: "POST",
-    body: JSON.stringify({
-      access_token: accessToken,
-      password,
-    }),
+    body: JSON.stringify({ token, password }),
   })
 }
 

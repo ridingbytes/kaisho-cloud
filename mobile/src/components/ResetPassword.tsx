@@ -6,9 +6,9 @@ import { ErrorBanner } from "./ErrorBanner"
 import { Logo } from "./Logo"
 
 export function ResetPassword({
-  accessToken,
+  token,
 }: {
-  accessToken: string
+  token: string
 }) {
   const { setAuthView } = useAuth()
   const { toast } = useToast()
@@ -32,7 +32,7 @@ export function ResetPassword({
     }
     setLoading(true)
     try {
-      await resetPassword(accessToken, password)
+      await resetPassword(token, password)
       toast("Password updated")
       setAuthView("login")
     } catch (err) {

@@ -9,6 +9,7 @@ const { logger } = require("../logger")
 const { renderWelcome } = require("./welcome")
 const { renderPlanUpgrade } = require("./plan-upgrade")
 const { renderPlanCancelled } = require("./plan-cancelled")
+const { renderPasswordReset } = require("./password-reset")
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM =
@@ -108,9 +109,35 @@ async function sendPlanCancelledEmail({ email }) {
   }
 }
 
+/**
+ * Send a password reset email with a reset link.
+ *
+ * @param {object} params
+ * @param {string} params.email - Recipient address.
+ * @param {string} params.resetUrl - Full reset URL.
+ */
+async function sendPasswordResetEmail({
+  email, resetUrl,
+}) {
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: email,
+      subject: "Reset your Kaisho password",
+      html: renderPasswordReset({ resetUrl }),
+    })
+  } catch (err) {
+    logger.error(
+      { err, email },
+      "sendPasswordResetEmail failed",
+    )
+  }
+}
+
 module.exports = {
   sendWelcomeEmail,
   sendNewApiKeyEmail,
   sendPlanUpgradeEmail,
   sendPlanCancelledEmail,
+  sendPasswordResetEmail,
 }
