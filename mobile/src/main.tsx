@@ -4,6 +4,7 @@ import { AuthProvider } from "./auth"
 import { ThemeProvider } from "./theme"
 import { ToastProvider } from "./toast"
 import { App } from "./App"
+import "./i18n"
 import "./App.css"
 
 if ("serviceWorker" in navigator) {

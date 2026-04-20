@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import type { ClockEntry } from "../types"
 import { ApiError, aiSummarize, getEntries } from "../api"
 import { useAuth } from "../auth"
@@ -173,6 +174,7 @@ function openEntriesAt(from: Date, to?: Date) {
 // ── Main view ───────────────────────────────────────────
 
 export function DashboardView() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [entries, setEntries] = useState<ClockEntry[]>([])
   const [loading, setLoading] = useState(false)
@@ -234,7 +236,7 @@ export function DashboardView() {
           onClick={() => openEntriesAt(todayStart)}
         >
           <div className="dashboard-total-label">
-            Today
+            {t("dashboard.today")}
           </div>
           <div className="dashboard-total-value">
             {formatMins(todayMin)}
@@ -245,7 +247,9 @@ export function DashboardView() {
           className="dashboard-total"
           onClick={() => openEntriesAt(weekStart)}
         >
-          <div className="dashboard-total-label">Week</div>
+          <div className="dashboard-total-label">
+            {t("dashboard.week")}
+          </div>
           <div className="dashboard-total-value">
             {formatMins(weekMin)}
           </div>
@@ -256,7 +260,7 @@ export function DashboardView() {
           onClick={() => openEntriesAt(monthStart)}
         >
           <div className="dashboard-total-label">
-            Month
+            {t("dashboard.month")}
           </div>
           <div className="dashboard-total-value">
             {formatMins(monthMin)}
@@ -268,7 +272,7 @@ export function DashboardView() {
       {hasAI && (
         <section className="card dashboard-section">
           <header className="dashboard-section-header">
-            <h3>AI Summary</h3>
+            <h3>{t("dashboard.ai_summary")}</h3>
             <button
               type="button"
               className="link-btn"
@@ -280,7 +284,7 @@ export function DashboardView() {
                   setSummary(text)
                 } catch {
                   setSummary(
-                    "Could not generate summary.",
+                    t("dashboard.summary_failed"),
                   )
                 } finally {
                   setSummaryLoading(false)
@@ -289,10 +293,10 @@ export function DashboardView() {
               disabled={summaryLoading}
             >
               {summaryLoading
-                ? "Generating..."
+                ? t("dashboard.generating")
                 : summary
-                  ? "Refresh"
-                  : "Generate"}
+                  ? t("dashboard.refresh")
+                  : t("dashboard.generate")}
             </button>
           </header>
           {summary && (
@@ -302,8 +306,7 @@ export function DashboardView() {
           )}
           {!summary && !summaryLoading && (
             <p className="text-muted">
-              Tap Generate for an AI-powered weekly
-              overview.
+              {t("dashboard.summary_hint")}
             </p>
           )}
         </section>
@@ -311,9 +314,9 @@ export function DashboardView() {
 
       <section className="card dashboard-section">
         <header className="dashboard-section-header">
-          <h3>This week</h3>
+          <h3>{t("dashboard.this_week")}</h3>
           <span className="text-muted">
-            Tap a bar to drill down
+            {t("dashboard.drill_hint")}
           </span>
         </header>
         <BarChart
@@ -326,7 +329,7 @@ export function DashboardView() {
 
       <section className="card dashboard-section">
         <header className="dashboard-section-header">
-          <h3>Top customers · week</h3>
+          <h3>{t("dashboard.top_customers_week")}</h3>
         </header>
         <CustomerList
           data={weekTop}
@@ -344,7 +347,7 @@ export function DashboardView() {
 
       <section className="card dashboard-section">
         <header className="dashboard-section-header">
-          <h3>Top customers · month</h3>
+          <h3>{t("dashboard.top_customers_month")}</h3>
         </header>
         <CustomerList
           data={monthTop}
@@ -361,7 +364,9 @@ export function DashboardView() {
       </section>
 
       {loading && entries.length === 0 && (
-        <p className="text-muted center">Loading…</p>
+        <p className="text-muted center">
+          {t("dashboard.loading")}
+        </p>
       )}
     </div>
   )
@@ -374,9 +379,12 @@ interface CustomerListProps {
 }
 
 function CustomerList(props: CustomerListProps) {
+  const { t } = useTranslation()
   if (props.data.length === 0) {
     return (
-      <p className="text-muted center">No entries yet</p>
+      <p className="text-muted center">
+        {t("dashboard.no_entries")}
+      </p>
     )
   }
   return (

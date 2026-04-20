@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useAuth } from "../auth"
 import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
@@ -6,6 +7,7 @@ import { Logo } from "./Logo"
 import { ApiError } from "../api"
 
 export function LoginForm() {
+  const { t } = useTranslation()
   const { login, signup, setAuthView } = useAuth()
   const { toast } = useToast()
   const [email, setEmail] = useState("")
@@ -25,7 +27,7 @@ export function LoginForm() {
     try {
       if (mode === "login") {
         await login(email, password)
-        toast("Logged in")
+        toast(t("auth.logged_in"))
       } else {
         await signup(email, password)
       }
@@ -33,7 +35,7 @@ export function LoginForm() {
       if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError("Something went wrong")
+        setError(t("auth.error_generic"))
       }
     } finally {
       setLoading(false)
@@ -51,7 +53,7 @@ export function LoginForm() {
         />
         <input
           type="email"
-          placeholder="Email"
+          placeholder={t("auth.email")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -59,7 +61,7 @@ export function LoginForm() {
         />
         <input
           type="password"
-          placeholder="Password"
+          placeholder={t("auth.password")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -77,8 +79,8 @@ export function LoginForm() {
           {loading
             ? "..."
             : mode === "login"
-              ? "Log in"
-              : "Sign up"}
+              ? t("auth.login")
+              : t("auth.signup")}
         </button>
       </form>
       <div className="auth-links">
@@ -91,8 +93,8 @@ export function LoginForm() {
           }
         >
           {mode === "login"
-            ? "Create account"
-            : "Back to login"}
+            ? t("auth.create_account")
+            : t("auth.back_to_login")}
         </button>
         {mode === "login" && (
           <button
@@ -101,7 +103,7 @@ export function LoginForm() {
               setAuthView("forgot-password")
             }
           >
-            Forgot password?
+            {t("auth.forgot_password")}
           </button>
         )}
       </div>

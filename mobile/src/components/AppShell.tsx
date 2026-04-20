@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { AdvisorView } from "./AdvisorView"
 import { TimerView } from "./TimerView"
 import { BookView } from "./BookView"
@@ -17,13 +18,13 @@ type Tab =
   | "entries"
   | "profile"
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: "timer", label: "Timer", icon: "play" },
-  { id: "dashboard", label: "Dashboard", icon: "chart" },
-  { id: "book", label: "Book", icon: "plus" },
-  { id: "advisor", label: "AI", icon: "ai" },
-  { id: "entries", label: "Entries", icon: "list" },
-  { id: "profile", label: "Profile", icon: "user" },
+const TABS: { id: Tab; icon: string }[] = [
+  { id: "timer", icon: "play" },
+  { id: "dashboard", icon: "chart" },
+  { id: "book", icon: "plus" },
+  { id: "advisor", icon: "ai" },
+  { id: "entries", icon: "list" },
+  { id: "profile", icon: "user" },
 ]
 
 function TabIcon({ icon }: { icon: string }) {
@@ -113,6 +114,7 @@ function tabFromHash(): Tab {
 }
 
 export function AppShell() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const isPaid = user?.plan === "sync"
     || user?.plan === "sync_ai"
@@ -197,17 +199,19 @@ export function AppShell() {
         {tab === "profile" && <ProfileView />}
       </main>
       <nav className="tab-bar">
-        {TABS.map((t) => (
+        {TABS.map((tabItem) => (
           <button
-            key={t.id}
+            key={tabItem.id}
             className={
               "tab-btn" +
-              (tab === t.id ? " tab-active" : "")
+              (tab === tabItem.id ? " tab-active" : "")
             }
-            onClick={() => setTab(t.id)}
+            onClick={() => setTab(tabItem.id)}
           >
-            <TabIcon icon={t.icon} />
-            <span className="tab-label">{t.label}</span>
+            <TabIcon icon={tabItem.icon} />
+            <span className="tab-label">
+              {t(`shell.tab.${tabItem.id}`)}
+            </span>
           </button>
         ))}
       </nav>

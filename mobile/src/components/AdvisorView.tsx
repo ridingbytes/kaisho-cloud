@@ -1,6 +1,7 @@
 import {
   useCallback, useEffect, useRef, useState,
 } from "react"
+import { useTranslation } from "react-i18next"
 import { Markdown } from "./Markdown"
 import {
   aiComplete,
@@ -78,6 +79,7 @@ interface Message {
 // ── Component ──────────────────────────────────────────
 
 export function AdvisorView() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const hasAI = user?.plan === "sync_ai"
 
@@ -137,7 +139,7 @@ export function AdvisorView() {
         if (err instanceof ApiError) {
           setError(err.message)
         } else {
-          setError("Request failed")
+          setError(t("advisor.error_failed"))
         }
       } finally {
         abortRef.current = null
@@ -157,8 +159,7 @@ export function AdvisorView() {
       <div className="view advisor-view">
         <div className="advisor-upgrade">
           <p className="text-muted">
-            The AI advisor requires the Sync + AI
-            plan.
+            {t("advisor.upgrade_required")}
           </p>
         </div>
       </div>
@@ -176,11 +177,10 @@ export function AdvisorView() {
         {messages.length === 0 && !loading && (
           <div className="advisor-welcome">
             <p className="advisor-welcome-title">
-              Kaisho AI
+              {t("advisor.welcome_title")}
             </p>
             <p className="text-muted">
-              Ask about your time entries, tasks,
-              and customers.
+              {t("advisor.welcome_subtitle")}
             </p>
             <div className="advisor-examples">
               {EXAMPLES.map((q, i) => (
@@ -218,7 +218,7 @@ export function AdvisorView() {
         {loading && (
           <div className="advisor-msg advisor-msg--assistant">
             <div className="advisor-msg-text advisor-thinking">
-              Thinking...
+              {t("advisor.thinking")}
             </div>
           </div>
         )}
@@ -234,7 +234,7 @@ export function AdvisorView() {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask the advisor..."
+          placeholder={t("advisor.placeholder")}
           disabled={loading}
         />
         {loading ? (
@@ -243,7 +243,7 @@ export function AdvisorView() {
             className="btn-stop"
             onClick={stopRequest}
           >
-            Stop
+            {t("advisor.stop")}
           </button>
         ) : (
           <button
@@ -251,7 +251,7 @@ export function AdvisorView() {
             className="btn-primary"
             disabled={!input.trim()}
           >
-            Send
+            {t("advisor.send")}
           </button>
         )}
       </form>

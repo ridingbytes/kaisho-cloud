@@ -1,0 +1,213 @@
+{
+  "timer.start": "Iniciar temporizador",
+  "timer.stop": "Detener",
+  "timer.customer": "Cliente",
+  "timer.contract_optional": "Contrato (opcional)",
+  "timer.task_optional": "Tarea (opcional)",
+  "timer.description_optional": "Descripci\u00f3n (opcional)",
+  "timer.started": "Temporizador iniciado",
+  "timer.stopped": "Temporizador detenido",
+
+  "entries.range.day": "D\u00eda",
+  "entries.range.week": "Semana",
+  "entries.range.month": "Mes",
+  "entries.nav.previous": "Anterior",
+  "entries.nav.next": "Siguiente",
+  "entries.nav.today": "Hoy",
+  "entries.filter.all_customers": "Todos los clientes",
+  "entries.filter.clear": "Limpiar",
+  "entries.total": "Total",
+  "entries.loading": "Cargando...",
+  "entries.empty": "No hay registros en el per\u00edodo",
+  "entries.running_now": "ahora",
+  "entries.sync.synced":
+    "Sincronizado con la app local",
+  "entries.sync.pending":
+    "Sincronizaci\u00f3n pendiente",
+  "entries.action.edit": "Editar registro",
+  "entries.action.resume": "Reanudar",
+  "entries.action.resume_timer":
+    "Reanudar temporizador",
+  "entries.action.delete": "Eliminar registro",
+  "entries.filter_by_customer": "Filtrar por cliente",
+  "entries.confirm.delete":
+    "\u00bfEliminar registro {{label}}?",
+  "entries.confirm.running_timer":
+    "Hay un temporizador activo. \u00bfDetenerlo e iniciar uno nuevo?",
+
+  "book.parse": "Analizar",
+  "book.smart_placeholder":
+    "p.\u202fej. \u201c2h Acme arreglar login\u201d",
+  "book.smart_hint":
+    "Escribe el registro en lenguaje natural",
+  "book.duration_placeholder":
+    "Duraci\u00f3n (p.\u202fej. 1h30m, 90m, 1.5)",
+  "book.description_optional": "Descripci\u00f3n (opcional)",
+  "book.customer": "Cliente",
+  "book.submit": "Registrar entrada",
+  "book.booked": "Entrada registrada",
+  "book.parsed":
+    "Analizado \u2014 revisa y env\u00eda",
+  "book.error_generic": "Algo sali\u00f3 mal",
+
+  "dashboard.today": "Hoy",
+  "dashboard.week": "Semana",
+  "dashboard.month": "Mes",
+  "dashboard.ai_summary": "Resumen IA",
+  "dashboard.generate": "Generar",
+  "dashboard.refresh": "Actualizar",
+  "dashboard.generating": "Generando...",
+  "dashboard.summary_hint":
+    "Toca Generar para un resumen semanal con IA.",
+  "dashboard.summary_failed":
+    "No se pudo generar el resumen.",
+  "dashboard.this_week": "Esta semana",
+  "dashboard.drill_hint":
+    "Toca una barra para ver el detalle",
+  "dashboard.top_customers_week":
+    "Mejores clientes \u00b7 semana",
+  "dashboard.top_customers_month":
+    "Mejores clientes \u00b7 mes",
+  "dashboard.no_entries": "A\u00fan sin registros",
+  "dashboard.loading": "Cargando\u2026",
+
+  "edit.title": "Editar registro",
+  "edit.close": "Cerrar",
+  "edit.label.start": "Inicio",
+  "edit.label.duration": "Duraci\u00f3n",
+  "edit.label.customer": "Cliente",
+  "edit.label.contract": "Contrato",
+  "edit.label.description": "Descripci\u00f3n",
+  "edit.label.notes": "Notas",
+  "edit.label.invoiced": "Facturado",
+  "edit.contract.none": "Ninguno",
+  "edit.description_placeholder": "Descripci\u00f3n",
+  "edit.notes_placeholder": "Notas libres",
+  "edit.cancel": "Cancelar",
+  "edit.save": "Guardar",
+  "edit.saving": "Guardando...",
+  "edit.saved": "Registro actualizado",
+  "edit.error_save": "Error al guardar",
+
+  "profile.email": "Correo electr\u00f3nico",
+  "profile.plan": "Plan",
+  "profile.subscription": "Suscripci\u00f3n",
+  "profile.subscription.on_plan":
+    "Est\u00e1s en el plan {{plan}}.",
+  "profile.subscription.status": "Estado:",
+  "profile.subscription.renews": "Se renueva:",
+  "profile.subscription.cancels":
+    "Se cancela al final del per\u00edodo",
+  "profile.upgrade.to_sync_ai":
+    "Mejorar a Sync + IA",
+  "profile.upgrade.upgrading": "Actualizando...",
+  "profile.upgrade.manage": "Gestionar suscripci\u00f3n",
+  "profile.upgrade.cta":
+    "Mejora tu plan para sincronizar registros con la app de escritorio y acceder a funciones de IA.",
+  "profile.upgrade.cloud_sync": "Sync en la nube",
+  "profile.upgrade.sync_ai": "Sync + IA",
+  "profile.upgrade.processing": "Procesando...",
+  "profile.ai_usage": "Uso de IA",
+  "profile.ai_usage.requests_this_month":
+    "{{count}} solicitud este mes",
+  "profile.ai_usage.requests_this_month_plural":
+    "{{count}} solicitudes este mes",
+  "profile.ai_usage.tokens": "tokens",
+  "profile.connect": "Conectar app de escritorio",
+  "profile.connect.description":
+    "Genera una clave API para conectar tu instancia local de Kaisho. La clave anterior dejar\u00e1 de funcionar.",
+  "profile.connect.generate": "Generar nueva clave",
+  "profile.connect.generating": "...",
+  "profile.connect.api_key": "Clave API",
+  "profile.connect.copy_key": "Copiar clave",
+  "profile.connect.copied": "Copiado",
+  "profile.connect.cli_command": "Comando CLI",
+  "profile.connect.copy_command": "Copiar comando",
+  "profile.connect.manual_label": "O manualmente",
+  "profile.connect.manual_instructions":
+    "Abre Kaisho \u2192 Configuraci\u00f3n \u2192 Cloud Sync \u2192 pega la URL y la clave API \u2192 Conectar.",
+  "profile.appearance": "Apariencia",
+  "profile.theme.light": "Claro",
+  "profile.theme.dark": "Oscuro",
+  "profile.theme.system": "Sistema",
+  "profile.language": "Idioma",
+  "profile.logout": "Cerrar sesi\u00f3n",
+  "profile.key_generated":
+    "Nueva clave API generada",
+  "profile.copied": "Copiado",
+  "profile.api_key_copied": "Clave API copiada",
+  "profile.error_generic": "Algo sali\u00f3 mal",
+
+  "advisor.upgrade_required":
+    "El asesor de IA requiere el plan Sync + IA.",
+  "advisor.welcome_title": "Kaisho IA",
+  "advisor.welcome_subtitle":
+    "Pregunta sobre tus registros, tareas y clientes.",
+  "advisor.thinking": "Pensando...",
+  "advisor.placeholder": "Pregunta al asesor...",
+  "advisor.send": "Enviar",
+  "advisor.stop": "Detener",
+  "advisor.error_failed": "La solicitud fall\u00f3",
+
+  "shell.tab.timer": "Timer",
+  "shell.tab.dashboard": "Panel",
+  "shell.tab.book": "Registrar",
+  "shell.tab.advisor": "IA",
+  "shell.tab.entries": "Registros",
+  "shell.tab.profile": "Perfil",
+
+  "auth.email": "Correo electr\u00f3nico",
+  "auth.password": "Contrase\u00f1a",
+  "auth.login": "Iniciar sesi\u00f3n",
+  "auth.signup": "Registrarse",
+  "auth.create_account": "Crear cuenta",
+  "auth.back_to_login": "Volver al inicio de sesi\u00f3n",
+  "auth.forgot_password": "\u00bfOlvidaste tu contrase\u00f1a?",
+  "auth.logged_in": "Sesi\u00f3n iniciada",
+  "auth.error_generic": "Algo sali\u00f3 mal",
+
+  "forgot.title": "Restablecer contrase\u00f1a",
+  "forgot.description":
+    "Introduce tu correo y te enviaremos un enlace para restablecer tu contrase\u00f1a.",
+  "forgot.sent":
+    "Si existe una cuenta con ese correo, recibir\u00e1s un enlace. Revisa la carpeta de spam si no llega en pocos minutos.",
+  "forgot.send_link": "Enviar enlace",
+  "forgot.back_to_login":
+    "Volver al inicio de sesi\u00f3n",
+
+  "reset.title": "Nueva contrase\u00f1a",
+  "reset.new_password": "Nueva contrase\u00f1a",
+  "reset.confirm_password": "Confirmar contrase\u00f1a",
+  "reset.submit": "Establecer nueva contrase\u00f1a",
+  "reset.back_to_login":
+    "Volver al inicio de sesi\u00f3n",
+  "reset.updated": "Contrase\u00f1a actualizada",
+  "reset.error.too_short":
+    "La contrase\u00f1a debe tener al menos 8 caracteres",
+  "reset.error.mismatch":
+    "Las contrase\u00f1as no coinciden",
+  "reset.error_generic": "Algo sali\u00f3 mal",
+
+  "signup_success.title": "Cuenta creada",
+  "signup_success.description":
+    "Guarda esta clave API ahora. La necesitar\u00e1s para conectar la app de escritorio. No se mostrar\u00e1 de nuevo.",
+  "signup_success.copy": "Copiar clave API",
+  "signup_success.copied": "Copiado",
+  "signup_success.continue":
+    "Continuar al inicio de sesi\u00f3n",
+  "signup_success.api_key_copied": "Clave API copiada",
+
+  "upgrade_banner.default_message":
+    "Esta funci\u00f3n requiere una suscripci\u00f3n.",
+  "upgrade_banner.cloud_sync": "Sync en la nube",
+  "upgrade_banner.sync_ai": "Sync + IA",
+  "upgrade_banner.error":
+    "No se pudo abrir el proceso de pago",
+
+  "confirm.cancel": "Cancelar",
+  "confirm.confirm": "Confirmar",
+
+  "customer_picker.new_customer": "nuevo cliente",
+
+  "error_banner.dismiss": "Cerrar"
+}

@@ -1,0 +1,206 @@
+{
+  "timer.start": "Timer starten",
+  "timer.stop": "Stopp",
+  "timer.customer": "Kunde",
+  "timer.contract_optional": "Vertrag (optional)",
+  "timer.task_optional": "Aufgabe (optional)",
+  "timer.description_optional": "Beschreibung (optional)",
+  "timer.started": "Timer gestartet",
+  "timer.stopped": "Timer gestoppt",
+
+  "entries.range.day": "Tag",
+  "entries.range.week": "Woche",
+  "entries.range.month": "Monat",
+  "entries.nav.previous": "Zur\u00fcck",
+  "entries.nav.next": "Vor",
+  "entries.nav.today": "Heute",
+  "entries.filter.all_customers": "Alle Kunden",
+  "entries.filter.clear": "L\u00f6schen",
+  "entries.total": "Gesamt",
+  "entries.loading": "L\u00e4dt...",
+  "entries.empty": "Keine Eintr\u00e4ge im Zeitraum",
+  "entries.running_now": "jetzt",
+  "entries.sync.synced": "Mit lokaler App synchronisiert",
+  "entries.sync.pending": "Synchronisierung ausstehend",
+  "entries.action.edit": "Eintrag bearbeiten",
+  "entries.action.resume": "Fortsetzen",
+  "entries.action.resume_timer": "Timer fortsetzen",
+  "entries.action.delete": "Eintrag l\u00f6schen",
+  "entries.filter_by_customer": "Nach Kunde filtern",
+  "entries.confirm.delete": "Eintrag {{label}} l\u00f6schen?",
+  "entries.confirm.running_timer":
+    "Ein Timer l\u00e4uft. Stoppen und neuen starten?",
+
+  "book.parse": "Analysieren",
+  "book.smart_placeholder":
+    "z.\u202fB. \u201e2h Acme Login reparieren\u201c",
+  "book.smart_hint":
+    "Buchung in nat\u00fcrlicher Sprache eingeben",
+  "book.duration_placeholder":
+    "Dauer (z.\u202fB. 1h30m, 90m, 1,5)",
+  "book.description_optional": "Beschreibung (optional)",
+  "book.customer": "Kunde",
+  "book.submit": "Eintrag buchen",
+  "book.booked": "Eintrag gebucht",
+  "book.parsed": "Analysiert \u2014 bitte pr\u00fcfen und absenden",
+  "book.error_generic": "Etwas ist schiefgelaufen",
+
+  "dashboard.today": "Heute",
+  "dashboard.week": "Woche",
+  "dashboard.month": "Monat",
+  "dashboard.ai_summary": "KI-Zusammenfassung",
+  "dashboard.generate": "Erstellen",
+  "dashboard.refresh": "Aktualisieren",
+  "dashboard.generating": "Wird erstellt...",
+  "dashboard.summary_hint":
+    "Auf \u201eErstellen\u201c tippen f\u00fcr eine KI-Wochenzusammenfassung.",
+  "dashboard.summary_failed":
+    "Zusammenfassung konnte nicht erstellt werden.",
+  "dashboard.this_week": "Diese Woche",
+  "dashboard.drill_hint": "Balken antippen zum Einzoomen",
+  "dashboard.top_customers_week":
+    "Top-Kunden \u00b7 Woche",
+  "dashboard.top_customers_month":
+    "Top-Kunden \u00b7 Monat",
+  "dashboard.no_entries": "Noch keine Eintr\u00e4ge",
+  "dashboard.loading": "L\u00e4dt\u2026",
+
+  "edit.title": "Eintrag bearbeiten",
+  "edit.close": "Schlie\u00dfen",
+  "edit.label.start": "Start",
+  "edit.label.duration": "Dauer",
+  "edit.label.customer": "Kunde",
+  "edit.label.contract": "Vertrag",
+  "edit.label.description": "Beschreibung",
+  "edit.label.notes": "Notizen",
+  "edit.label.invoiced": "Abgerechnet",
+  "edit.contract.none": "Kein",
+  "edit.description_placeholder": "Beschreibung",
+  "edit.notes_placeholder": "Freie Notizen",
+  "edit.cancel": "Abbrechen",
+  "edit.save": "Speichern",
+  "edit.saving": "Wird gespeichert...",
+  "edit.saved": "Eintrag aktualisiert",
+  "edit.error_save": "Speichern fehlgeschlagen",
+
+  "profile.email": "E-Mail",
+  "profile.plan": "Plan",
+  "profile.subscription": "Abonnement",
+  "profile.subscription.on_plan":
+    "Sie nutzen den {{plan}}-Plan.",
+  "profile.subscription.status": "Status:",
+  "profile.subscription.renews": "Verl\u00e4ngert sich:",
+  "profile.subscription.cancels":
+    "Wird am Ende des Zeitraums gek\u00fcndigt",
+  "profile.upgrade.to_sync_ai":
+    "Upgrade auf Sync + KI",
+  "profile.upgrade.upgrading": "Wird aktualisiert...",
+  "profile.upgrade.manage": "Abonnement verwalten",
+  "profile.upgrade.cta":
+    "Upgraden Sie, um Zeiteintr\u00e4ge mit der Desktop-App zu synchronisieren und KI-Funktionen freizuschalten.",
+  "profile.upgrade.cloud_sync": "Cloud-Sync",
+  "profile.upgrade.sync_ai": "Sync + KI",
+  "profile.upgrade.processing": "Wird bearbeitet...",
+  "profile.ai_usage": "KI-Nutzung",
+  "profile.ai_usage.requests_this_month":
+    "{{count}} Anfrage diesen Monat",
+  "profile.ai_usage.requests_this_month_plural":
+    "{{count}} Anfragen diesen Monat",
+  "profile.ai_usage.tokens": "Tokens",
+  "profile.connect": "Desktop-App verbinden",
+  "profile.connect.description":
+    "API-Schl\u00fcssel generieren, um die lokale Kaisho-Instanz zu verbinden. Der alte Schl\u00fcssel wird deaktiviert.",
+  "profile.connect.generate":
+    "Neuen Schl\u00fcssel generieren",
+  "profile.connect.generating": "...",
+  "profile.connect.api_key": "API-Schl\u00fcssel",
+  "profile.connect.copy_key": "Schl\u00fcssel kopieren",
+  "profile.connect.copied": "Kopiert",
+  "profile.connect.cli_command": "CLI-Befehl",
+  "profile.connect.copy_command": "Befehl kopieren",
+  "profile.connect.manual_label": "Oder manuell",
+  "profile.connect.manual_instructions":
+    "Kaisho \u2192 Einstellungen \u2192 Cloud-Sync \u2192 URL und API-Schl\u00fcssel einf\u00fcgen \u2192 Verbinden.",
+  "profile.appearance": "Darstellung",
+  "profile.theme.light": "Hell",
+  "profile.theme.dark": "Dunkel",
+  "profile.theme.system": "System",
+  "profile.language": "Sprache",
+  "profile.logout": "Abmelden",
+  "profile.key_generated":
+    "Neuer API-Schl\u00fcssel generiert",
+  "profile.copied": "Kopiert",
+  "profile.api_key_copied": "API-Schl\u00fcssel kopiert",
+  "profile.error_generic": "Etwas ist schiefgelaufen",
+
+  "advisor.upgrade_required":
+    "Der KI-Berater erfordert den Sync-+-KI-Plan.",
+  "advisor.welcome_title": "Kaisho KI",
+  "advisor.welcome_subtitle":
+    "Fragen zu Zeiteintr\u00e4gen, Aufgaben und Kunden.",
+  "advisor.thinking": "Denkt nach...",
+  "advisor.placeholder": "Berater fragen...",
+  "advisor.send": "Senden",
+  "advisor.stop": "Stopp",
+  "advisor.error_failed": "Anfrage fehlgeschlagen",
+
+  "shell.tab.timer": "Timer",
+  "shell.tab.dashboard": "Dashboard",
+  "shell.tab.book": "Buchen",
+  "shell.tab.advisor": "KI",
+  "shell.tab.entries": "Eintr\u00e4ge",
+  "shell.tab.profile": "Profil",
+
+  "auth.email": "E-Mail",
+  "auth.password": "Passwort",
+  "auth.login": "Anmelden",
+  "auth.signup": "Registrieren",
+  "auth.create_account": "Konto erstellen",
+  "auth.back_to_login": "Zur\u00fcck zur Anmeldung",
+  "auth.forgot_password": "Passwort vergessen?",
+  "auth.logged_in": "Angemeldet",
+  "auth.error_generic": "Etwas ist schiefgelaufen",
+
+  "forgot.title": "Passwort zur\u00fccksetzen",
+  "forgot.description":
+    "E-Mail eingeben und wir senden einen Link zum Zur\u00fccksetzen des Passworts.",
+  "forgot.sent":
+    "Falls ein Konto mit dieser E-Mail existiert, erhalten Sie einen Link. Bitte auch den Spam-Ordner pr\u00fcfen.",
+  "forgot.send_link": "Reset-Link senden",
+  "forgot.back_to_login": "Zur\u00fcck zur Anmeldung",
+
+  "reset.title": "Neues Passwort",
+  "reset.new_password": "Neues Passwort",
+  "reset.confirm_password": "Passwort best\u00e4tigen",
+  "reset.submit": "Neues Passwort setzen",
+  "reset.back_to_login": "Zur\u00fcck zur Anmeldung",
+  "reset.updated": "Passwort aktualisiert",
+  "reset.error.too_short":
+    "Das Passwort muss mindestens 8 Zeichen lang sein",
+  "reset.error.mismatch":
+    "Die Passw\u00f6rter stimmen nicht \u00fcberein",
+  "reset.error_generic": "Etwas ist schiefgelaufen",
+
+  "signup_success.title": "Konto erstellt",
+  "signup_success.description":
+    "Speichern Sie diesen API-Schl\u00fcssel jetzt. Sie ben\u00f6tigen ihn, um die Desktop-App zu verbinden. Er wird nicht erneut angezeigt.",
+  "signup_success.copy": "API-Schl\u00fcssel kopieren",
+  "signup_success.copied": "Kopiert",
+  "signup_success.continue": "Weiter zur Anmeldung",
+  "signup_success.api_key_copied":
+    "API-Schl\u00fcssel kopiert",
+
+  "upgrade_banner.default_message":
+    "Diese Funktion erfordert ein Abonnement.",
+  "upgrade_banner.cloud_sync": "Cloud-Sync",
+  "upgrade_banner.sync_ai": "Sync + KI",
+  "upgrade_banner.error":
+    "Checkout konnte nicht ge\u00f6ffnet werden",
+
+  "confirm.cancel": "Abbrechen",
+  "confirm.confirm": "Best\u00e4tigen",
+
+  "customer_picker.new_customer": "neuer Kunde",
+
+  "error_banner.dismiss": "Schlie\u00dfen"
+}

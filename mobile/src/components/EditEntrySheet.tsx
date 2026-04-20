@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import type { ClockEntry, Customer } from "../types"
 import {
   getCustomers,
@@ -35,6 +36,7 @@ interface Props {
  */
 export function EditEntrySheet(props: Props) {
   const { entry, onClose, onSaved } = props
+  const { t } = useTranslation()
   const { toast } = useToast()
   const [customers, setCustomers] = useState<Customer[]>(
     [],
@@ -125,13 +127,13 @@ export function EditEntrySheet(props: Props) {
         entry.id,
         fields as Parameters<typeof updateEntry>[1],
       )
-      toast("Entry updated")
+      toast(t("edit.saved"))
       onSaved(updated)
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError("Failed to save")
+        setError(t("edit.error_save"))
       }
     } finally {
       setSaving(false)
@@ -147,12 +149,12 @@ export function EditEntrySheet(props: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <header className="edit-sheet-header">
-          <h3>Edit entry</h3>
+          <h3>{t("edit.title")}</h3>
           <button
             type="button"
             className="edit-sheet-close"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("edit.close")}
           >
             &times;
           </button>
@@ -176,7 +178,7 @@ export function EditEntrySheet(props: Props) {
             }}>
               <div>
                 <label className="edit-sheet-label">
-                  Start
+                  {t("edit.label.start")}
                 </label>
                 <input
                   type="time"
@@ -189,7 +191,7 @@ export function EditEntrySheet(props: Props) {
               {entry.end && (
                 <div>
                   <label className="edit-sheet-label">
-                    Duration
+                    {t("edit.label.duration")}
                   </label>
                   <input
                     type="text"
@@ -207,7 +209,7 @@ export function EditEntrySheet(props: Props) {
           {/* Editable fields */}
           <div className="form">
             <label className="edit-sheet-label">
-              Customer
+              {t("edit.label.customer")}
             </label>
             <CustomerPicker
               value={customer}
@@ -222,7 +224,7 @@ export function EditEntrySheet(props: Props) {
             {contracts.length > 0 && (
               <>
                 <label className="edit-sheet-label">
-                  Contract
+                  {t("edit.label.contract")}
                 </label>
                 <select
                   value={contract}
@@ -230,7 +232,9 @@ export function EditEntrySheet(props: Props) {
                     setContract(e.target.value)
                   }
                 >
-                  <option value="">None</option>
+                  <option value="">
+                    {t("edit.contract.none")}
+                  </option>
                   {contracts.map((c) => (
                     <option key={c.name} value={c.name}>
                       {c.name}
@@ -241,7 +245,7 @@ export function EditEntrySheet(props: Props) {
             )}
 
             <label className="edit-sheet-label">
-              Description
+              {t("edit.label.description")}
             </label>
             <input
               type="text"
@@ -249,17 +253,19 @@ export function EditEntrySheet(props: Props) {
               onChange={(e) =>
                 setDescription(e.target.value)
               }
-              placeholder="Description"
+              placeholder={
+                t("edit.description_placeholder")
+              }
             />
 
             <label className="edit-sheet-label">
-              Notes
+              {t("edit.label.notes")}
             </label>
             <textarea
               className="edit-sheet-textarea"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Free-form notes"
+              placeholder={t("edit.notes_placeholder")}
               rows={3}
             />
 
@@ -271,7 +277,7 @@ export function EditEntrySheet(props: Props) {
                   setInvoiced(e.target.checked)
                 }
               />
-              <span>Invoiced</span>
+              <span>{t("edit.label.invoiced")}</span>
             </label>
           </div>
         </div>
@@ -282,7 +288,7 @@ export function EditEntrySheet(props: Props) {
             className="btn-secondary"
             onClick={onClose}
           >
-            Cancel
+            {t("edit.cancel")}
           </button>
           <button
             type="button"
@@ -290,7 +296,9 @@ export function EditEntrySheet(props: Props) {
             onClick={handleSave}
             disabled={saving}
           >
-            {saving ? "Saving..." : "Save"}
+            {saving
+              ? t("edit.saving")
+              : t("edit.save")}
           </button>
         </footer>
       </div>

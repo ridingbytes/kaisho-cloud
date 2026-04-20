@@ -1,4 +1,5 @@
 import { useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import type { Customer } from "../types"
 
 interface Props {
@@ -22,9 +23,10 @@ interface Props {
  * heard of.
  */
 export function CustomerPicker(props: Props) {
+  const { t } = useTranslation()
   const {
     value, customers, onChange,
-    placeholder = "Customer", synced,
+    placeholder = t("timer.customer"), synced,
   } = props
   const [open, setOpen] = useState(false)
   const [activeIdx, setActiveIdx] = useState(-1)
@@ -150,7 +152,7 @@ export function CustomerPicker(props: Props) {
             >
               Use &quot;{value.trim()}&quot;
               <span className="customer-picker-hint">
-                new customer
+                {t("customer_picker.new_customer")}
               </span>
             </li>
           )}

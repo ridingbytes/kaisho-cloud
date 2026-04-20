@@ -1,10 +1,12 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useAuth } from "../auth"
 import { forgotPassword, ApiError } from "../api"
 import { ErrorBanner } from "./ErrorBanner"
 import { Logo } from "./Logo"
 
 export function ForgotPassword() {
+  const { t } = useTranslation()
   const { setAuthView } = useAuth()
   const [email, setEmail] = useState("")
   const [error, setError] = useState<string | null>(
@@ -24,7 +26,7 @@ export function ForgotPassword() {
       if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError("Something went wrong")
+        setError(t("auth.error_generic"))
       }
     } finally {
       setLoading(false)
@@ -34,14 +36,13 @@ export function ForgotPassword() {
   return (
     <div className="auth-screen">
       <Logo size={56} className="auth-logo" />
-      <h1 className="auth-title">Reset password</h1>
+      <h1 className="auth-title">
+        {t("forgot.title")}
+      </h1>
       {sent ? (
         <div className="card">
           <p className="text-muted">
-            If an account exists for that email,
-            you will receive a password reset link.
-            Check your spam folder if it does not
-            arrive within a few minutes.
+            {t("forgot.sent")}
           </p>
         </div>
       ) : (
@@ -54,12 +55,11 @@ export function ForgotPassword() {
             onDismiss={() => setError(null)}
           />
           <p className="text-muted">
-            Enter your email and we will send a
-            password reset link.
+            {t("forgot.description")}
           </p>
           <input
             type="email"
-            placeholder="Email"
+            placeholder={t("auth.email")}
             value={email}
             onChange={(e) =>
               setEmail(e.target.value)
@@ -72,7 +72,7 @@ export function ForgotPassword() {
             className="btn-primary"
             disabled={loading}
           >
-            {loading ? "..." : "Send reset link"}
+            {loading ? "..." : t("forgot.send_link")}
           </button>
         </form>
       )}
@@ -81,7 +81,7 @@ export function ForgotPassword() {
           className="link-btn"
           onClick={() => setAuthView("login")}
         >
-          Back to login
+          {t("forgot.back_to_login")}
         </button>
       </div>
     </div>

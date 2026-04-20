@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useAuth } from "../auth"
 import { useToast } from "../toast"
 import { useTheme } from "../theme"
 import type { Theme } from "../theme"
+import { setLanguage } from "../i18n"
 import {
   createCheckout,
   createPortalSession,
@@ -14,16 +16,23 @@ import {
 import { ErrorBanner } from "./ErrorBanner"
 import { planLabel } from "../utils/planLabel"
 
-const THEME_OPTIONS: { id: Theme; label: string }[] = [
-  { id: "light", label: "Light" },
-  { id: "dark", label: "Dark" },
-  { id: "system", label: "System" },
+const LANG_OPTIONS = [
+  { id: "en", label: "English" },
+  { id: "de", label: "Deutsch" },
+  { id: "es", label: "Español" },
 ]
 
 export function ProfileView() {
+  const { t, i18n } = useTranslation()
   const { user, logout } = useAuth()
   const { toast } = useToast()
   const { theme, setTheme } = useTheme()
+
+  const THEME_OPTIONS: { id: Theme; label: string }[] = [
+    { id: "light", label: t("profile.theme.light") },
+    { id: "dark", label: t("profile.theme.dark") },
+    { id: "system", label: t("profile.theme.system") },
+  ]
   const [newKey, setNewKey] = useState<string | null>(
     null,
   )
@@ -72,12 +81,12 @@ export function ProfileView() {
     try {
       const res = await regenerateApiKey()
       setNewKey(res.api_key)
-      toast("New API key generated")
+      toast(t("profile.key_generated"))
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError("Something went wrong")
+        setError(t("profile.error_generic"))
       }
     } finally {
       setLoading(false)
@@ -88,7 +97,7 @@ export function ProfileView() {
     if (!newKey) return
     navigator.clipboard.writeText(newKey).then(() => {
       setCopied(true)
-      toast("API key copied")
+      toast(t("profile.api_key_copied"))
       setTimeout(() => setCopied(false), 2000)
     })
   }
@@ -135,7 +144,7 @@ export function ProfileView() {
 
   function copyText(text: string) {
     navigator.clipboard.writeText(text).then(() => {
-      toast("Copied")
+      toast(t("profile.copied"))
     })
   }
 
@@ -149,23 +158,28 @@ export function ProfileView() {
       {/* Account */}
       <div className="card">
         <div className="profile-row">
-          <span className="text-muted">Email</span>
+          <span className="text-muted">
+            {t("profile.email")}
+          </span>
           <span>{user?.email}</span>
         </div>
         <div className="profile-row">
-          <span className="text-muted">Plan</span>
+          <span className="text-muted">
+            {t("profile.plan")}
+          </span>
           <span className="plan-badge">{planLabel(plan)}</span>
         </div>
       </div>
 
       {/* Subscription management */}
       <div className="card">
-        <h3>Subscription</h3>
+        <h3>{t("profile.subscription")}</h3>
         {isPaid ? (
           <>
             <p className="text-muted">
-              You are on the{" "}
-              <strong>{planLabel(plan)}</strong> plan.
+              {t("profile.subscription.on_plan", {
+                plan: planLabel(plan),
+              })}
             </p>
             {sub?.subscription && (
               <div
@@ -173,13 +187,13 @@ export function ProfileView() {
                 style={{ fontSize: 12, marginTop: 8 }}
               >
                 <p>
-                  Status:{" "}
+                  {t("profile.subscription.status")}{" "}
                   <strong>
                     {sub.subscription.status}
                   </strong>
                 </p>
                 <p>
-                  Renews:{" "}
+                  {t("profile.subscription.renews")}{" "}
                   {new Date(
                     sub.subscription
                       .current_period_end * 1000,
@@ -188,7 +202,7 @@ export function ProfileView() {
                 {sub.subscription
                   .cancel_at_period_end && (
                   <p style={{ color: "#ef4444" }}>
-                    Cancels at end of period
+                    {t("profile.subscription.cancels")}
                   </p>
                 )}
               </div>
@@ -207,8 +221,8 @@ export function ProfileView() {
                   disabled={upgrading}
                 >
                   {upgrading
-                    ? "Upgrading..."
-                    : "Upgrade to Sync + AI"}
+                    ? t("profile.upgrade.upgrading")
+                    : t("profile.upgrade.to_sync_ai")}
                 </button>
               )}
               <button
@@ -216,15 +230,14 @@ export function ProfileView() {
                 className="btn-secondary upgrade-btn"
                 onClick={handleManage}
               >
-                Manage Subscription
+                {t("profile.upgrade.manage")}
               </button>
             </div>
           </>
         ) : (
           <>
             <p className="text-muted">
-              Upgrade to sync time entries with your
-              desktop app and unlock AI features.
+              {t("profile.upgrade.cta")}
             </p>
             <div className="upgrade-actions">
               <button
@@ -234,8 +247,8 @@ export function ProfileView() {
                 disabled={upgrading}
               >
                 {upgrading
-                  ? "Processing..."
-                  : "Cloud Sync"}
+                  ? t("profile.upgrade.processing")
+                  : t("profile.upgrade.cloud_sync")}
               </button>
               <button
                 type="button"
@@ -246,8 +259,8 @@ export function ProfileView() {
                 disabled={upgrading}
               >
                 {upgrading
-                  ? "Processing..."
-                  : "Sync + AI"}
+                  ? t("profile.upgrade.processing")
+                  : t("profile.upgrade.sync_ai")}
               </button>
             </div>
           </>
@@ -272,7 +285,7 @@ export function ProfileView() {
           (n / 1000).toFixed(1) + "K"
         return (
           <div className="card">
-            <h3>AI Usage</h3>
+            <h3>{t("profile.ai_usage")}</h3>
             <p
               className="text-muted"
               style={{ fontSize: 12, marginBottom: 8 }}
@@ -301,15 +314,24 @@ export function ProfileView() {
             <p style={{ fontSize: 13, margin: "4px 0" }}>
               {fmtK(usage.total_tokens)}{" "}
               /{" "}
-              {fmtK(usage.cap)} tokens
+              {fmtK(usage.cap)}{" "}
+              {t("profile.ai_usage.tokens")}
             </p>
             <p
               className="text-muted"
               style={{ fontSize: 12 }}
             >
-              {usage.request_count} request
-              {usage.request_count !== 1 ? "s" : ""}{" "}
-              this month
+              {usage.request_count !== 1
+                ? t(
+                  "profile.ai_usage"
+                  + ".requests_this_month_plural",
+                  { count: usage.request_count },
+                )
+                : t(
+                  "profile.ai_usage"
+                  + ".requests_this_month",
+                  { count: usage.request_count },
+                )}
             </p>
           </div>
         )
@@ -317,23 +339,24 @@ export function ProfileView() {
 
       {/* Connect desktop app */}
       <div className="card">
-        <h3>Connect desktop app</h3>
+        <h3>{t("profile.connect")}</h3>
         <p className="text-muted">
-          Generate an API key to connect your local
-          Kaisho instance. The old key will stop working.
+          {t("profile.connect.description")}
         </p>
         <button
           className="btn-secondary"
           onClick={handleRegenerate}
           disabled={loading}
         >
-          {loading ? "..." : "Generate new key"}
+          {loading
+            ? t("profile.connect.generating")
+            : t("profile.connect.generate")}
         </button>
         {newKey && (
           <div className="connect-card">
             <div className="connect-section">
               <span className="connect-label">
-                API Key
+                {t("profile.connect.api_key")}
               </span>
               <code className="api-key-display">
                 {newKey}
@@ -342,12 +365,14 @@ export function ProfileView() {
                 className="btn-secondary"
                 onClick={copyKey}
               >
-                {copied ? "Copied" : "Copy key"}
+                {copied
+                  ? t("profile.connect.copied")
+                  : t("profile.connect.copy_key")}
               </button>
             </div>
             <div className="connect-section">
               <span className="connect-label">
-                CLI command
+                {t("profile.connect.cli_command")}
               </span>
               <code className="api-key-display">
                 {cliCmd}
@@ -358,17 +383,17 @@ export function ProfileView() {
                   copyText(cliCmd!)
                 }
               >
-                Copy command
+                {t("profile.connect.copy_command")}
               </button>
             </div>
             <div className="connect-section">
               <span className="connect-label">
-                Or manually
+                {t("profile.connect.manual_label")}
               </span>
               <p className="text-muted">
-                Open Kaisho &rarr; Settings &rarr;
-                Cloud Sync &rarr; paste the URL
-                and API key &rarr; Connect.
+                {t(
+                  "profile.connect.manual_instructions",
+                )}
               </p>
             </div>
           </div>
@@ -377,7 +402,7 @@ export function ProfileView() {
 
       {/* Appearance */}
       <div className="card">
-        <h3>Appearance</h3>
+        <h3>{t("profile.appearance")}</h3>
         <div className="segmented">
           {THEME_OPTIONS.map((opt) => (
             <button
@@ -393,13 +418,31 @@ export function ProfileView() {
             </button>
           ))}
         </div>
+        <div
+          className="segmented"
+          style={{ marginTop: 12 }}
+        >
+          {LANG_OPTIONS.map((opt) => (
+            <button
+              key={opt.id}
+              className={
+                "segmented-btn" +
+                (i18n.language === opt.id
+                  ? " segmented-btn--active" : "")
+              }
+              onClick={() => setLanguage(opt.id)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <button
         className="btn-danger logout-btn"
         onClick={logout}
       >
-        Log out
+        {t("profile.logout")}
       </button>
     </div>
   )

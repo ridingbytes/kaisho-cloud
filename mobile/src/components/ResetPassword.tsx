@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useAuth } from "../auth"
 import { useToast } from "../toast"
 import { resetPassword, ApiError } from "../api"
@@ -10,6 +11,7 @@ export function ResetPassword({
 }: {
   token: string
 }) {
+  const { t } = useTranslation()
   const { setAuthView } = useAuth()
   const { toast } = useToast()
   const [password, setPassword] = useState("")
@@ -23,23 +25,23 @@ export function ResetPassword({
     e.preventDefault()
     setError(null)
     if (password.length < 8) {
-      setError("Password must be at least 8 characters")
+      setError(t("reset.error.too_short"))
       return
     }
     if (password !== confirm) {
-      setError("Passwords do not match")
+      setError(t("reset.error.mismatch"))
       return
     }
     setLoading(true)
     try {
       await resetPassword(token, password)
-      toast("Password updated")
+      toast(t("reset.updated"))
       setAuthView("login")
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
       } else {
-        setError("Something went wrong")
+        setError(t("reset.error_generic"))
       }
     } finally {
       setLoading(false)
@@ -49,7 +51,9 @@ export function ResetPassword({
   return (
     <div className="auth-screen">
       <Logo size={56} className="auth-logo" />
-      <h1 className="auth-title">New password</h1>
+      <h1 className="auth-title">
+        {t("reset.title")}
+      </h1>
       <form
         className="auth-form"
         onSubmit={handleSubmit}
@@ -60,7 +64,7 @@ export function ResetPassword({
         />
         <input
           type="password"
-          placeholder="New password"
+          placeholder={t("reset.new_password")}
           value={password}
           onChange={(e) =>
             setPassword(e.target.value)
@@ -71,7 +75,7 @@ export function ResetPassword({
         />
         <input
           type="password"
-          placeholder="Confirm password"
+          placeholder={t("reset.confirm_password")}
           value={confirm}
           onChange={(e) =>
             setConfirm(e.target.value)
@@ -85,7 +89,7 @@ export function ResetPassword({
           className="btn-primary"
           disabled={loading}
         >
-          {loading ? "..." : "Set new password"}
+          {loading ? "..." : t("reset.submit")}
         </button>
       </form>
       <div className="auth-links">
@@ -93,7 +97,7 @@ export function ResetPassword({
           className="link-btn"
           onClick={() => setAuthView("login")}
         >
-          Back to login
+          {t("reset.back_to_login")}
         </button>
       </div>
     </div>

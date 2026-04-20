@@ -1,5 +1,6 @@
 import type { KeyboardEvent, ReactNode } from "react"
 import { useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 /**
  * Inline confirmation dialog that replaces browser
@@ -29,6 +30,7 @@ export function useConfirm(): [
   (message: string) => Promise<boolean>,
   ReactNode,
 ] {
+  const { t } = useTranslation()
   const [state, setState] =
     useState<ConfirmState | null>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -87,14 +89,14 @@ export function useConfirm(): [
             className="btn-secondary"
             onClick={() => handleResult(false)}
           >
-            Cancel
+            {t("confirm.cancel")}
           </button>
           <button
             type="button"
             className="btn-danger"
             onClick={() => handleResult(true)}
           >
-            Confirm
+            {t("confirm.confirm")}
           </button>
         </div>
       </div>

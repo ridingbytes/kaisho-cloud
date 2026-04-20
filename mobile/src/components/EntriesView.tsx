@@ -4,6 +4,7 @@ import {
   useMemo,
   useState,
 } from "react"
+import { useTranslation } from "react-i18next"
 import type { ClockEntry, Customer } from "../types"
 import {
   deleteEntry,
@@ -135,6 +136,12 @@ interface NavBarProps {
 }
 
 function NavBar(props: NavBarProps) {
+  const { t } = useTranslation()
+  const rangeLabel: Record<Range, string> = {
+    day: t("entries.range.day"),
+    week: t("entries.range.week"),
+    month: t("entries.range.month"),
+  }
   return (
     <div className="entries-nav">
       <div className="segmented">
@@ -150,7 +157,7 @@ function NavBar(props: NavBarProps) {
                 : "")
             }
           >
-            {r.charAt(0).toUpperCase() + r.slice(1)}
+            {rangeLabel[r]}
           </button>
         ))}
       </div>
@@ -159,7 +166,7 @@ function NavBar(props: NavBarProps) {
           type="button"
           className="btn-icon"
           onClick={() => props.onShift(-1)}
-          aria-label="Previous"
+          aria-label={t("entries.nav.previous")}
         >
           {"<"}
         </button>
@@ -170,7 +177,7 @@ function NavBar(props: NavBarProps) {
           type="button"
           className="btn-icon"
           onClick={() => props.onShift(1)}
-          aria-label="Next"
+          aria-label={t("entries.nav.next")}
         >
           {">"}
         </button>
@@ -180,7 +187,7 @@ function NavBar(props: NavBarProps) {
             className="link-btn"
             onClick={props.onReset}
           >
-            Today
+            {t("entries.nav.today")}
           </button>
         )}
       </div>
@@ -213,6 +220,7 @@ function sumMinutes(entries: ClockEntry[]): number {
 // ── Main view ───────────────────────────────────────────
 
 export function EntriesView() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const [confirm, confirmDialog] = useConfirm()
   const [range, setRange] = useState<Range>(
@@ -335,7 +343,9 @@ export function EntriesView() {
     const label = e.description
       ? `"${e.description}"`
       : `${formatDate(e.start)} ${formatTime(e.start)}`
-    if (!await confirm(`Delete entry ${label}?`)) return
+    if (!await confirm(
+      t("entries.confirm.delete", { label }),
+    )) return
     setDeletingId(e.id)
     try {
       await deleteEntry(e.id)
@@ -377,13 +387,12 @@ export function EntriesView() {
   async function handleResume(e: ClockEntry) {
     if (hasRunning) {
       const ok = await confirm(
-        "A timer is running. Stop it and start a " +
-        "new one?",
+        t("entries.confirm.running_timer"),
       )
       if (!ok) return
       try {
         await stopTimer()
-        toast("Timer stopped")
+        toast(t("timer.stopped"))
       } catch {
         // If stop fails the start will also fail with
         // 409 — let the TimerView show the error.
@@ -428,7 +437,9 @@ export function EntriesView() {
           }
           className="entries-filter-select"
         >
-          <option value="">All customers</option>
+          <option value="">
+            {t("entries.filter.all_customers")}
+          </option>
           {allCustomerNames.map((name) => (
             <option key={name} value={name}>
               {name}
@@ -441,7 +452,7 @@ export function EntriesView() {
             className="link-btn"
             onClick={() => setCustomerFilter("")}
           >
-            Clear
+            {t("entries.filter.clear")}
           </button>
         )}
       </div>
@@ -454,8 +465,8 @@ export function EntriesView() {
       <div className="entries-total">
         <span className="text-muted">
           {customerFilter
-            ? `Total · ${customerFilter}`
-            : "Total"}
+            ? `${t("entries.total")} · ${customerFilter}`
+            : t("entries.total")}
         </span>
         <span className="entries-total-value">
           {formatMins(totalMinutes || null)}
@@ -463,11 +474,13 @@ export function EntriesView() {
       </div>
 
       {loading && entries.length === 0 && (
-        <p className="text-muted center">Loading...</p>
+        <p className="text-muted center">
+          {t("entries.loading")}
+        </p>
       )}
       {!loading && entries.length === 0 && !error && (
         <p className="text-muted center">
-          No entries in range
+          {t("entries.empty")}
         </p>
       )}
 
@@ -494,7 +507,9 @@ export function EntriesView() {
                 <span className="entry-time">
                   {formatTime(e.start)}
                   {" – "}
-                  {isRunning(e) ? "now" : formatTime(e.end)}
+                  {isRunning(e)
+                    ? t("entries.running_now")
+                    : formatTime(e.end)}
                 </span>
                 <span className="entry-duration">
                   {isRunning(e)
@@ -513,8 +528,12 @@ export function EntriesView() {
                     onClick={() =>
                       setCustomerFilter(e.customer!)
                     }
-                    aria-label="Filter by customer"
-                    title={`Filter by ${e.customer}`}
+                    aria-label={
+                    t("entries.filter_by_customer")
+                  }
+                    title={
+                      t("entries.filter_by_customer")
+                    }
                   >
                     <svg xmlns="http://www.w3.org/2000/svg"
                          viewBox="0 0 24 24"
@@ -543,16 +562,16 @@ export function EntriesView() {
                 }
                 title={
                   e.synced_at
-                    ? "Synced to local app"
-                    : "Pending sync"
+                    ? t("entries.sync.synced")
+                    : t("entries.sync.pending")
                 }
               />
               <div className="entry-actions">
                 <button
                   className="entry-action-btn"
                   onClick={() => setEditingEntry(e)}
-                  aria-label="Edit entry"
-                  title="Edit entry"
+                  aria-label={t("entries.action.edit")}
+                  title={t("entries.action.edit")}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg"
                        viewBox="0 0 24 24"
@@ -571,8 +590,12 @@ export function EntriesView() {
                   <button
                     className="entry-action-btn"
                     onClick={() => handleResume(e)}
-                    aria-label="Resume"
-                    title="Resume timer"
+                    aria-label={
+                      t("entries.action.resume")
+                    }
+                    title={
+                      t("entries.action.resume_timer")
+                    }
                   >
                     <svg xmlns="http://www.w3.org/2000/svg"
                          viewBox="0 0 24 24"
@@ -592,8 +615,10 @@ export function EntriesView() {
                     entry-action-btn--danger"
                   onClick={() => handleDelete(e)}
                   disabled={deletingId === e.id}
-                  aria-label="Delete entry"
-                  title="Delete entry"
+                  aria-label={
+                    t("entries.action.delete")
+                  }
+                  title={t("entries.action.delete")}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg"
                        viewBox="0 0 24 24"

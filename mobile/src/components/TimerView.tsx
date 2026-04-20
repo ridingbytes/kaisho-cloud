@@ -1,6 +1,7 @@
 import {
   useCallback, useEffect, useRef, useState,
 } from "react"
+import { useTranslation } from "react-i18next"
 import type { ActiveTimer, Customer, Task } from "../types"
 import {
   getActive,
@@ -18,6 +19,7 @@ import { UpgradeBanner } from "./UpgradeBanner"
 import { formatElapsed } from "../utils/formatElapsed"
 
 export function TimerView() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const [timer, setTimer] = useState<ActiveTimer | null>(
     null,
@@ -152,7 +154,7 @@ export function TimerView() {
         })
           .then((result) => {
             setTimer(result)
-            toast("Timer started")
+            toast(t("timer.started"))
           })
           .catch((err) => {
             setTimer(null)
@@ -207,7 +209,7 @@ export function TimerView() {
         contract: contract || undefined,
       })
       setTimer(result)
-      toast("Timer started")
+      toast(t("timer.started"))
     } catch (err) {
       // Revert optimistic update
       setTimer(null)
@@ -233,7 +235,7 @@ export function TimerView() {
     suppressUntilRef.current = Date.now() + 3000
     const prev = timer
     setTimer(null)
-    toast("Timer stopped")
+    toast(t("timer.stopped"))
     try {
       await stopTimer()
     } catch (err) {
@@ -269,7 +271,7 @@ export function TimerView() {
             onClick={handleStop}
             disabled={loading}
           >
-            Stop
+            {t("timer.stop")}
           </button>
         </div>
       </div>
@@ -290,7 +292,7 @@ export function TimerView() {
             setCustomer(v)
             setContract("")
           }}
-          placeholder="Customer"
+          placeholder={t("timer.customer")}
           synced={customers.length > 0}
         />
         {contracts.length > 0 && (
@@ -301,7 +303,7 @@ export function TimerView() {
             }
           >
             <option value="">
-              Contract (optional)
+              {t("timer.contract_optional")}
             </option>
             {contracts.map((c) => (
               <option key={c.name} value={c.name}>
@@ -314,7 +316,9 @@ export function TimerView() {
           value={taskId}
           onChange={(e) => setTaskId(e.target.value)}
         >
-          <option value="">Task (optional)</option>
+          <option value="">
+            {t("timer.task_optional")}
+          </option>
           {tasks.map((t) => (
             <option key={t.id} value={t.id}>
               {t.title}
@@ -324,7 +328,7 @@ export function TimerView() {
         </select>
         <input
           type="text"
-          placeholder="Description (optional)"
+          placeholder={t("timer.description_optional")}
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
         />
@@ -336,7 +340,7 @@ export function TimerView() {
             className="btn-primary"
             disabled={loading}
           >
-            {loading ? "..." : "Start timer"}
+            {loading ? "..." : t("timer.start")}
           </button>
         )}
       </form>

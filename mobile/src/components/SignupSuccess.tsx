@@ -1,9 +1,11 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useAuth } from "../auth"
 import { useToast } from "../toast"
 import { Logo } from "./Logo"
 
 export function SignupSuccess() {
+  const { t } = useTranslation()
   const { signupResult, setAuthView } = useAuth()
   const { toast } = useToast()
   const [copied, setCopied] = useState(false)
@@ -15,7 +17,7 @@ export function SignupSuccess() {
       .writeText(signupResult!.api_key)
       .then(() => {
         setCopied(true)
-        toast("API key copied")
+        toast(t("signup_success.api_key_copied"))
         setTimeout(() => setCopied(false), 2000)
       })
   }
@@ -23,12 +25,12 @@ export function SignupSuccess() {
   return (
     <div className="auth-screen">
       <Logo size={56} className="auth-logo" />
-      <h1 className="auth-title">Account created</h1>
+      <h1 className="auth-title">
+        {t("signup_success.title")}
+      </h1>
       <div className="card api-key-card">
         <p className="text-muted">
-          Save this API key now. You will need it to
-          connect your desktop app. It will not be shown
-          again.
+          {t("signup_success.description")}
         </p>
         <code className="api-key-display">
           {signupResult.api_key}
@@ -37,7 +39,9 @@ export function SignupSuccess() {
           className="btn-primary"
           onClick={copyKey}
         >
-          {copied ? "Copied" : "Copy API key"}
+          {copied
+            ? t("signup_success.copied")
+            : t("signup_success.copy")}
         </button>
       </div>
       <div className="auth-links">
@@ -45,7 +49,7 @@ export function SignupSuccess() {
           className="link-btn"
           onClick={() => setAuthView("login")}
         >
-          Continue to login
+          {t("signup_success.continue")}
         </button>
       </div>
     </div>

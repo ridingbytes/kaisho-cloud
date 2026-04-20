@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import type { Customer } from "../types"
 import {
   aiParseBooking,
@@ -17,6 +18,7 @@ function todayStr(): string {
 }
 
 export function BookView() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const { toast } = useToast()
   const [customers, setCustomers] = useState<Customer[]>(
@@ -50,7 +52,7 @@ export function BookView() {
         description: desc,
         date: date || undefined,
       })
-      toast("Entry booked")
+      toast(t("book.booked"))
       setDuration("")
       setDesc("")
       setDate(todayStr())
@@ -66,7 +68,7 @@ export function BookView() {
           setError(err.message)
         }
       } else {
-        setError("Something went wrong")
+        setError(t("book.error_generic"))
       }
     } finally {
       setLoading(false)
@@ -86,7 +88,7 @@ export function BookView() {
       if (parsed.description) setDesc(parsed.description)
       if (parsed.date) setDate(parsed.date)
       setSmartText("")
-      toast("Parsed — review and submit")
+      toast(t("book.parsed"))
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
@@ -108,7 +110,7 @@ export function BookView() {
               onChange={(e) =>
                 setSmartText(e.target.value)
               }
-              placeholder='e.g. "2h Acme fix login"'
+              placeholder={t("book.smart_placeholder")}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault()
@@ -122,11 +124,11 @@ export function BookView() {
               onClick={handleSmartBook}
               disabled={parsing || !smartText.trim()}
             >
-              {parsing ? "..." : "Parse"}
+              {parsing ? "..." : t("book.parse")}
             </button>
           </div>
           <p className="text-muted smart-book-hint">
-            Type a booking in plain language
+            {t("book.smart_hint")}
           </p>
         </div>
       )}
@@ -138,7 +140,7 @@ export function BookView() {
         />
         <input
           type="text"
-          placeholder="Duration (e.g. 1h30m, 90m, 1.5)"
+          placeholder={t("book.duration_placeholder")}
           value={duration}
           onChange={(e) => setDuration(e.target.value)}
           required
@@ -147,12 +149,12 @@ export function BookView() {
           value={customer}
           customers={customers}
           onChange={setCustomer}
-          placeholder="Customer"
+          placeholder={t("book.customer")}
           synced={customers.length > 0}
         />
         <input
           type="text"
-          placeholder="Description (optional)"
+          placeholder={t("book.description_optional")}
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
         />
@@ -169,7 +171,7 @@ export function BookView() {
             className="btn-primary"
             disabled={loading}
           >
-            {loading ? "..." : "Book entry"}
+            {loading ? "..." : t("book.submit")}
           </button>
         )}
       </form>
