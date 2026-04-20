@@ -1,10 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"
      width="512" height="512">
   <!-- Kaisho: Open Bracket Palm
-       Scaled for home screen with generous padding.
-       Dark background with rounded corners. -->
+       Centered on dark background with rounded corners. -->
   <rect width="512" height="512" rx="96" fill="#09090b"/>
-  <g transform="translate(120, 100) scale(8.5)"
+  <g transform="translate(113, 109) scale(9.2)"
      stroke="#fafafc" stroke-width="2.4"
      stroke-linecap="round"
      stroke-linejoin="round" fill="none">
