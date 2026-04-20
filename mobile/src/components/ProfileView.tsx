@@ -8,6 +8,7 @@ import {
   createPortalSession,
   getSubscription,
   regenerateApiKey,
+  aiUsage,
   ApiError,
 } from "../api"
 import { ErrorBanner } from "./ErrorBanner"
@@ -38,6 +39,14 @@ export function ProfileView() {
     } | null
   } | null>(null)
   const [upgrading, setUpgrading] = useState(false)
+  const [usage, setUsage] = useState<{
+    month: string
+    input_tokens: number
+    output_tokens: number
+    total_tokens: number
+    request_count: number
+    cap: number
+  } | null>(null)
 
   function refreshSub() {
     getSubscription()
@@ -46,6 +55,16 @@ export function ProfileView() {
   }
 
   useEffect(() => { refreshSub() }, [])
+
+  const plan = sub?.plan || user?.plan || "free"
+  const isPaid = plan === "sync" || plan === "sync_ai"
+
+  useEffect(() => {
+    if (plan !== "sync_ai") return
+    aiUsage()
+      .then(setUsage)
+      .catch((e) => console.warn("ai usage:", e))
+  }, [plan])
 
   async function handleRegenerate() {
     setError(null)
@@ -73,9 +92,6 @@ export function ProfileView() {
       setTimeout(() => setCopied(false), 2000)
     })
   }
-
-  const plan = sub?.plan || user?.plan || "free"
-  const isPaid = plan === "sync" || plan === "sync_ai"
 
   async function handleUpgrade(
     target: "sync" | "sync_ai",
@@ -237,6 +253,67 @@ export function ProfileView() {
           </>
         )}
       </div>
+
+      {/* AI token usage */}
+      {plan === "sync_ai" && usage && (() => {
+        const pct = usage.cap > 0
+          ? Math.min(
+              100,
+              (usage.total_tokens / usage.cap) * 100,
+            )
+          : 0
+        const barColor =
+          pct >= 90
+            ? "#ef4444"
+            : pct >= 70
+            ? "#f59e0b"
+            : "#22c55e"
+        const fmtK = (n: number) =>
+          (n / 1000).toFixed(1) + "K"
+        return (
+          <div className="card">
+            <h3>AI Usage</h3>
+            <p
+              className="text-muted"
+              style={{ fontSize: 12, marginBottom: 8 }}
+            >
+              {usage.month}
+            </p>
+            <div
+              style={{
+                background: "var(--border, #e5e7eb)",
+                borderRadius: 4,
+                height: 8,
+                overflow: "hidden",
+                marginBottom: 6,
+              }}
+            >
+              <div
+                style={{
+                  width: pct + "%",
+                  height: "100%",
+                  background: barColor,
+                  borderRadius: 4,
+                  transition: "width 0.3s",
+                }}
+              />
+            </div>
+            <p style={{ fontSize: 13, margin: "4px 0" }}>
+              {fmtK(usage.total_tokens)}{" "}
+              /{" "}
+              {fmtK(usage.cap)} tokens
+            </p>
+            <p
+              className="text-muted"
+              style={{ fontSize: 12 }}
+            >
+              {usage.request_count} request
+              {usage.request_count !== 1 ? "s" : ""}{" "}
+              this month
+            </p>
+          </div>
+        )
+      })()}
 
       {/* Connect desktop app */}
       <div className="card">
