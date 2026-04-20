@@ -172,6 +172,10 @@ router.post(
     }
 
     // Fresh Stripe checkout
+    // Grant a 14-day trial on the first subscription.
+    // Users who already have a Stripe customer ID have
+    // subscribed before and don't get another trial.
+    const isFirstSub = !user.stripe_customer_id
     const params = {
       mode: "subscription",
       customer: user.stripe_customer_id || undefined,
@@ -182,6 +186,11 @@ router.post(
       metadata: { user_id: req.userId, plan },
       success_url: `${BASE_URL}/m/?upgraded=true`,
       cancel_url: `${BASE_URL}/m/`,
+      ...(isFirstSub && {
+        subscription_data: {
+          trial_period_days: 14,
+        },
+      }),
     }
 
     let session
