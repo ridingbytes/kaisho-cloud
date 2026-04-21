@@ -641,11 +641,18 @@ router.get(
       .eq("id", req.userId)
       .single()
 
+    // Fetch email from Supabase Auth
+    const { data: authData } =
+      await supabase.auth.admin.getUserById(
+        req.userId,
+      )
+
     res.json({
       entry_count: entryCount || 0,
       last_change_at: latest?.updated_at || null,
       active_timer_id: active?.id || null,
       plan: user?.plan || "free",
+      email: authData?.user?.email || null,
     })
   }),
 )
