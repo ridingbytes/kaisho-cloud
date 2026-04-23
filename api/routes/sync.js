@@ -1250,11 +1250,19 @@ router.post(
         }
       }
     }
+    const applied = counts.inserted + counts.updated
     res.json({
       ...counts,
       errors: errorIds,
       applied_at: new Date().toISOString(),
     })
+    if (applied > 0) {
+      process.nextTick(() => {
+        broadcast(req.userId, "notes:changed", {
+          count: applied,
+        })
+      })
+    }
   }),
 )
 

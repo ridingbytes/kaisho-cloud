@@ -3,6 +3,7 @@ import type {
   ClockEntry,
   Customer,
   InboxItem,
+  Note,
   SignupResult,
   Task,
   User,
@@ -485,6 +486,57 @@ export function updateSyncedTask(
       entries: [{
         ...task,
         ...updates,
+        updated_at: now,
+      }],
+    }),
+  })
+}
+
+// -- Notes --
+
+export function getSyncedNotes(): Promise<Note[]> {
+  return request<{ entries: Note[] }>(
+    "/sync/notes/changes?since=1970-01-01T00:00:00Z"
+      + "&limit=500",
+  ).then((d) =>
+    (d.entries || []).filter((e) => !e.deleted_at)
+  )
+}
+
+export function addSyncedNote(data: {
+  title: string
+  customer?: string
+  body?: string
+}): Promise<{ inserted: number }> {
+  const id = crypto.randomUUID().slice(0, 12)
+  const now = new Date().toISOString()
+  return request("/sync/notes/apply", {
+    method: "POST",
+    body: JSON.stringify({
+      entries: [{
+        id,
+        customer: data.customer || "",
+        title: data.title,
+        body: data.body || "",
+        tags: [],
+        task_id: null,
+        created_at: now,
+        updated_at: now,
+      }],
+    }),
+  })
+}
+
+export function deleteSyncedNote(
+  note: Note,
+): Promise<{ updated: number }> {
+  const now = new Date().toISOString()
+  return request("/sync/notes/apply", {
+    method: "POST",
+    body: JSON.stringify({
+      entries: [{
+        ...note,
+        deleted_at: now,
         updated_at: now,
       }],
     }),

@@ -1,55 +1,35 @@
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import {
+  getSyncedNotes,
+  addSyncedNote,
+  deleteSyncedNote,
+} from "../api"
 import type { Note } from "../types"
 
-interface NotesResponse {
-  entries: Note[]
-}
-
-async function fetchNotes(): Promise<Note[]> {
-  const res = await fetch(
-    "/sync/notes/changes"
-      + "?since=1970-01-01T00:00:00Z&limit=500",
-    {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
-      },
-    },
-  )
-  if (!res.ok) return []
-  const data: NotesResponse = await res.json()
-  return (data.entries || []).filter(
-    (e) => !e.deleted_at,
-  )
-}
-
-async function createNote(title: string, body: string) {
-  const id = crypto.randomUUID().slice(0, 12)
-  const now = new Date().toISOString()
-  await fetch("/sync/notes/apply", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
-    },
-    body: JSON.stringify({
-      entries: [{
-        id,
-        customer: "",
-        title,
-        body,
-        tags: [],
-        task_id: null,
-        created_at: now,
-        updated_at: now,
-      }],
-    }),
-  })
-}
-
-function NoteRow({ note }: { note: Note }) {
+function NoteRow({
+  note,
+  onDelete,
+}: {
+  note: Note
+  onDelete: (note: Note) => void
+}) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
+  const [swiped, setSwiped] = useState(false)
+  const startX = useRef(0)
+
+  function handleTouchStart(e: React.TouchEvent) {
+    startX.current = e.touches[0].clientX
+    setSwiped(false)
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    const dx = e.changedTouches[0].clientX - startX.current
+    if (dx < -80) setSwiped(true)
+    else setSwiped(false)
+  }
+
   const created = note.created_at
     ? new Date(note.created_at).toLocaleDateString(
         undefined, { month: "short", day: "numeric" },
@@ -58,20 +38,39 @@ function NoteRow({ note }: { note: Note }) {
 
   return (
     <div
-      className="note-row"
-      onClick={() => setExpanded(!expanded)}
+      className={
+        "note-row" + (swiped ? " swiped" : "")
+      }
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onClick={() => !swiped && setExpanded(!expanded)}
     >
-      <div className="note-row-header">
-        {note.customer && (
-          <span className="inbox-customer">
-            {note.customer}
-          </span>
+      <div className="note-row-inner">
+        <div className="note-row-header">
+          {note.customer && (
+            <span className="inbox-customer">
+              {note.customer}
+            </span>
+          )}
+          <span className="inbox-date">{created}</span>
+        </div>
+        <p className="task-title">{note.title}</p>
+        {expanded && note.body && (
+          <p className="note-body-expanded">
+            {note.body}
+          </p>
         )}
-        <span className="inbox-date">{created}</span>
       </div>
-      <p className="task-title">{note.title}</p>
-      {expanded && note.body && (
-        <p className="note-body-expanded">{note.body}</p>
+      {swiped && (
+        <button
+          className="inbox-delete-btn"
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete(note)
+          }}
+        >
+          {t("inbox.delete")}
+        </button>
       )}
     </div>
   )
@@ -87,7 +86,7 @@ export function NotesView() {
 
   async function refresh() {
     try {
-      const data = await fetchNotes()
+      const data = await getSyncedNotes()
       setNotes(
         data.sort((a, b) =>
           (b.created_at || "").localeCompare(
@@ -111,7 +110,7 @@ export function NotesView() {
     const val = title.trim()
     if (!val) return
     try {
-      await createNote(val, "")
+      await addSyncedNote({ title: val })
       setTitle("")
       setMsg(t("notes.created"))
       setTimeout(() => {
@@ -122,6 +121,17 @@ export function NotesView() {
     } catch {
       setMsg(t("notes.createError"))
       setTimeout(() => setMsg(""), 3000)
+    }
+  }
+
+  async function handleDelete(note: Note) {
+    try {
+      await deleteSyncedNote(note)
+      setNotes((prev) =>
+        prev.filter((n) => n.id !== note.id),
+      )
+    } catch {
+      // ignore
     }
   }
 
@@ -156,13 +166,19 @@ export function NotesView() {
       {msg && <p className="inbox-msg">{msg}</p>}
 
       {loading ? (
-        <p className="inbox-empty">{t("common.loading")}</p>
+        <p className="inbox-empty">
+          {t("entries.loading")}
+        </p>
       ) : notes.length === 0 ? (
         <p className="inbox-empty">{t("notes.empty")}</p>
       ) : (
         <div className="inbox-list">
           {notes.map((note) => (
-            <NoteRow key={note.id} note={note} />
+            <NoteRow
+              key={note.id}
+              note={note}
+              onDelete={handleDelete}
+            />
           ))}
         </div>
       )}
