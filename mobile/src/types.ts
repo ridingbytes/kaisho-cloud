@@ -51,3 +51,16 @@ export interface Task {
   title: string
   customer: string
 }
+
+export interface InboxItem {
+  id: string
+  type: string
+  customer: string
+  title: string
+  body: string
+  channel: string
+  direction: string
+  created_at: string
+  updated_at: string
+  deleted_at?: string | null
+}

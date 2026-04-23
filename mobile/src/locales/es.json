@@ -4,11 +4,10 @@
   "timer.customer": "Cliente",
   "timer.contract_optional": "Contrato (opcional)",
   "timer.task_optional": "Tarea (opcional)",
-  "timer.description_optional": "Descripci\u00f3n (opcional)",
+  "timer.description_optional": "Descripción (opcional)",
   "timer.started": "Temporizador iniciado",
   "timer.stopped": "Temporizador detenido",
-
-  "entries.range.day": "D\u00eda",
+  "entries.range.day": "Día",
   "entries.range.week": "Semana",
   "entries.range.month": "Mes",
   "entries.nav.previous": "Anterior",
@@ -18,38 +17,27 @@
   "entries.filter.clear": "Limpiar",
   "entries.total": "Total",
   "entries.loading": "Cargando...",
-  "entries.empty": "No hay registros en el per\u00edodo",
+  "entries.empty": "No hay registros en el período",
   "entries.running_now": "ahora",
-  "entries.sync.synced":
-    "Sincronizado con la app local",
-  "entries.sync.pending":
-    "Sincronizaci\u00f3n pendiente",
+  "entries.sync.synced": "Sincronizado con la app local",
+  "entries.sync.pending": "Sincronización pendiente",
   "entries.action.edit": "Editar registro",
   "entries.action.resume": "Reanudar",
-  "entries.action.resume_timer":
-    "Reanudar temporizador",
+  "entries.action.resume_timer": "Reanudar temporizador",
   "entries.action.delete": "Eliminar registro",
   "entries.filter_by_customer": "Filtrar por cliente",
-  "entries.confirm.delete":
-    "\u00bfEliminar registro {{label}}?",
-  "entries.confirm.running_timer":
-    "Hay un temporizador activo. \u00bfDetenerlo e iniciar uno nuevo?",
-
+  "entries.confirm.delete": "¿Eliminar registro {{label}}?",
+  "entries.confirm.running_timer": "Hay un temporizador activo. ¿Detenerlo e iniciar uno nuevo?",
   "book.parse": "Analizar",
-  "book.smart_placeholder":
-    "p.\u202fej. \u201c2h Acme arreglar login\u201d",
-  "book.smart_hint":
-    "Escribe el registro en lenguaje natural",
-  "book.duration_placeholder":
-    "Duraci\u00f3n (p.\u202fej. 1h30m, 90m, 1.5)",
-  "book.description_optional": "Descripci\u00f3n (opcional)",
+  "book.smart_placeholder": "p. ej. “2h Acme arreglar login”",
+  "book.smart_hint": "Escribe el registro en lenguaje natural",
+  "book.duration_placeholder": "Duración (p. ej. 1h30m, 90m, 1.5)",
+  "book.description_optional": "Descripción (opcional)",
   "book.customer": "Cliente",
   "book.submit": "Registrar entrada",
   "book.booked": "Entrada registrada",
-  "book.parsed":
-    "Analizado \u2014 revisa y env\u00eda",
-  "book.error_generic": "Algo sali\u00f3 mal",
-
+  "book.parsed": "Analizado — revisa y envía",
+  "book.error_generic": "Algo salió mal",
   "dashboard.today": "Hoy",
   "dashboard.week": "Semana",
   "dashboard.month": "Mes",
@@ -57,65 +45,51 @@
   "dashboard.generate": "Generar",
   "dashboard.refresh": "Actualizar",
   "dashboard.generating": "Generando...",
-  "dashboard.summary_hint":
-    "Toca Generar para un resumen semanal con IA.",
-  "dashboard.summary_failed":
-    "No se pudo generar el resumen.",
+  "dashboard.summary_hint": "Toca Generar para un resumen semanal con IA.",
+  "dashboard.summary_failed": "No se pudo generar el resumen.",
   "dashboard.this_week": "Esta semana",
-  "dashboard.drill_hint":
-    "Toca una barra para ver el detalle",
-  "dashboard.top_customers_week":
-    "Mejores clientes \u00b7 semana",
-  "dashboard.top_customers_month":
-    "Mejores clientes \u00b7 mes",
-  "dashboard.no_entries": "A\u00fan sin registros",
-  "dashboard.loading": "Cargando\u2026",
-
+  "dashboard.drill_hint": "Toca una barra para ver el detalle",
+  "dashboard.top_customers_week": "Mejores clientes · semana",
+  "dashboard.top_customers_month": "Mejores clientes · mes",
+  "dashboard.no_entries": "Aún sin registros",
+  "dashboard.loading": "Cargando…",
   "edit.title": "Editar registro",
   "edit.close": "Cerrar",
   "edit.label.start": "Inicio",
-  "edit.label.duration": "Duraci\u00f3n",
+  "edit.label.duration": "Duración",
   "edit.label.customer": "Cliente",
   "edit.label.contract": "Contrato",
-  "edit.label.description": "Descripci\u00f3n",
+  "edit.label.description": "Descripción",
   "edit.label.notes": "Notas",
   "edit.label.invoiced": "Facturado",
   "edit.contract.none": "Ninguno",
-  "edit.description_placeholder": "Descripci\u00f3n",
+  "edit.description_placeholder": "Descripción",
   "edit.notes_placeholder": "Notas libres",
   "edit.cancel": "Cancelar",
   "edit.save": "Guardar",
   "edit.saving": "Guardando...",
   "edit.saved": "Registro actualizado",
   "edit.error_save": "Error al guardar",
-
-  "profile.email": "Correo electr\u00f3nico",
+  "profile.email": "Correo electrónico",
   "profile.plan": "Plan",
-  "profile.subscription": "Suscripci\u00f3n",
-  "profile.subscription.on_plan":
-    "Est\u00e1s en el plan {{plan}}.",
+  "profile.subscription": "Suscripción",
+  "profile.subscription.on_plan": "Estás en el plan {{plan}}.",
   "profile.subscription.status": "Estado:",
   "profile.subscription.renews": "Se renueva:",
-  "profile.subscription.cancels":
-    "Se cancela al final del per\u00edodo",
-  "profile.upgrade.to_sync_ai":
-    "Mejorar a Sync + IA",
+  "profile.subscription.cancels": "Se cancela al final del período",
+  "profile.upgrade.to_sync_ai": "Mejorar a Sync + IA",
   "profile.upgrade.upgrading": "Actualizando...",
-  "profile.upgrade.manage": "Gestionar suscripci\u00f3n",
-  "profile.upgrade.cta":
-    "Mejora tu plan para sincronizar registros con la app de escritorio y acceder a funciones de IA.",
+  "profile.upgrade.manage": "Gestionar suscripción",
+  "profile.upgrade.cta": "Mejora tu plan para sincronizar registros con la app de escritorio y acceder a funciones de IA.",
   "profile.upgrade.cloud_sync": "Sync en la nube",
   "profile.upgrade.sync_ai": "Sync + IA",
   "profile.upgrade.processing": "Procesando...",
   "profile.ai_usage": "Uso de IA",
-  "profile.ai_usage.requests_this_month":
-    "{{count}} solicitud este mes",
-  "profile.ai_usage.requests_this_month_plural":
-    "{{count}} solicitudes este mes",
+  "profile.ai_usage.requests_this_month": "{{count}} solicitud este mes",
+  "profile.ai_usage.requests_this_month_plural": "{{count}} solicitudes este mes",
   "profile.ai_usage.tokens": "tokens",
   "profile.connect": "Conectar app de escritorio",
-  "profile.connect.description":
-    "Genera una clave API para conectar tu instancia local de Kaisho. La clave anterior dejar\u00e1 de funcionar.",
+  "profile.connect.description": "Genera una clave API para conectar tu instancia local de Kaisho. La clave anterior dejará de funcionar.",
   "profile.connect.generate": "Generar nueva clave",
   "profile.connect.generating": "...",
   "profile.connect.api_key": "Clave API",
@@ -124,90 +98,72 @@
   "profile.connect.cli_command": "Comando CLI",
   "profile.connect.copy_command": "Copiar comando",
   "profile.connect.manual_label": "O manualmente",
-  "profile.connect.manual_instructions":
-    "Abre Kaisho \u2192 Configuraci\u00f3n \u2192 Cloud Sync \u2192 pega la URL y la clave API \u2192 Conectar.",
+  "profile.connect.manual_instructions": "Abre Kaisho → Configuración → Cloud Sync → pega la URL y la clave API → Conectar.",
   "profile.appearance": "Apariencia",
   "profile.theme.light": "Claro",
   "profile.theme.dark": "Oscuro",
   "profile.theme.system": "Sistema",
   "profile.language": "Idioma",
-  "profile.logout": "Cerrar sesi\u00f3n",
-  "profile.key_generated":
-    "Nueva clave API generada",
+  "profile.logout": "Cerrar sesión",
+  "profile.key_generated": "Nueva clave API generada",
   "profile.copied": "Copiado",
   "profile.api_key_copied": "Clave API copiada",
-  "profile.error_generic": "Algo sali\u00f3 mal",
-
-  "advisor.upgrade_required":
-    "El asesor de IA requiere el plan Sync + IA.",
+  "profile.error_generic": "Algo salió mal",
+  "advisor.upgrade_required": "El asesor de IA requiere el plan Sync + IA.",
   "advisor.welcome_title": "Kaisho IA",
-  "advisor.welcome_subtitle":
-    "Pregunta sobre tus registros, tareas y clientes.",
+  "advisor.welcome_subtitle": "Pregunta sobre tus registros, tareas y clientes.",
   "advisor.thinking": "Pensando...",
   "advisor.placeholder": "Pregunta al asesor...",
   "advisor.send": "Enviar",
   "advisor.stop": "Detener",
-  "advisor.error_failed": "La solicitud fall\u00f3",
-
+  "advisor.error_failed": "La solicitud falló",
   "shell.tab.timer": "Timer",
   "shell.tab.dashboard": "Panel",
   "shell.tab.book": "Registrar",
   "shell.tab.advisor": "IA",
   "shell.tab.entries": "Registros",
   "shell.tab.profile": "Perfil",
-
-  "auth.email": "Correo electr\u00f3nico",
-  "auth.password": "Contrase\u00f1a",
-  "auth.login": "Iniciar sesi\u00f3n",
+  "auth.email": "Correo electrónico",
+  "auth.password": "Contraseña",
+  "auth.login": "Iniciar sesión",
   "auth.signup": "Registrarse",
   "auth.create_account": "Crear cuenta",
-  "auth.back_to_login": "Volver al inicio de sesi\u00f3n",
-  "auth.forgot_password": "\u00bfOlvidaste tu contrase\u00f1a?",
-  "auth.logged_in": "Sesi\u00f3n iniciada",
-  "auth.error_generic": "Algo sali\u00f3 mal",
-
-  "forgot.title": "Restablecer contrase\u00f1a",
-  "forgot.description":
-    "Introduce tu correo y te enviaremos un enlace para restablecer tu contrase\u00f1a.",
-  "forgot.sent":
-    "Si existe una cuenta con ese correo, recibir\u00e1s un enlace. Revisa la carpeta de spam si no llega en pocos minutos.",
+  "auth.back_to_login": "Volver al inicio de sesión",
+  "auth.forgot_password": "¿Olvidaste tu contraseña?",
+  "auth.logged_in": "Sesión iniciada",
+  "auth.error_generic": "Algo salió mal",
+  "forgot.title": "Restablecer contraseña",
+  "forgot.description": "Introduce tu correo y te enviaremos un enlace para restablecer tu contraseña.",
+  "forgot.sent": "Si existe una cuenta con ese correo, recibirás un enlace. Revisa la carpeta de spam si no llega en pocos minutos.",
   "forgot.send_link": "Enviar enlace",
-  "forgot.back_to_login":
-    "Volver al inicio de sesi\u00f3n",
-
-  "reset.title": "Nueva contrase\u00f1a",
-  "reset.new_password": "Nueva contrase\u00f1a",
-  "reset.confirm_password": "Confirmar contrase\u00f1a",
-  "reset.submit": "Establecer nueva contrase\u00f1a",
-  "reset.back_to_login":
-    "Volver al inicio de sesi\u00f3n",
-  "reset.updated": "Contrase\u00f1a actualizada",
-  "reset.error.too_short":
-    "La contrase\u00f1a debe tener al menos 8 caracteres",
-  "reset.error.mismatch":
-    "Las contrase\u00f1as no coinciden",
-  "reset.error_generic": "Algo sali\u00f3 mal",
-
+  "forgot.back_to_login": "Volver al inicio de sesión",
+  "reset.title": "Nueva contraseña",
+  "reset.new_password": "Nueva contraseña",
+  "reset.confirm_password": "Confirmar contraseña",
+  "reset.submit": "Establecer nueva contraseña",
+  "reset.back_to_login": "Volver al inicio de sesión",
+  "reset.updated": "Contraseña actualizada",
+  "reset.error.too_short": "La contraseña debe tener al menos 8 caracteres",
+  "reset.error.mismatch": "Las contraseñas no coinciden",
+  "reset.error_generic": "Algo salió mal",
   "signup_success.title": "Cuenta creada",
-  "signup_success.description":
-    "Guarda esta clave API ahora. La necesitar\u00e1s para conectar la app de escritorio. No se mostrar\u00e1 de nuevo.",
+  "signup_success.description": "Guarda esta clave API ahora. La necesitarás para conectar la app de escritorio. No se mostrará de nuevo.",
   "signup_success.copy": "Copiar clave API",
   "signup_success.copied": "Copiado",
-  "signup_success.continue":
-    "Continuar al inicio de sesi\u00f3n",
+  "signup_success.continue": "Continuar al inicio de sesión",
   "signup_success.api_key_copied": "Clave API copiada",
-
-  "upgrade_banner.default_message":
-    "Esta funci\u00f3n requiere una suscripci\u00f3n.",
+  "upgrade_banner.default_message": "Esta función requiere una suscripción.",
   "upgrade_banner.cloud_sync": "Sync en la nube",
   "upgrade_banner.sync_ai": "Sync + IA",
-  "upgrade_banner.error":
-    "No se pudo abrir el proceso de pago",
-
+  "upgrade_banner.error": "No se pudo abrir el proceso de pago",
   "confirm.cancel": "Cancelar",
   "confirm.confirm": "Confirmar",
-
   "customer_picker.new_customer": "nuevo cliente",
-
-  "error_banner.dismiss": "Cerrar"
+  "error_banner.dismiss": "Cerrar",
+  "shell.tab.inbox": "Bandeja",
+  "inbox.placeholder": "Capturar algo...",
+  "inbox.captured": "Capturado",
+  "inbox.captureError": "Error al capturar",
+  "inbox.empty": "Bandeja vacia",
+  "inbox.delete": "Eliminar"
 }

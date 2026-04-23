@@ -5,6 +5,7 @@ import { TimerView } from "./TimerView"
 import { BookView } from "./BookView"
 import { DashboardView } from "./DashboardView"
 import { EntriesView } from "./EntriesView"
+import { InboxView } from "./InboxView"
 import { ProfileView } from "./ProfileView"
 import { Logo } from "./Logo"
 import { useAuth } from "../auth"
@@ -14,6 +15,7 @@ type Tab =
   | "timer"
   | "dashboard"
   | "book"
+  | "inbox"
   | "advisor"
   | "entries"
   | "profile"
@@ -21,7 +23,7 @@ type Tab =
 const TABS: { id: Tab; icon: string }[] = [
   { id: "timer", icon: "play" },
   { id: "dashboard", icon: "chart" },
-  { id: "book", icon: "plus" },
+  { id: "inbox", icon: "inbox" },
   { id: "advisor", icon: "ai" },
   { id: "entries", icon: "list" },
   { id: "profile", icon: "user" },
@@ -96,6 +98,19 @@ function TabIcon({ icon }: { icon: string }) {
           <line x1="5" y1="16" x2="5" y2="10" />
           <line x1="10" y1="16" x2="10" y2="6" />
           <line x1="15" y1="16" x2="15" y2="12" />
+        </svg>
+      )
+    case "inbox":
+      return (
+        <svg width="20" height="20" viewBox="0 0 20 20"
+          fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round"
+          strokeLinejoin="round">
+          <polyline points="3 10 3 17 17 17 17 10" />
+          <path d="M3 10l3-7h8l3 7" />
+          <line x1="3" y1="10" x2="8" y2="10" />
+          <line x1="12" y1="10" x2="17" y2="10" />
+          <path d="M8 10v1a2 2 0 004 0v-1" />
         </svg>
       )
     default:
@@ -194,6 +209,7 @@ export function AppShell() {
         {tab === "timer" && <TimerView />}
         {tab === "dashboard" && <DashboardView />}
         {tab === "book" && <BookView />}
+        {tab === "inbox" && <InboxView />}
         {tab === "advisor" && <AdvisorView />}
         {tab === "entries" && <EntriesView />}
         {tab === "profile" && <ProfileView />}

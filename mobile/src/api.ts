@@ -2,6 +2,7 @@ import type {
   ActiveTimer,
   ClockEntry,
   Customer,
+  InboxItem,
   SignupResult,
   Task,
   User,
@@ -382,4 +383,57 @@ export function aiUsage(): Promise<{
   cap: number
 }> {
   return request("/ai/usage")
+}
+
+// -- Inbox --
+
+export function getInboxItems(): Promise<InboxItem[]> {
+  return request<{ entries: InboxItem[] }>(
+    "/sync/inbox/changes?since=1970-01-01T00:00:00Z"
+      + "&limit=500",
+  ).then((d) =>
+    (d.entries || []).filter((e) => !e.deleted_at)
+  )
+}
+
+export function addInboxItem(data: {
+  title: string
+  type?: string
+  customer?: string
+  body?: string
+}): Promise<{ inserted: number }> {
+  const id = crypto.randomUUID()
+  const now = new Date().toISOString()
+  return request("/sync/inbox/apply", {
+    method: "POST",
+    body: JSON.stringify({
+      entries: [{
+        id,
+        type: data.type || "NOTE",
+        customer: data.customer || "",
+        title: data.title,
+        body: data.body || "",
+        channel: "",
+        direction: "in",
+        created_at: now,
+        updated_at: now,
+      }],
+    }),
+  })
+}
+
+export function deleteInboxItem(
+  item: InboxItem,
+): Promise<{ updated: number }> {
+  const now = new Date().toISOString()
+  return request("/sync/inbox/apply", {
+    method: "POST",
+    body: JSON.stringify({
+      entries: [{
+        ...item,
+        deleted_at: now,
+        updated_at: now,
+      }],
+    }),
+  })
 }
