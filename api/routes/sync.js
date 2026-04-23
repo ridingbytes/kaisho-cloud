@@ -578,6 +578,11 @@ router.delete(
         .delete()
         .eq("user_id", req.userId)
 
+    const { count: inboxCount } = await supabase
+      .from("inbox_entries")
+      .delete()
+      .eq("user_id", req.userId)
+
     await supabase
       .from("ref_customers")
       .delete()
@@ -598,7 +603,9 @@ router.delete(
         .json({ error: "Failed to wipe entries" })
     }
 
-    res.json({ deleted: clockCount || 0 })
+    res.json({
+      deleted: (clockCount || 0) + (inboxCount || 0),
+    })
   }),
 )
 
@@ -675,6 +682,235 @@ router.get(
       .eq("id", req.userId)
       .single()
     res.json({ plan: user?.plan || "free", pending: 0 })
+  }),
+)
+
+// ── Inbox sync ────────────────────────────────────────────
+//
+// Same cursor-based LWW pattern as clock entries, against
+// the inbox_entries table.
+
+/**
+ * Shape a DB inbox row into wire format.
+ *
+ * @param {object} row - Supabase inbox_entries row.
+ * @returns {object} Wire-format inbox item.
+ */
+function inboxRowToWire(row) {
+  return {
+    id: row.id,
+    type: row.type || "NOTE",
+    customer: row.customer || "",
+    title: row.title || "",
+    body: row.body || "",
+    channel: row.channel || "",
+    direction: row.direction || "in",
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    deleted_at: row.deleted_at || null,
+  }
+}
+
+/**
+ * Build DB row from wire-format inbox item.
+ *
+ * @param {object} entry - Wire-format inbox item.
+ * @param {string} userId - Authenticated user ID.
+ * @returns {object} Row for Supabase upsert.
+ */
+function inboxWireToRow(entry, userId) {
+  return {
+    id: entry.id,
+    user_id: userId,
+    type: entry.type ?? "NOTE",
+    customer: entry.customer ?? "",
+    title: entry.title ?? "",
+    body: entry.body ?? "",
+    channel: entry.channel ?? "",
+    direction: entry.direction ?? "in",
+    created_at: entry.created_at ?? new Date().toISOString(),
+    deleted_at: entry.deleted_at ?? null,
+    updated_at: new Date().toISOString(),
+  }
+}
+
+const INBOX_APPLY_FIELDS = [
+  "type", "customer", "title", "body",
+  "channel", "direction", "created_at",
+]
+
+/**
+ * Pull inbox items changed after the cursor.
+ *
+ * @route GET /sync/inbox/changes?since=<iso>&limit=<int>
+ */
+router.get(
+  "/inbox/changes",
+  requireApiKey,
+  requireSync,
+  validateQuery(syncChangesQuerySchema),
+  asyncHandler(async (req, res) => {
+    const since =
+      req.query.since || "1970-01-01T00:00:00Z"
+    const limit = Math.min(
+      parseInt(req.query.limit) || 200, 500,
+    )
+
+    const { data: rows, error } = await supabase
+      .from("inbox_entries")
+      .select("*")
+      .eq("user_id", req.userId)
+      .gt("updated_at", since)
+      .order("updated_at", { ascending: true })
+      .limit(limit)
+
+    if (error) {
+      req.log.error(
+        { err: error, since, limit },
+        "sync/inbox/changes query failed",
+      )
+      return res
+        .status(500)
+        .json({ error: "Failed to fetch inbox changes" })
+    }
+
+    const cursor =
+      rows.length > 0
+        ? rows[rows.length - 1].updated_at
+        : since
+
+    res.json({
+      now: new Date().toISOString(),
+      cursor,
+      entries: rows.map(inboxRowToWire),
+      has_more: rows.length === limit,
+    })
+  }),
+)
+
+/**
+ * Apply a batch of inbox items (LWW upsert).
+ *
+ * @route POST /sync/inbox/apply
+ */
+router.post(
+  "/inbox/apply",
+  requireApiKey,
+  requireSync,
+  asyncHandler(async (req, res) => {
+    const entries = req.body?.entries || []
+    if (!Array.isArray(entries) || entries.length > 500) {
+      return res.status(400).json({
+        error: "entries must be an array (max 500)",
+      })
+    }
+
+    const counts = {
+      inserted: 0, updated: 0, skipped: 0, errors: 0,
+    }
+    const errorIds = []
+
+    const ids = entries.map((e) => e.id)
+    const { data: existingRows } = await supabase
+      .from("inbox_entries")
+      .select("id, updated_at")
+      .eq("user_id", req.userId)
+      .in("id", ids)
+    const existingMap = new Map(
+      (existingRows || []).map((r) => [r.id, r]),
+    )
+
+    const toInsert = []
+    const toUpdate = []
+    for (const entry of entries) {
+      const existing = existingMap.get(entry.id) || null
+      const decision = decideMerge(existing, entry)
+      if (decision.action === "skip") {
+        counts.skipped++
+      } else if (decision.action === "insert") {
+        toInsert.push(inboxWireToRow(entry, req.userId))
+        counts.inserted++
+      } else {
+        const row = inboxWireToRow(entry, req.userId)
+        const updates = {}
+        for (const k of INBOX_APPLY_FIELDS) {
+          updates[k] = row[k]
+        }
+        updates.deleted_at = row.deleted_at
+        updates.updated_at = row.updated_at
+        updates.id = entry.id
+        toUpdate.push(updates)
+        counts.updated++
+      }
+    }
+
+    if (toInsert.length > 0) {
+      const { error } = await supabase
+        .from("inbox_entries")
+        .insert(toInsert)
+      if (error) {
+        counts.errors += toInsert.length
+        counts.inserted -= toInsert.length
+        toInsert.forEach((r) => errorIds.push(r.id))
+      }
+    }
+
+    if (toUpdate.length > 0) {
+      for (const row of toUpdate) {
+        const { error } = await supabase
+          .from("inbox_entries")
+          .update(row)
+          .eq("id", row.id)
+          .eq("user_id", req.userId)
+        if (error) {
+          counts.errors++
+          counts.updated--
+          errorIds.push(row.id)
+        }
+      }
+    }
+
+    const applied = counts.inserted + counts.updated
+    res.json({
+      ...counts,
+      errors: errorIds,
+      applied_at: new Date().toISOString(),
+    })
+    if (applied > 0) {
+      process.nextTick(() => {
+        broadcast(req.userId, "inbox:changed", {
+          count: applied,
+        })
+      })
+    }
+  }),
+)
+
+/**
+ * Acknowledge synced inbox items.
+ *
+ * @route POST /sync/inbox/ack
+ */
+router.post(
+  "/inbox/ack",
+  requireApiKey,
+  requireSync,
+  asyncHandler(async (req, res) => {
+    const { ids } = req.body
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        error: "ids must be a non-empty array",
+      })
+    }
+    const now = new Date().toISOString()
+    const { count } = await supabase
+      .from("inbox_entries")
+      .update({ synced_at: now })
+      .eq("user_id", req.userId)
+      .in("id", ids.slice(0, 500))
+      .is("synced_at", null)
+
+    res.json({ acked: count || ids.length })
   }),
 )
 
