@@ -589,6 +589,11 @@ router.delete(
       .eq("user_id", req.userId)
 
     await supabase
+      .from("notes")
+      .delete()
+      .eq("user_id", req.userId)
+
+    await supabase
       .from("ref_customers")
       .delete()
       .eq("user_id", req.userId)
@@ -1094,6 +1099,179 @@ router.post(
     const now = new Date().toISOString()
     const { count } = await supabase
       .from("tasks")
+      .update({ synced_at: now })
+      .eq("user_id", req.userId)
+      .in("id", ids.slice(0, 500))
+      .is("synced_at", null)
+    res.json({ acked: count || ids.length })
+  }),
+)
+
+// ── Notes sync ────────────────────────────────────────────
+
+function noteRowToWire(row) {
+  return {
+    id: row.id,
+    customer: row.customer || "",
+    title: row.title || "",
+    body: row.body || "",
+    tags: row.tags || [],
+    task_id: row.task_id || null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    deleted_at: row.deleted_at || null,
+  }
+}
+
+function noteWireToRow(entry, userId) {
+  return {
+    id: entry.id,
+    user_id: userId,
+    customer: entry.customer ?? "",
+    title: entry.title ?? "",
+    body: entry.body ?? "",
+    tags: entry.tags ?? [],
+    task_id: entry.task_id ?? null,
+    created_at: entry.created_at
+      ?? new Date().toISOString(),
+    deleted_at: entry.deleted_at ?? null,
+    updated_at: new Date().toISOString(),
+  }
+}
+
+const NOTE_APPLY_FIELDS = [
+  "customer", "title", "body", "tags",
+  "task_id", "created_at",
+]
+
+router.get(
+  "/notes/changes",
+  requireApiKey,
+  requireSync,
+  validateQuery(syncChangesQuerySchema),
+  asyncHandler(async (req, res) => {
+    const since =
+      req.query.since || "1970-01-01T00:00:00Z"
+    const limit = Math.min(
+      parseInt(req.query.limit) || 200, 500,
+    )
+    const { data: rows, error } = await supabase
+      .from("notes")
+      .select("*")
+      .eq("user_id", req.userId)
+      .gt("updated_at", since)
+      .order("updated_at", { ascending: true })
+      .limit(limit)
+    if (error) {
+      return res
+        .status(500)
+        .json({ error: "Failed to fetch note changes" })
+    }
+    const cursor = rows.length > 0
+      ? rows[rows.length - 1].updated_at
+      : since
+    res.json({
+      now: new Date().toISOString(),
+      cursor,
+      entries: rows.map(noteRowToWire),
+      has_more: rows.length === limit,
+    })
+  }),
+)
+
+router.post(
+  "/notes/apply",
+  requireApiKey,
+  requireSync,
+  asyncHandler(async (req, res) => {
+    const entries = req.body?.entries || []
+    if (!Array.isArray(entries) || entries.length > 500) {
+      return res.status(400).json({
+        error: "entries must be an array (max 500)",
+      })
+    }
+    const counts = {
+      inserted: 0, updated: 0, skipped: 0, errors: 0,
+    }
+    const errorIds = []
+    const ids = entries.map((e) => e.id)
+    const { data: existingRows } = await supabase
+      .from("notes")
+      .select("id, updated_at")
+      .eq("user_id", req.userId)
+      .in("id", ids)
+    const existingMap = new Map(
+      (existingRows || []).map((r) => [r.id, r]),
+    )
+    const toInsert = []
+    const toUpdate = []
+    for (const entry of entries) {
+      const existing = existingMap.get(entry.id) || null
+      const decision = decideMerge(existing, entry)
+      if (decision.action === "skip") {
+        counts.skipped++
+      } else if (decision.action === "insert") {
+        toInsert.push(noteWireToRow(entry, req.userId))
+        counts.inserted++
+      } else {
+        const row = noteWireToRow(entry, req.userId)
+        const updates = {}
+        for (const k of NOTE_APPLY_FIELDS) {
+          updates[k] = row[k]
+        }
+        updates.deleted_at = row.deleted_at
+        updates.updated_at = row.updated_at
+        updates.id = entry.id
+        toUpdate.push(updates)
+        counts.updated++
+      }
+    }
+    if (toInsert.length > 0) {
+      const { error } = await supabase
+        .from("notes")
+        .insert(toInsert)
+      if (error) {
+        counts.errors += toInsert.length
+        counts.inserted -= toInsert.length
+        toInsert.forEach((r) => errorIds.push(r.id))
+      }
+    }
+    if (toUpdate.length > 0) {
+      for (const row of toUpdate) {
+        const { error } = await supabase
+          .from("notes")
+          .update(row)
+          .eq("id", row.id)
+          .eq("user_id", req.userId)
+        if (error) {
+          counts.errors++
+          counts.updated--
+          errorIds.push(row.id)
+        }
+      }
+    }
+    res.json({
+      ...counts,
+      errors: errorIds,
+      applied_at: new Date().toISOString(),
+    })
+  }),
+)
+
+router.post(
+  "/notes/ack",
+  requireApiKey,
+  requireSync,
+  asyncHandler(async (req, res) => {
+    const { ids } = req.body
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        error: "ids must be a non-empty array",
+      })
+    }
+    const now = new Date().toISOString()
+    const { count } = await supabase
+      .from("notes")
       .update({ synced_at: now })
       .eq("user_id", req.userId)
       .in("id", ids.slice(0, 500))
