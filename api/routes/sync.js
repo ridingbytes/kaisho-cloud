@@ -584,6 +584,11 @@ router.delete(
       .eq("user_id", req.userId)
 
     await supabase
+      .from("tasks")
+      .delete()
+      .eq("user_id", req.userId)
+
+    await supabase
       .from("ref_customers")
       .delete()
       .eq("user_id", req.userId)
@@ -910,6 +915,189 @@ router.post(
       .in("id", ids.slice(0, 500))
       .is("synced_at", null)
 
+    res.json({ acked: count || ids.length })
+  }),
+)
+
+// ── Task sync ─────────────────────────────────────────────
+
+function taskRowToWire(row) {
+  return {
+    id: row.id,
+    customer: row.customer || "",
+    title: row.title || "",
+    status: row.status || "TODO",
+    tags: row.tags || [],
+    body: row.body || "",
+    github_url: row.github_url || "",
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    deleted_at: row.deleted_at || null,
+  }
+}
+
+function taskWireToRow(entry, userId) {
+  return {
+    id: entry.id,
+    user_id: userId,
+    customer: entry.customer ?? "",
+    title: entry.title ?? "",
+    status: entry.status ?? "TODO",
+    tags: entry.tags ?? [],
+    body: entry.body ?? "",
+    github_url: entry.github_url ?? "",
+    created_at: entry.created_at
+      ?? new Date().toISOString(),
+    deleted_at: entry.deleted_at ?? null,
+    updated_at: new Date().toISOString(),
+  }
+}
+
+const TASK_APPLY_FIELDS = [
+  "customer", "title", "status", "tags",
+  "body", "github_url", "created_at",
+]
+
+router.get(
+  "/tasks/changes",
+  requireApiKey,
+  requireSync,
+  validateQuery(syncChangesQuerySchema),
+  asyncHandler(async (req, res) => {
+    const since =
+      req.query.since || "1970-01-01T00:00:00Z"
+    const limit = Math.min(
+      parseInt(req.query.limit) || 200, 500,
+    )
+    const { data: rows, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", req.userId)
+      .gt("updated_at", since)
+      .order("updated_at", { ascending: true })
+      .limit(limit)
+    if (error) {
+      return res
+        .status(500)
+        .json({ error: "Failed to fetch task changes" })
+    }
+    const cursor = rows.length > 0
+      ? rows[rows.length - 1].updated_at
+      : since
+    res.json({
+      now: new Date().toISOString(),
+      cursor,
+      entries: rows.map(taskRowToWire),
+      has_more: rows.length === limit,
+    })
+  }),
+)
+
+router.post(
+  "/tasks/apply",
+  requireApiKey,
+  requireSync,
+  asyncHandler(async (req, res) => {
+    const entries = req.body?.entries || []
+    if (!Array.isArray(entries) || entries.length > 500) {
+      return res.status(400).json({
+        error: "entries must be an array (max 500)",
+      })
+    }
+    const counts = {
+      inserted: 0, updated: 0, skipped: 0, errors: 0,
+    }
+    const errorIds = []
+    const ids = entries.map((e) => e.id)
+    const { data: existingRows } = await supabase
+      .from("tasks")
+      .select("id, updated_at")
+      .eq("user_id", req.userId)
+      .in("id", ids)
+    const existingMap = new Map(
+      (existingRows || []).map((r) => [r.id, r]),
+    )
+    const toInsert = []
+    const toUpdate = []
+    for (const entry of entries) {
+      const existing = existingMap.get(entry.id) || null
+      const decision = decideMerge(existing, entry)
+      if (decision.action === "skip") {
+        counts.skipped++
+      } else if (decision.action === "insert") {
+        toInsert.push(taskWireToRow(entry, req.userId))
+        counts.inserted++
+      } else {
+        const row = taskWireToRow(entry, req.userId)
+        const updates = {}
+        for (const k of TASK_APPLY_FIELDS) {
+          updates[k] = row[k]
+        }
+        updates.deleted_at = row.deleted_at
+        updates.updated_at = row.updated_at
+        updates.id = entry.id
+        toUpdate.push(updates)
+        counts.updated++
+      }
+    }
+    if (toInsert.length > 0) {
+      const { error } = await supabase
+        .from("tasks")
+        .insert(toInsert)
+      if (error) {
+        counts.errors += toInsert.length
+        counts.inserted -= toInsert.length
+        toInsert.forEach((r) => errorIds.push(r.id))
+      }
+    }
+    if (toUpdate.length > 0) {
+      for (const row of toUpdate) {
+        const { error } = await supabase
+          .from("tasks")
+          .update(row)
+          .eq("id", row.id)
+          .eq("user_id", req.userId)
+        if (error) {
+          counts.errors++
+          counts.updated--
+          errorIds.push(row.id)
+        }
+      }
+    }
+    const applied = counts.inserted + counts.updated
+    res.json({
+      ...counts,
+      errors: errorIds,
+      applied_at: new Date().toISOString(),
+    })
+    if (applied > 0) {
+      process.nextTick(() => {
+        broadcast(req.userId, "tasks:changed", {
+          count: applied,
+        })
+      })
+    }
+  }),
+)
+
+router.post(
+  "/tasks/ack",
+  requireApiKey,
+  requireSync,
+  asyncHandler(async (req, res) => {
+    const { ids } = req.body
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        error: "ids must be a non-empty array",
+      })
+    }
+    const now = new Date().toISOString()
+    const { count } = await supabase
+      .from("tasks")
+      .update({ synced_at: now })
+      .eq("user_id", req.userId)
+      .in("id", ids.slice(0, 500))
+      .is("synced_at", null)
     res.json({ acked: count || ids.length })
   }),
 )
