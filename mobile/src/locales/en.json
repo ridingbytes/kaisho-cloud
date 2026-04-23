@@ -165,5 +165,10 @@
   "inbox.captured": "Captured",
   "inbox.captureError": "Capture failed",
   "inbox.empty": "Inbox is empty",
-  "inbox.delete": "Delete"
+  "inbox.delete": "Delete",
+  "shell.tab.tasks": "Tasks",
+  "tasks.addPlaceholder": "Add a task...",
+  "tasks.created": "Task created",
+  "tasks.createError": "Failed to create task",
+  "tasks.empty": "No tasks"
 }

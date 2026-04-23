@@ -6,6 +6,7 @@ import { BookView } from "./BookView"
 import { DashboardView } from "./DashboardView"
 import { EntriesView } from "./EntriesView"
 import { InboxView } from "./InboxView"
+import { TasksView } from "./TasksView"
 import { ProfileView } from "./ProfileView"
 import { Logo } from "./Logo"
 import { useAuth } from "../auth"
@@ -13,16 +14,17 @@ import { planLabel } from "../utils/planLabel"
 
 type Tab =
   | "timer"
-  | "dashboard"
-  | "book"
+  | "tasks"
   | "inbox"
   | "advisor"
+  | "dashboard"
+  | "book"
   | "entries"
   | "profile"
 
 const TABS: { id: Tab; icon: string }[] = [
   { id: "timer", icon: "play" },
-  { id: "dashboard", icon: "chart" },
+  { id: "tasks", icon: "check" },
   { id: "inbox", icon: "inbox" },
   { id: "advisor", icon: "ai" },
   { id: "entries", icon: "list" },
@@ -98,6 +100,17 @@ function TabIcon({ icon }: { icon: string }) {
           <line x1="5" y1="16" x2="5" y2="10" />
           <line x1="10" y1="16" x2="10" y2="6" />
           <line x1="15" y1="16" x2="15" y2="12" />
+        </svg>
+      )
+    case "check":
+      return (
+        <svg width="20" height="20" viewBox="0 0 20 20"
+          fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round"
+          strokeLinejoin="round">
+          <rect x="3" y="3" width="14" height="14"
+            rx="2" />
+          <polyline points="7 10 9.5 12.5 13 7.5" />
         </svg>
       )
     case "inbox":
@@ -207,10 +220,11 @@ export function AppShell() {
       </header>
       <main className="app-content">
         {tab === "timer" && <TimerView />}
-        {tab === "dashboard" && <DashboardView />}
-        {tab === "book" && <BookView />}
+        {tab === "tasks" && <TasksView />}
         {tab === "inbox" && <InboxView />}
         {tab === "advisor" && <AdvisorView />}
+        {tab === "dashboard" && <DashboardView />}
+        {tab === "book" && <BookView />}
         {tab === "entries" && <EntriesView />}
         {tab === "profile" && <ProfileView />}
       </main>

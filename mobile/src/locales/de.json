@@ -165,5 +165,10 @@
   "inbox.captured": "Erfasst",
   "inbox.captureError": "Erfassung fehlgeschlagen",
   "inbox.empty": "Eingang ist leer",
-  "inbox.delete": "Löschen"
+  "inbox.delete": "Löschen",
+  "shell.tab.tasks": "Aufgaben",
+  "tasks.addPlaceholder": "Aufgabe hinzufügen...",
+  "tasks.created": "Aufgabe erstellt",
+  "tasks.createError": "Aufgabe konnte nicht erstellt werden",
+  "tasks.empty": "Keine Aufgaben"
 }

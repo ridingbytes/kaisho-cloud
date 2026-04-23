@@ -165,5 +165,10 @@
   "inbox.captured": "Capturado",
   "inbox.captureError": "Error al capturar",
   "inbox.empty": "Bandeja vacia",
-  "inbox.delete": "Eliminar"
+  "inbox.delete": "Eliminar",
+  "shell.tab.tasks": "Tareas",
+  "tasks.addPlaceholder": "Agregar tarea...",
+  "tasks.created": "Tarea creada",
+  "tasks.createError": "Error al crear tarea",
+  "tasks.empty": "Sin tareas"
 }

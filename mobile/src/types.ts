@@ -48,8 +48,15 @@ export interface Customer {
 
 export interface Task {
   id: string
-  title: string
   customer: string
+  title: string
+  status: string
+  tags: string[]
+  body: string
+  github_url: string
+  created_at: string
+  updated_at: string
+  deleted_at?: string | null
 }
 
 export interface InboxItem {

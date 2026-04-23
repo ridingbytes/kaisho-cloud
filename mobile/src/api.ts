@@ -437,3 +437,56 @@ export function deleteInboxItem(
     }),
   })
 }
+
+// -- Tasks --
+
+export function getSyncedTasks(): Promise<Task[]> {
+  return request<{ entries: Task[] }>(
+    "/sync/tasks/changes?since=1970-01-01T00:00:00Z"
+      + "&limit=500",
+  ).then((d) =>
+    (d.entries || []).filter((e) => !e.deleted_at)
+  )
+}
+
+export function addSyncedTask(data: {
+  title: string
+  customer?: string
+  status?: string
+}): Promise<{ inserted: number }> {
+  const id = crypto.randomUUID().slice(0, 12)
+  const now = new Date().toISOString()
+  return request("/sync/tasks/apply", {
+    method: "POST",
+    body: JSON.stringify({
+      entries: [{
+        id,
+        customer: data.customer || "",
+        title: data.title,
+        status: data.status || "TODO",
+        tags: [],
+        body: "",
+        github_url: "",
+        created_at: now,
+        updated_at: now,
+      }],
+    }),
+  })
+}
+
+export function updateSyncedTask(
+  task: Task,
+  updates: Partial<Task>,
+): Promise<{ updated: number }> {
+  const now = new Date().toISOString()
+  return request("/sync/tasks/apply", {
+    method: "POST",
+    body: JSON.stringify({
+      entries: [{
+        ...task,
+        ...updates,
+        updated_at: now,
+      }],
+    }),
+  })
+}
