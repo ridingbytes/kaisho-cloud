@@ -3,7 +3,7 @@
 #
 # Usage:
 #   bin/dev              Start API on :3030 (PWA served at /m/)
-#   bin/dev --mobile     Also start Vite dev server on :5173
+#   bin/dev --mobile     Also start Vite dev server on :5174
 #                        (hot reload for mobile PWA)
 #   bin/dev --rebuild    Rebuild mobile PWA before starting
 #   PORT=4000 bin/dev    Override API port
@@ -80,7 +80,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 if [ "$WITH_MOBILE" = "1" ]; then
-  echo "Starting mobile Vite dev server on :5173..."
+  echo "Starting mobile Vite dev server on :5174..."
   (cd mobile && pnpm dev) &
   pids+=("$!")
 fi
@@ -95,7 +95,7 @@ echo "Kaisho Cloud (local)"
 echo "  API:           http://localhost:$PORT"
 echo "  Mobile PWA:    http://localhost:$PORT/m/"
 if [ "$WITH_MOBILE" = "1" ]; then
-  echo "  Mobile (Vite): http://localhost:5173/m/"
+  echo "  Mobile (Vite): http://localhost:5174/m/"
 fi
 echo "  Health:        http://localhost:$PORT/health"
 echo

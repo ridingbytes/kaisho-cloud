@@ -8,6 +8,7 @@ export default defineConfig({
     outDir: "dist",
   },
   server: {
+    port: 5174,
     proxy: {
       "/auth": "http://localhost:3030",
       "/clocks": "http://localhost:3030",
@@ -16,6 +17,10 @@ export default defineConfig({
       "/billing": "http://localhost:3030",
       "/ai": "http://localhost:3030",
       "/health": "http://localhost:3030",
+      "/ws": {
+        target: "http://localhost:3030",
+        ws: true,
+      },
     },
   },
 })

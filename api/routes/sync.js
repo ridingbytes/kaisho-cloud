@@ -3,8 +3,9 @@
 /**
  * @module routes/sync
  *
- * Bidirectional sync endpoints (API-key auth). These
- * routes let the local Kaisho desktop app push and pull
+ * Bidirectional sync endpoints (JWT or API-key auth).
+ * These routes let the mobile PWA and the local Kaisho
+ * desktop app push and pull
  * clock entries against the Supabase cloud store using a
  * cursor-based, last-writer-wins merge protocol.
  *
@@ -25,7 +26,7 @@
 const { Router } = require("express")
 const { supabase } = require("../db")
 const {
-  requireApiKey, requirePlan,
+  requireAuth, requirePlan,
 } = require("../middleware")
 const requireSync = requirePlan("sync", "sync_ai")
 const { broadcast } = require("../ws")
@@ -79,7 +80,7 @@ function rowToWire(row) {
  */
 router.post(
   "/push-snapshot",
-  requireApiKey,
+  requireAuth,
   requireSync,
   validate(snapshotSchema),
   asyncHandler(async (req, res) => {
@@ -133,7 +134,7 @@ router.post(
  */
 router.get(
   "/changes",
-  requireApiKey,
+  requireAuth,
   requireSync,
   validateQuery(syncChangesQuerySchema),
   asyncHandler(async (req, res) => {
@@ -245,7 +246,7 @@ function decideMerge(existing, incoming) {
  */
 router.post(
   "/apply",
-  requireApiKey,
+  requireAuth,
   requireSync,
   validate(syncApplySchema),
   asyncHandler(async (req, res) => {
@@ -348,7 +349,7 @@ router.post(
  */
 router.get(
   "/active",
-  requireApiKey,
+  requireAuth,
   requireSync,
   asyncHandler(async (req, res) => {
     const { data: row } = await supabase
@@ -382,7 +383,7 @@ router.get(
  */
 router.post(
   "/active/start",
-  requireApiKey,
+  requireAuth,
   requireSync,
   validate(activeStartSchema),
   asyncHandler(async (req, res) => {
@@ -466,7 +467,7 @@ router.post(
  */
 router.post(
   "/active/stop",
-  requireApiKey,
+  requireAuth,
   requireSync,
   validate(activeStopSchema),
   asyncHandler(async (req, res) => {
@@ -522,7 +523,7 @@ router.post(
  */
 router.post(
   "/ack",
-  requireApiKey,
+  requireAuth,
   requireSync,
   asyncHandler(async (req, res) => {
     const { ids } = req.body
@@ -565,7 +566,7 @@ router.post(
  */
 router.delete(
   "/entries",
-  requireApiKey,
+  requireAuth,
   requireSync,
   asyncHandler(async (req, res) => {
     // Wipe all user data: clock entries + reference
@@ -628,7 +629,7 @@ router.delete(
  */
 router.get(
   "/stats",
-  requireApiKey,
+  requireAuth,
   asyncHandler(async (req, res) => {
     const { count: entryCount } = await supabase
       .from("clock_entries")
@@ -684,7 +685,7 @@ router.get(
  */
 router.get(
   "/status",
-  requireApiKey,
+  requireAuth,
   asyncHandler(async (req, res) => {
     const { data: user } = await supabase
       .from("users")
@@ -756,7 +757,7 @@ const INBOX_APPLY_FIELDS = [
  */
 router.get(
   "/inbox/changes",
-  requireApiKey,
+  requireAuth,
   requireSync,
   validateQuery(syncChangesQuerySchema),
   asyncHandler(async (req, res) => {
@@ -805,7 +806,7 @@ router.get(
  */
 router.post(
   "/inbox/apply",
-  requireApiKey,
+  requireAuth,
   requireSync,
   asyncHandler(async (req, res) => {
     const entries = req.body?.entries || []
@@ -903,7 +904,7 @@ router.post(
  */
 router.post(
   "/inbox/ack",
-  requireApiKey,
+  requireAuth,
   requireSync,
   asyncHandler(async (req, res) => {
     const { ids } = req.body
@@ -965,7 +966,7 @@ const TASK_APPLY_FIELDS = [
 
 router.get(
   "/tasks/changes",
-  requireApiKey,
+  requireAuth,
   requireSync,
   validateQuery(syncChangesQuerySchema),
   asyncHandler(async (req, res) => {
@@ -1000,7 +1001,7 @@ router.get(
 
 router.post(
   "/tasks/apply",
-  requireApiKey,
+  requireAuth,
   requireSync,
   asyncHandler(async (req, res) => {
     const entries = req.body?.entries || []
@@ -1087,7 +1088,7 @@ router.post(
 
 router.post(
   "/tasks/ack",
-  requireApiKey,
+  requireAuth,
   requireSync,
   asyncHandler(async (req, res) => {
     const { ids } = req.body
@@ -1146,7 +1147,7 @@ const NOTE_APPLY_FIELDS = [
 
 router.get(
   "/notes/changes",
-  requireApiKey,
+  requireAuth,
   requireSync,
   validateQuery(syncChangesQuerySchema),
   asyncHandler(async (req, res) => {
@@ -1181,7 +1182,7 @@ router.get(
 
 router.post(
   "/notes/apply",
-  requireApiKey,
+  requireAuth,
   requireSync,
   asyncHandler(async (req, res) => {
     const entries = req.body?.entries || []
@@ -1268,7 +1269,7 @@ router.post(
 
 router.post(
   "/notes/ack",
-  requireApiKey,
+  requireAuth,
   requireSync,
   asyncHandler(async (req, res) => {
     const { ids } = req.body
