@@ -7,6 +7,7 @@ import { DashboardView } from "./DashboardView"
 import { EntriesView } from "./EntriesView"
 import { InboxView } from "./InboxView"
 import { TasksView } from "./TasksView"
+import { NotesView } from "./NotesView"
 import { ProfileView } from "./ProfileView"
 import { Logo } from "./Logo"
 import { useAuth } from "../auth"
@@ -17,6 +18,7 @@ type Tab =
   | "tasks"
   | "inbox"
   | "advisor"
+  | "notes"
   | "dashboard"
   | "book"
   | "entries"
@@ -27,7 +29,7 @@ const TABS: { id: Tab; icon: string }[] = [
   { id: "tasks", icon: "check" },
   { id: "inbox", icon: "inbox" },
   { id: "advisor", icon: "ai" },
-  { id: "entries", icon: "list" },
+  { id: "notes", icon: "edit" },
   { id: "profile", icon: "user" },
 ]
 
@@ -111,6 +113,16 @@ function TabIcon({ icon }: { icon: string }) {
           <rect x="3" y="3" width="14" height="14"
             rx="2" />
           <polyline points="7 10 9.5 12.5 13 7.5" />
+        </svg>
+      )
+    case "edit":
+      return (
+        <svg width="20" height="20" viewBox="0 0 20 20"
+          fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round"
+          strokeLinejoin="round">
+          <path d="M12 3l5 5-9 9H3v-5z" />
+          <line x1="10" y1="5" x2="15" y2="10" />
         </svg>
       )
     case "inbox":
@@ -223,6 +235,7 @@ export function AppShell() {
         {tab === "tasks" && <TasksView />}
         {tab === "inbox" && <InboxView />}
         {tab === "advisor" && <AdvisorView />}
+        {tab === "notes" && <NotesView />}
         {tab === "dashboard" && <DashboardView />}
         {tab === "book" && <BookView />}
         {tab === "entries" && <EntriesView />}

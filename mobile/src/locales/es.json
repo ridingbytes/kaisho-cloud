@@ -170,5 +170,10 @@
   "tasks.addPlaceholder": "Agregar tarea...",
   "tasks.created": "Tarea creada",
   "tasks.createError": "Error al crear tarea",
-  "tasks.empty": "Sin tareas"
+  "tasks.empty": "Sin tareas",
+  "shell.tab.notes": "Notas",
+  "notes.addPlaceholder": "Agregar nota...",
+  "notes.created": "Nota creada",
+  "notes.createError": "Error al crear nota",
+  "notes.empty": "Sin notas"
 }

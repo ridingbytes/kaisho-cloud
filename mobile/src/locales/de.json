@@ -170,5 +170,10 @@
   "tasks.addPlaceholder": "Aufgabe hinzufügen...",
   "tasks.created": "Aufgabe erstellt",
   "tasks.createError": "Aufgabe konnte nicht erstellt werden",
-  "tasks.empty": "Keine Aufgaben"
+  "tasks.empty": "Keine Aufgaben",
+  "shell.tab.notes": "Notizen",
+  "notes.addPlaceholder": "Notiz hinzufügen...",
+  "notes.created": "Notiz erstellt",
+  "notes.createError": "Notiz konnte nicht erstellt werden",
+  "notes.empty": "Keine Notizen"
 }

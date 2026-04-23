@@ -59,6 +59,18 @@ export interface Task {
   deleted_at?: string | null
 }
 
+export interface Note {
+  id: string
+  customer: string
+  title: string
+  body: string
+  tags: string[]
+  task_id: string | null
+  created_at: string
+  updated_at: string
+  deleted_at?: string | null
+}
+
 export interface InboxItem {
   id: string
   type: string

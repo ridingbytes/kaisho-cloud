@@ -170,5 +170,10 @@
   "tasks.addPlaceholder": "Add a task...",
   "tasks.created": "Task created",
   "tasks.createError": "Failed to create task",
-  "tasks.empty": "No tasks"
+  "tasks.empty": "No tasks",
+  "shell.tab.notes": "Notes",
+  "notes.addPlaceholder": "Add a note...",
+  "notes.created": "Note created",
+  "notes.createError": "Failed to create note",
+  "notes.empty": "No notes"
 }
