@@ -20,3 +20,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 
 CREATE INDEX idx_tasks_user_updated
     ON tasks (user_id, updated_at);
+
+CREATE INDEX idx_tasks_deleted
+    ON tasks (user_id, deleted_at)
+    WHERE deleted_at IS NOT NULL;

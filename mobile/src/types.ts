@@ -46,11 +46,14 @@ export interface Customer {
   contracts: { name: string }[]
 }
 
-export interface Task {
+export interface TaskRef {
   id: string
   customer: string
   title: string
   status: string
+}
+
+export interface Task extends TaskRef {
   tags: string[]
   body: string
   github_url: string

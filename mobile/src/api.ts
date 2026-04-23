@@ -6,6 +6,7 @@ import type {
   Note,
   SignupResult,
   Task,
+  TaskRef,
   User,
 } from "./types"
 import {
@@ -300,7 +301,7 @@ export function getCustomers(): Promise<Customer[]> {
   return request("/ref/customers")
 }
 
-export function getTasks(): Promise<Task[]> {
+export function getTasks(): Promise<TaskRef[]> {
   return request("/ref/tasks")
 }
 

@@ -2,7 +2,7 @@ import {
   useCallback, useEffect, useRef, useState,
 } from "react"
 import { useTranslation } from "react-i18next"
-import type { ActiveTimer, Customer, Task } from "../types"
+import type { ActiveTimer, Customer, TaskRef } from "../types"
 import {
   getActive,
   getCustomers,
@@ -28,7 +28,7 @@ export function TimerView() {
   const [customers, setCustomers] = useState<Customer[]>(
     [],
   )
-  const [tasks, setTasks] = useState<Task[]>([])
+  const [tasks, setTasks] = useState<TaskRef[]>([])
   const [customer, setCustomer] = useState("")
   const [contract, setContract] = useState("")
   const [taskId, setTaskId] = useState("")

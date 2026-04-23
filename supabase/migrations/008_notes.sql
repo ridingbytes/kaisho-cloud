@@ -18,3 +18,7 @@ CREATE TABLE IF NOT EXISTS notes (
 
 CREATE INDEX idx_notes_user_updated
     ON notes (user_id, updated_at);
+
+CREATE INDEX idx_notes_deleted
+    ON notes (user_id, deleted_at)
+    WHERE deleted_at IS NOT NULL;
