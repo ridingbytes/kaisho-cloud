@@ -10,7 +10,9 @@ import {
 import type { AppConfig } from "../api"
 import type { Customer, Task } from "../types"
 import { formatFullDate } from "../utils/formatDate"
-import { tagBadgeStyle } from "../utils/tagColors"
+import {
+  hexToRgba, tagBadgeStyle,
+} from "../utils/tagColors"
 import { Markdown } from "./Markdown"
 import { SearchBar } from "./SearchBar"
 import { TagEditor } from "./TagEditor"
@@ -33,38 +35,26 @@ const STATUS_COLORS: Record<string, string> = {
   "CANCELLED": "#9ca3af",
 }
 
-function StatusDot({ status }: { status: string }) {
-  return (
-    <span
-      className="task-status-dot"
-      style={{
-        background: STATUS_COLORS[status] || "#9ca3af",
-      }}
-      title={statusLabel(status)}
-    />
-  )
-}
-
 function TaskRow({
   task,
   onSelect,
   allTags,
   onTagClick,
+  onStatusClick,
 }: {
   task: Task
   onSelect: (task: Task) => void
   allTags: { name: string; color: string }[]
   onTagClick: (tag: string) => void
+  onStatusClick: (status: string) => void
 }) {
+  const sc = STATUS_COLORS[task.status] || "#9ca3af"
   return (
     <div
       className="task-row"
       onClick={() => onSelect(task)}
       style={{ cursor: "pointer" }}
     >
-      <div className="task-row-left">
-        <StatusDot status={task.status} />
-      </div>
       <div className="task-row-content">
         <p className="task-title">{task.title}</p>
         {task.customer && (
@@ -72,30 +62,42 @@ function TaskRow({
             {task.customer}
           </span>
         )}
-        {task.tags && task.tags.length > 0 && (
-          <div className="note-row-tags">
-            {task.tags.map((tag) => {
-              const c = allTags.find(
-                (t) => t.name === tag,
-              )?.color
-              return (
-                <button
-                  key={tag}
-                  className="note-row-tag"
-                  style={
-                    c ? tagBadgeStyle(c) : undefined
-                  }
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onTagClick(tag)
-                  }}
-                >
-                  {tag}
-                </button>
-              )
-            })}
-          </div>
-        )}
+        <div className="note-row-tags">
+          <button
+            className="note-row-tag"
+            style={{
+              background: hexToRgba(sc, 0.15),
+              color: sc,
+              borderColor: hexToRgba(sc, 0.35),
+            }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onStatusClick(task.status)
+            }}
+          >
+            {statusLabel(task.status)}
+          </button>
+          {task.tags?.map((tag) => {
+            const c = allTags.find(
+              (t) => t.name === tag,
+            )?.color
+            return (
+              <button
+                key={tag}
+                className="note-row-tag"
+                style={
+                  c ? tagBadgeStyle(c) : undefined
+                }
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onTagClick(tag)
+                }}
+              >
+                {tag}
+              </button>
+            )
+          })}
+        </div>
       </div>
       <span className="row-chevron">&#8250;</span>
     </div>
@@ -351,6 +353,7 @@ export function TasksView() {
   const [searchTags, setSearchTags] = useState<
     string[]
   >([])
+  const [searchStatus, setSearchStatus] = useState("")
   const [collapsed, setCollapsed] = useState(
     () => new Set(["DONE", "CANCELLED"]),
   )
@@ -378,6 +381,9 @@ export function TasksView() {
   }, [])
 
   const filtered = tasks.filter((task) => {
+    if (searchStatus && task.status !== searchStatus) {
+      return false
+    }
     if (searchTags.length > 0) {
       if (!searchTags.every(
         (t) => task.tags?.includes(t),
@@ -398,6 +404,13 @@ export function TasksView() {
       prev.includes(tag)
         ? prev.filter((t) => t !== tag)
         : [...prev, tag],
+    )
+    if (!searchOpen) setSearchOpen(true)
+  }
+
+  function toggleStatusFilter(status: string) {
+    setSearchStatus((prev) =>
+      prev === status ? "" : status,
     )
     if (!searchOpen) setSearchOpen(true)
   }
@@ -482,6 +495,12 @@ export function TasksView() {
           visible={searchOpen}
           onToggle={() => setSearchOpen(!searchOpen)}
           allTags={config.tags}
+          statusChip={searchStatus ? {
+            label: statusLabel(searchStatus),
+            color: STATUS_COLORS[searchStatus]
+              || "#9ca3af",
+            onRemove: () => setSearchStatus(""),
+          } : undefined}
         />
         {!searchOpen && (
           <button
@@ -540,6 +559,7 @@ export function TasksView() {
                     onSelect={setSelected}
                     allTags={config.tags}
                     onTagClick={toggleSearchTag}
+                    onStatusClick={toggleStatusFilter}
                   />
                 ))}
             </div>

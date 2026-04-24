@@ -1,7 +1,7 @@
 import { useRef, useEffect } from "react"
 import type { TagDef } from "./TagEditor"
 import {
-  colorForTag, tagBadgeStyle,
+  colorForTag, hexToRgba, tagBadgeStyle,
 } from "../utils/tagColors"
 
 /**
@@ -12,6 +12,12 @@ import {
  * When open, replaces the add form area with a
  * search input containing active tag chips.
  */
+export interface StatusChip {
+  label: string
+  color: string
+  onRemove: () => void
+}
+
 export function SearchBar({
   searchText,
   onSearchChange,
@@ -20,6 +26,7 @@ export function SearchBar({
   visible,
   onToggle,
   allTags,
+  statusChip,
 }: {
   searchText: string
   onSearchChange: (text: string) => void
@@ -28,6 +35,7 @@ export function SearchBar({
   visible: boolean
   onToggle: () => void
   allTags: TagDef[]
+  statusChip?: StatusChip
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -74,6 +82,28 @@ export function SearchBar({
           <circle cx="8.5" cy="8.5" r="5.5" />
           <line x1="13" y1="13" x2="18" y2="18" />
         </svg>
+        {statusChip && (
+          <span
+            className="search-tag-chip"
+            style={{
+              background: hexToRgba(
+                statusChip.color, 0.15,
+              ),
+              color: statusChip.color,
+              borderColor: hexToRgba(
+                statusChip.color, 0.35,
+              ),
+            }}
+          >
+            {statusChip.label}
+            <button
+              className="search-tag-remove"
+              onClick={statusChip.onRemove}
+            >
+              &times;
+            </button>
+          </span>
+        )}
         {activeTags.map((tag) => {
           const c = colorFor(tag)
           return (
