@@ -198,7 +198,7 @@ function NoteDetailSheet({
           {note.title}
         </h3>
         {editing ? (
-          <>
+          <div className="detail-edit-form">
             <div className="detail-field">
               <div className="detail-label">
                 {t("timer.customer")}
@@ -275,7 +275,7 @@ function NoteDetailSheet({
               >
                 {t("detail.save")}
               </button>
-            </>
+            </div>
           ) : (
             <>
               <div className="detail-field">

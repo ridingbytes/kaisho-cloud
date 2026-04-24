@@ -205,7 +205,7 @@ function InboxDetailSheet({
           {item.title}
         </h3>
         {editing ? (
-          <>
+          <div className="detail-edit-form">
             <div className="detail-field">
               <div className="detail-label">
                 {t("detail.type")}
@@ -298,7 +298,7 @@ function InboxDetailSheet({
                 ))}
               </select>
             </div>
-          </>
+          </div>
         ) : (
           <>
             <div className="detail-field">

@@ -197,7 +197,7 @@ function TaskDetailSheet({
           </div>
 
           {editing ? (
-            <>
+            <div className="detail-edit-form">
               <div className="detail-field">
                 <div className="detail-label">
                   {t("timer.customer")}
@@ -268,7 +268,7 @@ function TaskDetailSheet({
               >
                 {t("detail.save")}
               </button>
-            </>
+            </div>
           ) : (
             <>
               {task.customer && (
