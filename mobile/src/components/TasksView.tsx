@@ -24,23 +24,24 @@ function statusLabel(status: string): string {
   return status.replace(/-/g, " ")
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const cls: Record<string, string> = {
-    "TODO": "task-status-todo",
-    "NEXT": "task-status-next",
-    "IN-PROGRESS": "task-status-progress",
-    "WAIT": "task-status-wait",
-    "DONE": "task-status-done",
-    "CANCELLED": "task-status-cancelled",
-  }
+const STATUS_COLORS: Record<string, string> = {
+  "TODO": "#3b82f6",
+  "NEXT": "#f59e0b",
+  "IN-PROGRESS": "#f97316",
+  "WAIT": "#8b5cf6",
+  "DONE": "#22c55e",
+  "CANCELLED": "#9ca3af",
+}
+
+function StatusDot({ status }: { status: string }) {
   return (
     <span
-      className={
-        "task-status-badge " + (cls[status] || "")
-      }
-    >
-      {statusLabel(status)}
-    </span>
+      className="task-status-dot"
+      style={{
+        background: STATUS_COLORS[status] || "#9ca3af",
+      }}
+      title={statusLabel(status)}
+    />
   )
 }
 
@@ -48,10 +49,12 @@ function TaskRow({
   task,
   onSelect,
   allTags,
+  onTagClick,
 }: {
   task: Task
   onSelect: (task: Task) => void
   allTags: { name: string; color: string }[]
+  onTagClick: (tag: string) => void
 }) {
   return (
     <div
@@ -60,7 +63,7 @@ function TaskRow({
       style={{ cursor: "pointer" }}
     >
       <div className="task-row-left">
-        <StatusBadge status={task.status} />
+        <StatusDot status={task.status} />
       </div>
       <div className="task-row-content">
         <p className="task-title">{task.title}</p>
@@ -76,15 +79,19 @@ function TaskRow({
                 (t) => t.name === tag,
               )?.color
               return (
-                <span
+                <button
                   key={tag}
                   className="note-row-tag"
                   style={
                     c ? tagBadgeStyle(c) : undefined
                   }
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onTagClick(tag)
+                  }}
                 >
                   {tag}
-                </span>
+                </button>
               )
             })}
           </div>
@@ -532,6 +539,7 @@ export function TasksView() {
                     task={task}
                     onSelect={setSelected}
                     allTags={config.tags}
+                    onTagClick={toggleSearchTag}
                   />
                 ))}
             </div>

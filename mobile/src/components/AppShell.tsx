@@ -292,21 +292,21 @@ export function AppShell() {
             {planLabel(user!.plan)}
           </span>
         )}
+        {initials && (
+          <span className="header-initials">
+            {initials}
+          </span>
+        )}
         <button
           className="header-avatar-btn"
           onClick={() => setProfileOpen(true)}
           aria-label={t("shell.tab.profile")}
         >
-          {initials && (
-            <span className="header-initials">
-              {initials}
-            </span>
-          )}
           <PixelAvatar
             seed={
               appConfig?.avatar_seed || "kaisho"
             }
-            size={28}
+            size={24}
           />
         </button>
       </header>

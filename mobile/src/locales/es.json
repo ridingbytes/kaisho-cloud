@@ -190,5 +190,7 @@
   "detail.save": "Guardar",
   "detail.title": "Titulo",
   "detail.addTag": "Agregar etiqueta...",
-  "detail.all": "Todos"
+  "detail.all": "Todos",
+  "detail.task": "Tarea",
+  "detail.direction": "Dirección"
 }

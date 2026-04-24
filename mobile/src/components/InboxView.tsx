@@ -281,7 +281,7 @@ function InboxDetailSheet({
             </div>
             <div className="detail-field">
               <div className="detail-label">
-                Direction
+                {t("detail.direction")}
               </div>
               <select
                 className="detail-select"

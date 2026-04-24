@@ -190,5 +190,7 @@
   "detail.save": "Save",
   "detail.title": "Title",
   "detail.addTag": "Add tag...",
-  "detail.all": "All"
+  "detail.all": "All",
+  "detail.task": "Task",
+  "detail.direction": "Direction"
 }

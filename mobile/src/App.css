@@ -296,13 +296,12 @@ select {
 }
 
 .header-avatar-btn {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border-radius: 20px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   border: 1px solid var(--border);
   padding: 3px;
+  overflow: hidden;
   background: transparent;
   color: var(--t3);
   display: flex;
@@ -319,10 +318,10 @@ select {
 }
 
 .header-initials {
+  margin-left: auto;
   font-size: 11px;
   font-weight: 600;
   color: var(--t2);
-  padding-left: 6px;
 }
 
 .app-content {
@@ -2150,6 +2149,14 @@ select {
   opacity: 0.6;
 }
 
+.task-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
 .row-chevron {
   flex-shrink: 0;
   color: var(--t3);
@@ -2247,6 +2254,8 @@ select {
   border-radius: 999px;
   background: var(--raised);
   color: var(--t3);
+  border: 1px solid transparent;
+  cursor: pointer;
 }
 
 .note-row-header {

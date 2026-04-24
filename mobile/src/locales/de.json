@@ -190,5 +190,7 @@
   "detail.save": "Speichern",
   "detail.title": "Titel",
   "detail.addTag": "Tag hinzufügen...",
-  "detail.all": "Alle"
+  "detail.all": "Alle",
+  "detail.task": "Aufgabe",
+  "detail.direction": "Richtung"
 }

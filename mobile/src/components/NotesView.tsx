@@ -27,11 +27,13 @@ function NoteRow({
   onDelete,
   onSelect,
   allTags,
+  onTagClick,
 }: {
   note: Note
   onDelete: (note: Note) => void
   onSelect: (note: Note) => void
   allTags: { name: string; color: string }[]
+  onTagClick: (tag: string) => void
 }) {
   const { t } = useTranslation()
   const [swiped, setSwiped] = useState(false)
@@ -78,15 +80,19 @@ function NoteRow({
                 (t) => t.name === tag,
               )?.color
               return (
-                <span
+                <button
                   key={tag}
                   className="note-row-tag"
                   style={
                     c ? tagBadgeStyle(c) : undefined
                   }
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onTagClick(tag)
+                  }}
                 >
                   {tag}
-                </span>
+                </button>
               )
             })}
           </div>
@@ -226,7 +232,7 @@ function NoteDetailSheet({
               {filteredTasks.length > 0 && (
                 <div className="detail-field">
                   <div className="detail-label">
-                    Task
+                    {t("detail.task")}
                   </div>
                   <select
                     className="detail-select"
@@ -509,6 +515,7 @@ export function NotesView() {
               onDelete={handleDelete}
               onSelect={setSelected}
               allTags={config.tags}
+              onTagClick={toggleSearchTag}
             />
           ))}
         </div>

@@ -50,6 +50,8 @@ export function PixelAvatar({
       viewBox={`0 0 ${size} ${size}`}
       onClick={onClick}
       style={onClick ? { cursor: "pointer" } : undefined}
+      role="img"
+      aria-label="Avatar"
     >
       <rect
         width={size}

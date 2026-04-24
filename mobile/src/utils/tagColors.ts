@@ -1,7 +1,9 @@
 /**
  * Tag color utilities matching the desktop app's
- * rendering (hex → rgba with alpha).
+ * rendering (hex -> rgba with alpha).
  */
+
+import type React from "react"
 
 function parseHex(hex: string): [number, number, number] {
   const h = hex.replace("#", "")
@@ -28,4 +30,13 @@ export function tagBadgeStyle(
     color: `rgb(${r},${g},${b})`,
     borderColor: `rgba(${r},${g},${b},0.35)`,
   }
+}
+
+export function colorForTag(
+  name: string,
+  allTags: { name: string; color: string }[],
+): string {
+  return allTags.find(
+    (t) => t.name === name,
+  )?.color || ""
 }

@@ -1,6 +1,8 @@
 import { useRef, useEffect } from "react"
 import type { TagDef } from "./TagEditor"
-import { tagBadgeStyle } from "../utils/tagColors"
+import {
+  colorForTag, tagBadgeStyle,
+} from "../utils/tagColors"
 
 /**
  * Toggleable search bar with fulltext input and
@@ -55,8 +57,7 @@ export function SearchBar({
   }
 
   function colorFor(name: string) {
-    return allTags.find((t) => t.name === name)
-      ?.color || ""
+    return colorForTag(name, allTags)
   }
 
   return (
