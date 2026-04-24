@@ -2,28 +2,36 @@ import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   getAppConfig,
+  getCustomers,
+  getTasks,
   getSyncedNotes,
   addSyncedNote,
   deleteSyncedNote,
   updateSyncedNote,
 } from "../api"
 import type { AppConfig } from "../api"
-import type { Note } from "../types"
+import type {
+  Customer, Note, TaskRef,
+} from "../types"
 import {
   formatShortDate,
   formatFullDate,
 } from "../utils/formatDate"
+import { tagBadgeStyle } from "../utils/tagColors"
 import { Markdown } from "./Markdown"
+import { SearchBar } from "./SearchBar"
 import { TagEditor } from "./TagEditor"
 
 function NoteRow({
   note,
   onDelete,
   onSelect,
+  allTags,
 }: {
   note: Note
   onDelete: (note: Note) => void
   onSelect: (note: Note) => void
+  allTags: { name: string; color: string }[]
 }) {
   const { t } = useTranslation()
   const [swiped, setSwiped] = useState(false)
@@ -63,6 +71,26 @@ function NoteRow({
           <span className="inbox-date">{created}</span>
         </div>
         <p className="task-title">{note.title}</p>
+        {note.tags && note.tags.length > 0 && (
+          <div className="note-row-tags">
+            {note.tags.map((tag) => {
+              const c = allTags.find(
+                (t) => t.name === tag,
+              )?.color
+              return (
+                <span
+                  key={tag}
+                  className="note-row-tag"
+                  style={
+                    c ? tagBadgeStyle(c) : undefined
+                  }
+                >
+                  {tag}
+                </span>
+              )
+            })}
+          </div>
+        )}
       </div>
       {!swiped && (
         <span className="row-chevron">&#8250;</span>
@@ -88,16 +116,26 @@ function NoteDetailSheet({
   onDelete,
   onUpdate,
   config,
+  customers,
+  tasks,
 }: {
   note: Note
   onClose: () => void
   onDelete: (note: Note) => void
   onUpdate: (updates: Partial<Note>) => void
   config: AppConfig
+  customers: Customer[]
+  tasks: TaskRef[]
 }) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
+  const [customer, setCustomer] = useState(
+    note.customer || "",
+  )
   const [title, setTitle] = useState(note.title)
+  const [taskId, setTaskId] = useState(
+    note.task_id || "",
+  )
   const [body, setBody] = useState(note.body || "")
   const [tags, setTags] = useState(note.tags || [])
 
@@ -105,8 +143,18 @@ function NoteDetailSheet({
     ? formatFullDate(note.created_at)
     : ""
 
+  const filteredTasks = customer
+    ? tasks.filter((t) => t.customer === customer)
+    : tasks
+
   function handleSave() {
-    onUpdate({ title, body, tags })
+    onUpdate({
+      customer,
+      title,
+      task_id: taskId || null,
+      body,
+      tags,
+    })
     setEditing(false)
   }
 
@@ -144,6 +192,25 @@ function NoteDetailSheet({
         </h3>
         {editing ? (
           <>
+            <div className="detail-field">
+              <div className="detail-label">
+                {t("timer.customer")}
+              </div>
+              <select
+                className="detail-select"
+                value={customer}
+                onChange={(e) =>
+                  setCustomer(e.target.value)
+                }
+              >
+                <option value="">—</option>
+                {customers.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
               <div className="detail-field">
                 <div className="detail-label">
                   {t("detail.title")}
@@ -156,7 +223,28 @@ function NoteDetailSheet({
                   }
                 />
               </div>
-              <div className="detail-field">
+              {filteredTasks.length > 0 && (
+                <div className="detail-field">
+                  <div className="detail-label">
+                    Task
+                  </div>
+                  <select
+                    className="detail-select"
+                    value={taskId}
+                    onChange={(e) =>
+                      setTaskId(e.target.value)
+                    }
+                  >
+                    <option value="">—</option>
+                    {filteredTasks.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="detail-field detail-field-grow">
                 <div className="detail-label">
                   {t("detail.description")}
                 </div>
@@ -166,7 +254,6 @@ function NoteDetailSheet({
                   onChange={(e) =>
                     setBody(e.target.value)
                   }
-                  rows={8}
                 />
               </div>
               <TagEditor
@@ -249,6 +336,15 @@ export function NotesView() {
     useState<AppConfig>({
       tags: [], github_configured: false,
     })
+  const [customers, setCustomers] =
+    useState<Customer[]>([])
+  const [refTasks, setRefTasks] =
+    useState<TaskRef[]>([])
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchText, setSearchText] = useState("")
+  const [searchTags, setSearchTags] = useState<
+    string[]
+  >([])
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function refresh() {
@@ -273,7 +369,38 @@ export function NotesView() {
     getAppConfig()
       .then(setConfig)
       .catch(() => {})
+    getCustomers()
+      .then(setCustomers)
+      .catch(() => {})
+    getTasks()
+      .then(setRefTasks)
+      .catch(() => {})
   }, [])
+
+  const filtered = notes.filter((n) => {
+    if (searchTags.length > 0) {
+      if (!searchTags.every(
+        (t) => n.tags?.includes(t),
+      )) return false
+    }
+    if (searchText) {
+      const q = searchText.toLowerCase()
+      const hay = [
+        n.title, n.body, n.customer,
+      ].join(" ").toLowerCase()
+      if (!hay.includes(q)) return false
+    }
+    return true
+  })
+
+  function toggleSearchTag(tag: string) {
+    setSearchTags((prev) =>
+      prev.includes(tag)
+        ? prev.filter((t) => t !== tag)
+        : [...prev, tag],
+    )
+    if (!searchOpen) setSearchOpen(true)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -329,26 +456,40 @@ export function NotesView() {
         className="inbox-capture"
         onSubmit={handleSubmit}
       >
-        <input
-          ref={inputRef}
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder={t("notes.addPlaceholder")}
-          className="inbox-input"
+        {!searchOpen && (
+          <input
+            ref={inputRef}
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={t("notes.addPlaceholder")}
+            className="inbox-input"
+          />
+        )}
+        <SearchBar
+          searchText={searchText}
+          onSearchChange={setSearchText}
+          activeTags={searchTags}
+          onTagToggle={toggleSearchTag}
+          visible={searchOpen}
+          onToggle={() => setSearchOpen(!searchOpen)}
+          allTags={config.tags}
         />
-        <button
-          type="submit"
-          disabled={!title.trim()}
-          className="inbox-submit"
-        >
-          <svg width="18" height="18" viewBox="0 0 20 20"
-            fill="none" stroke="currentColor"
-            strokeWidth="2.5" strokeLinecap="round">
-            <line x1="10" y1="4" x2="10" y2="16" />
-            <line x1="4" y1="10" x2="16" y2="10" />
-          </svg>
-        </button>
+        {!searchOpen && (
+          <button
+            type="submit"
+            disabled={!title.trim()}
+            className="inbox-submit"
+          >
+            <svg width="18" height="18"
+              viewBox="0 0 20 20"
+              fill="none" stroke="currentColor"
+              strokeWidth="2.5" strokeLinecap="round">
+              <line x1="10" y1="4" x2="10" y2="16" />
+              <line x1="4" y1="10" x2="16" y2="10" />
+            </svg>
+          </button>
+        )}
       </form>
 
       {msg && <p className="inbox-msg">{msg}</p>}
@@ -357,16 +498,17 @@ export function NotesView() {
         <p className="inbox-empty">
           {t("entries.loading")}
         </p>
-      ) : notes.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <p className="inbox-empty">{t("notes.empty")}</p>
       ) : (
         <div className="inbox-list">
-          {notes.map((note) => (
+          {filtered.map((note) => (
             <NoteRow
               key={note.id}
               note={note}
               onDelete={handleDelete}
               onSelect={setSelected}
+              allTags={config.tags}
             />
           ))}
         </div>
@@ -381,6 +523,8 @@ export function NotesView() {
             handleUpdate(selected, updates)
           }
           config={config}
+          customers={customers}
+          tasks={refTasks}
         />
       )}
     </div>

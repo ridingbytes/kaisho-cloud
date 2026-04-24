@@ -11,7 +11,10 @@ import { NotesView } from "./NotesView"
 import { ProfileView } from "./ProfileView"
 import { Logo } from "./Logo"
 import { useAuth } from "../auth"
+import { getAppConfig } from "../api"
+import type { AppConfig } from "../api"
 import { planLabel } from "../utils/planLabel"
+import { PixelAvatar } from "./PixelAvatar"
 
 type Tab =
   | "timer"
@@ -198,10 +201,28 @@ export function AppShell() {
     return initial
   })
 
+  const [appConfig, setAppConfig] =
+    useState<AppConfig | null>(null)
+
+  useEffect(() => {
+    getAppConfig()
+      .then(setAppConfig)
+      .catch(() => {})
+  }, [])
+
   const activeGroup = groupForTab(tab)
   const visibleTabs = activeGroup === "time"
     ? TIME_TABS
     : ORGANIZE_TABS
+
+  const initials = (
+    appConfig?.user_name || user?.email || ""
+  )
+    .split(/[\s@]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("")
 
   function switchGroup(group: TabGroup) {
     if (group === activeGroup) return
@@ -276,7 +297,17 @@ export function AppShell() {
           onClick={() => setProfileOpen(true)}
           aria-label={t("shell.tab.profile")}
         >
-          <TabIcon icon="user" />
+          {initials && (
+            <span className="header-initials">
+              {initials}
+            </span>
+          )}
+          <PixelAvatar
+            seed={
+              appConfig?.avatar_seed || "kaisho"
+            }
+            size={28}
+          />
         </button>
       </header>
       <main className="app-content">

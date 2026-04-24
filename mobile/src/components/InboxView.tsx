@@ -3,15 +3,19 @@ import { useTranslation } from "react-i18next"
 import {
   addInboxItem,
   deleteInboxItem,
+  getAppConfig,
+  getCustomers,
   getInboxItems,
   updateInboxItem,
 } from "../api"
-import type { InboxItem } from "../types"
+import type { AppConfig } from "../api"
+import type { Customer, InboxItem } from "../types"
 import {
   formatShortDate,
   formatFullDate,
 } from "../utils/formatDate"
 import { Markdown } from "./Markdown"
+import { SearchBar } from "./SearchBar"
 
 /** Strip markdown syntax for plain-text preview. */
 function stripMd(text: string): string {
@@ -116,20 +120,39 @@ function InboxItemRow({
   )
 }
 
+const INBOX_TYPES = [
+  "NOTE", "IDEA", "EMAIL", "LEAD",
+]
+const DIRECTIONS = ["in", "out"]
+
 function InboxDetailSheet({
   item,
   onClose,
   onDelete,
   onUpdate,
+  customers,
 }: {
   item: InboxItem
   onClose: () => void
   onDelete: (item: InboxItem) => void
   onUpdate: (updates: Partial<InboxItem>) => void
+  customers: Customer[]
 }) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
+  const [itemType, setItemType] = useState(
+    item.type || "NOTE",
+  )
+  const [customer, setCustomer] = useState(
+    item.customer || "",
+  )
   const [title, setTitle] = useState(item.title)
+  const [channel, setChannel] = useState(
+    item.channel || "",
+  )
+  const [direction, setDirection] = useState(
+    item.direction || "in",
+  )
   const [body, setBody] = useState(item.body || "")
 
   const created = item.created_at
@@ -137,7 +160,14 @@ function InboxDetailSheet({
     : ""
 
   function handleSave() {
-    onUpdate({ title, body })
+    onUpdate({
+      type: itemType,
+      customer,
+      title,
+      channel,
+      direction,
+      body,
+    })
     setEditing(false)
   }
 
@@ -177,6 +207,43 @@ function InboxDetailSheet({
           <>
             <div className="detail-field">
               <div className="detail-label">
+                {t("detail.type")}
+              </div>
+              <select
+                className="detail-select"
+                value={itemType}
+                onChange={(e) =>
+                  setItemType(e.target.value)
+                }
+              >
+                {INBOX_TYPES.map((tp) => (
+                  <option key={tp} value={tp}>
+                    {tp}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="detail-field">
+              <div className="detail-label">
+                {t("timer.customer")}
+              </div>
+              <select
+                className="detail-select"
+                value={customer}
+                onChange={(e) =>
+                  setCustomer(e.target.value)
+                }
+              >
+                <option value="">—</option>
+                {customers.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="detail-field">
+              <div className="detail-label">
                 {t("detail.title")}
               </div>
               <input
@@ -187,7 +254,7 @@ function InboxDetailSheet({
                 }
               />
             </div>
-            <div className="detail-field">
+            <div className="detail-field detail-field-grow">
               <div className="detail-label">
                 {t("detail.description")}
               </div>
@@ -197,8 +264,38 @@ function InboxDetailSheet({
                 onChange={(e) =>
                   setBody(e.target.value)
                 }
-                rows={8}
               />
+            </div>
+            <div className="detail-field">
+              <div className="detail-label">
+                {t("detail.channel")}
+              </div>
+              <input
+                className="detail-input"
+                value={channel}
+                onChange={(e) =>
+                  setChannel(e.target.value)
+                }
+                placeholder="email, phone, chat..."
+              />
+            </div>
+            <div className="detail-field">
+              <div className="detail-label">
+                Direction
+              </div>
+              <select
+                className="detail-select"
+                value={direction}
+                onChange={(e) =>
+                  setDirection(e.target.value)
+                }
+              >
+                {DIRECTIONS.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
             </div>
           </>
         ) : (
@@ -258,6 +355,13 @@ export function InboxView() {
   const [msg, setMsg] = useState("")
   const [selected, setSelected] =
     useState<InboxItem | null>(null)
+  const [customers, setCustomers] =
+    useState<Customer[]>([])
+  const [config, setConfig] = useState<AppConfig>({
+    tags: [], github_configured: false,
+  })
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchText, setSearchText] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function refresh() {
@@ -279,7 +383,22 @@ export function InboxView() {
 
   useEffect(() => {
     refresh()
+    getCustomers()
+      .then(setCustomers)
+      .catch(() => {})
+    getAppConfig()
+      .then(setConfig)
+      .catch(() => {})
   }, [])
+
+  const filtered = searchText
+    ? items.filter((item) => {
+        const q = searchText.toLowerCase()
+        return [
+          item.title, item.body, item.customer,
+        ].join(" ").toLowerCase().includes(q)
+      })
+    : items
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -335,26 +454,40 @@ export function InboxView() {
         className="inbox-capture"
         onSubmit={handleSubmit}
       >
-        <input
-          ref={inputRef}
-          type="text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={t("inbox.placeholder")}
-          className="inbox-input"
+        {!searchOpen && (
+          <input
+            ref={inputRef}
+            type="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={t("inbox.placeholder")}
+            className="inbox-input"
+          />
+        )}
+        <SearchBar
+          searchText={searchText}
+          onSearchChange={setSearchText}
+          activeTags={[]}
+          onTagToggle={() => {}}
+          visible={searchOpen}
+          onToggle={() => setSearchOpen(!searchOpen)}
+          allTags={config.tags}
         />
-        <button
-          type="submit"
-          disabled={!text.trim()}
-          className="inbox-submit"
-        >
-          <svg width="18" height="18" viewBox="0 0 20 20"
-            fill="none" stroke="currentColor"
-            strokeWidth="2.5" strokeLinecap="round">
-            <line x1="10" y1="4" x2="10" y2="16" />
-            <line x1="4" y1="10" x2="16" y2="10" />
-          </svg>
-        </button>
+        {!searchOpen && (
+          <button
+            type="submit"
+            disabled={!text.trim()}
+            className="inbox-submit"
+          >
+            <svg width="18" height="18"
+              viewBox="0 0 20 20"
+              fill="none" stroke="currentColor"
+              strokeWidth="2.5" strokeLinecap="round">
+              <line x1="10" y1="4" x2="10" y2="16" />
+              <line x1="4" y1="10" x2="16" y2="10" />
+            </svg>
+          </button>
+        )}
       </form>
 
       {msg && (
@@ -362,12 +495,16 @@ export function InboxView() {
       )}
 
       {loading ? (
-        <p className="inbox-empty">{t("common.loading")}</p>
-      ) : items.length === 0 ? (
-        <p className="inbox-empty">{t("inbox.empty")}</p>
+        <p className="inbox-empty">
+          {t("common.loading")}
+        </p>
+      ) : filtered.length === 0 ? (
+        <p className="inbox-empty">
+          {t("inbox.empty")}
+        </p>
       ) : (
         <div className="inbox-list">
-          {items.map((item) => (
+          {filtered.map((item) => (
             <InboxItemRow
               key={item.id}
               item={item}
@@ -386,6 +523,7 @@ export function InboxView() {
           onUpdate={(updates) =>
             handleUpdate(selected, updates)
           }
+          customers={customers}
         />
       )}
     </div>

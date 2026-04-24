@@ -3,13 +3,16 @@ import { useTranslation } from "react-i18next"
 import {
   addSyncedTask,
   getAppConfig,
+  getCustomers,
   getSyncedTasks,
   updateSyncedTask,
 } from "../api"
 import type { AppConfig } from "../api"
-import type { Task } from "../types"
+import type { Customer, Task } from "../types"
 import { formatFullDate } from "../utils/formatDate"
+import { tagBadgeStyle } from "../utils/tagColors"
 import { Markdown } from "./Markdown"
+import { SearchBar } from "./SearchBar"
 import { TagEditor } from "./TagEditor"
 
 const STATUS_ORDER = [
@@ -44,9 +47,11 @@ function StatusBadge({ status }: { status: string }) {
 function TaskRow({
   task,
   onSelect,
+  allTags,
 }: {
   task: Task
   onSelect: (task: Task) => void
+  allTags: { name: string; color: string }[]
 }) {
   return (
     <div
@@ -64,6 +69,26 @@ function TaskRow({
             {task.customer}
           </span>
         )}
+        {task.tags && task.tags.length > 0 && (
+          <div className="note-row-tags">
+            {task.tags.map((tag) => {
+              const c = allTags.find(
+                (t) => t.name === tag,
+              )?.color
+              return (
+                <span
+                  key={tag}
+                  className="note-row-tag"
+                  style={
+                    c ? tagBadgeStyle(c) : undefined
+                  }
+                >
+                  {tag}
+                </span>
+              )
+            })}
+          </div>
+        )}
       </div>
       <span className="row-chevron">&#8250;</span>
     </div>
@@ -75,14 +100,19 @@ function TaskDetailSheet({
   onClose,
   onUpdate,
   config,
+  customers,
 }: {
   task: Task
   onClose: () => void
   onUpdate: (updates: Partial<Task>) => void
   config: AppConfig
+  customers: Customer[]
 }) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
+  const [customer, setCustomer] = useState(
+    task.customer || "",
+  )
   const [title, setTitle] = useState(task.title)
   const [body, setBody] = useState(task.body || "")
   const [githubUrl, setGithubUrl] = useState(
@@ -96,6 +126,7 @@ function TaskDetailSheet({
 
   function handleSave() {
     onUpdate({
+      customer,
       title,
       body,
       github_url: githubUrl,
@@ -159,6 +190,25 @@ function TaskDetailSheet({
             <>
               <div className="detail-field">
                 <div className="detail-label">
+                  {t("timer.customer")}
+                </div>
+                <select
+                  className="detail-select"
+                  value={customer}
+                  onChange={(e) =>
+                    setCustomer(e.target.value)
+                  }
+                >
+                  <option value="">—</option>
+                  {customers.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="detail-field">
+                <div className="detail-label">
                   {t("detail.title")}
                 </div>
                 <input
@@ -169,7 +219,7 @@ function TaskDetailSheet({
                   }
                 />
               </div>
-              <div className="detail-field">
+              <div className="detail-field detail-field-grow">
                 <div className="detail-label">
                   {t("detail.description")}
                 </div>
@@ -179,7 +229,6 @@ function TaskDetailSheet({
                   onChange={(e) =>
                     setBody(e.target.value)
                   }
-                  rows={8}
                 />
               </div>
               {config.github_configured && (
@@ -288,6 +337,16 @@ export function TasksView() {
     useState<Task | null>(null)
   const [config, setConfig] =
     useState<AppConfig>(DEFAULT_CONFIG)
+  const [customers, setCustomers] =
+    useState<Customer[]>([])
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchText, setSearchText] = useState("")
+  const [searchTags, setSearchTags] = useState<
+    string[]
+  >([])
+  const [collapsed, setCollapsed] = useState(
+    () => new Set(["DONE", "CANCELLED"]),
+  )
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function refresh() {
@@ -306,7 +365,44 @@ export function TasksView() {
     getAppConfig()
       .then(setConfig)
       .catch(() => {})
+    getCustomers()
+      .then(setCustomers)
+      .catch(() => {})
   }, [])
+
+  const filtered = tasks.filter((task) => {
+    if (searchTags.length > 0) {
+      if (!searchTags.every(
+        (t) => task.tags?.includes(t),
+      )) return false
+    }
+    if (searchText) {
+      const q = searchText.toLowerCase()
+      const hay = [
+        task.title, task.body, task.customer,
+      ].join(" ").toLowerCase()
+      if (!hay.includes(q)) return false
+    }
+    return true
+  })
+
+  function toggleSearchTag(tag: string) {
+    setSearchTags((prev) =>
+      prev.includes(tag)
+        ? prev.filter((t) => t !== tag)
+        : [...prev, tag],
+    )
+    if (!searchOpen) setSearchOpen(true)
+  }
+
+  function toggleCollapse(status: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(status)) next.delete(status)
+      else next.add(status)
+      return next
+    })
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -349,7 +445,9 @@ export function TasksView() {
   const grouped = STATUS_ORDER
     .map((status) => ({
       status,
-      items: tasks.filter((t) => t.status === status),
+      items: filtered.filter(
+        (t) => t.status === status,
+      ),
     }))
     .filter((g) => g.items.length > 0)
 
@@ -359,51 +457,83 @@ export function TasksView() {
         className="inbox-capture"
         onSubmit={handleSubmit}
       >
-        <input
-          ref={inputRef}
-          type="text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={t("tasks.addPlaceholder")}
-          className="inbox-input"
+        {!searchOpen && (
+          <input
+            ref={inputRef}
+            type="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={t("tasks.addPlaceholder")}
+            className="inbox-input"
+          />
+        )}
+        <SearchBar
+          searchText={searchText}
+          onSearchChange={setSearchText}
+          activeTags={searchTags}
+          onTagToggle={toggleSearchTag}
+          visible={searchOpen}
+          onToggle={() => setSearchOpen(!searchOpen)}
+          allTags={config.tags}
         />
-        <button
-          type="submit"
-          disabled={!text.trim()}
-          className="inbox-submit"
-        >
-          <svg width="18" height="18" viewBox="0 0 20 20"
-            fill="none" stroke="currentColor"
-            strokeWidth="2.5" strokeLinecap="round">
-            <line x1="10" y1="4" x2="10" y2="16" />
-            <line x1="4" y1="10" x2="16" y2="10" />
-          </svg>
-        </button>
+        {!searchOpen && (
+          <button
+            type="submit"
+            disabled={!text.trim()}
+            className="inbox-submit"
+          >
+            <svg width="18" height="18"
+              viewBox="0 0 20 20"
+              fill="none" stroke="currentColor"
+              strokeWidth="2.5" strokeLinecap="round">
+              <line x1="10" y1="4" x2="10" y2="16" />
+              <line x1="4" y1="10" x2="16" y2="10" />
+            </svg>
+          </button>
+        )}
       </form>
 
       {msg && <p className="inbox-msg">{msg}</p>}
 
       {loading ? (
-        <p className="inbox-empty">{t("common.loading")}</p>
-      ) : tasks.length === 0 ? (
-        <p className="inbox-empty">{t("tasks.empty")}</p>
+        <p className="inbox-empty">
+          {t("common.loading")}
+        </p>
+      ) : filtered.length === 0 ? (
+        <p className="inbox-empty">
+          {t("tasks.empty")}
+        </p>
       ) : (
         <div className="tasks-list">
           {grouped.map((group) => (
-            <div key={group.status} className="task-group">
-              <p className="task-group-label">
+            <div
+              key={group.status}
+              className="task-group"
+            >
+              <button
+                className="task-group-label"
+                onClick={() =>
+                  toggleCollapse(group.status)
+                }
+              >
+                <span className="task-group-chevron">
+                  {collapsed.has(group.status)
+                    ? "▸" : "▾"}
+                </span>
                 {statusLabel(group.status)}
                 <span className="task-group-count">
                   {group.items.length}
                 </span>
-              </p>
-              {group.items.map((task) => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  onSelect={setSelected}
-                />
-              ))}
+              </button>
+              {!collapsed.has(group.status) &&
+                group.items.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    onSelect={setSelected}
+                    allTags={config.tags}
+                  />
+                ))}
             </div>
           ))}
         </div>
@@ -417,6 +547,7 @@ export function TasksView() {
             handleUpdate(selected, updates)
           }
           config={config}
+          customers={customers}
         />
       )}
     </div>

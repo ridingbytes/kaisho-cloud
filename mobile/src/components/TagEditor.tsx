@@ -1,5 +1,8 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import {
+  tagBadgeStyle, hexToRgba,
+} from "../utils/tagColors"
 
 export interface TagDef {
   name: string
@@ -32,11 +35,20 @@ export function TagEditor({
     (td) => !tags.includes(td.name),
   )
 
-  function colorFor(name: string): string {
-    return (
-      allTags.find((t) => t.name === name)?.color
-      || ""
-    )
+  function styleFor(name: string) {
+    const c = allTags.find(
+      (t) => t.name === name,
+    )?.color
+    return c ? tagBadgeStyle(c) : undefined
+  }
+
+  function inactiveStyle(hex: string) {
+    if (!hex) return undefined
+    return {
+      background: hexToRgba(hex, 0.06),
+      color: hexToRgba(hex, 0.7),
+      borderColor: hexToRgba(hex, 0.25),
+    }
   }
 
   function toggle(name: string) {
@@ -60,28 +72,21 @@ export function TagEditor({
         {t("detail.tags")}
       </div>
       <div className="tag-editor">
-        {tags.map((tag) => {
-          const c = colorFor(tag)
-          return (
-            <button
-              key={tag}
-              className="tag-chip tag-chip-active"
-              style={c ? {
-                background: c + "22",
-                color: c,
-                borderColor: c + "55",
-              } : undefined}
-              onClick={
-                editing
-                  ? () => toggle(tag)
-                  : undefined
-              }
-              disabled={!editing}
-            >
-              {tag}
-            </button>
-          )
-        })}
+        {tags.map((tag) => (
+          <button
+            key={tag}
+            className="tag-chip tag-chip-active"
+            style={styleFor(tag)}
+            onClick={
+              editing
+                ? () => toggle(tag)
+                : undefined
+            }
+            disabled={!editing}
+          >
+            {tag}
+          </button>
+        ))}
         {editing && unselected.length > 0 && (
           <>
             <button
@@ -99,10 +104,7 @@ export function TagEditor({
               <button
                 key={td.name}
                 className="tag-chip tag-chip-inactive"
-                style={td.color ? {
-                  borderColor: td.color + "55",
-                  color: td.color,
-                } : undefined}
+                style={inactiveStyle(td.color)}
                 onClick={() => toggle(td.name)}
               >
                 {td.name}

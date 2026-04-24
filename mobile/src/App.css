@@ -297,10 +297,12 @@ select {
 
 .header-avatar-btn {
   margin-left: auto;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 20px;
   border: 1px solid var(--border);
+  padding: 3px;
   background: transparent;
   color: var(--t3);
   display: flex;
@@ -314,6 +316,13 @@ select {
 .header-avatar-btn:hover {
   color: var(--t1);
   background: var(--raised);
+}
+
+.header-initials {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--t2);
+  padding-left: 6px;
 }
 
 .app-content {
@@ -380,7 +389,7 @@ select {
 /* -- Views -- */
 
 .view {
-  padding: 16px;
+  padding: 16px 20px;
 }
 
 .form {
@@ -1083,11 +1092,13 @@ select {
   border: none;
   color: var(--accent, #3b82f6);
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  padding: 4px 0;
+  padding: 6px 4px;
   display: flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
 .detail-panel-title {
@@ -1112,11 +1123,102 @@ select {
   overflow-y: auto;
   padding: 16px 20px;
   padding-bottom: 80px;
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes slide-in-right {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
+}
+
+/* -- Search bar -- */
+
+.search-toggle-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  color: var(--t2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-bar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.search-bar-inner {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 8px;
+  background: var(--card);
+  min-height: 36px;
+}
+
+.search-bar-icon {
+  flex-shrink: 0;
+  color: var(--t3);
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  background: none;
+  color: var(--t1);
+  font-size: 14px;
+  font-family: var(--font);
+  outline: none;
+  min-width: 60px;
+  padding: 2px 0;
+}
+
+.search-tag-chip {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.search-tag-remove {
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+  line-height: 1;
+}
+
+.search-close-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--t2);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* -- Connect card -- */
@@ -1514,6 +1616,12 @@ select {
   font-family: var(--font);
 }
 
+.detail-field-grow {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .detail-textarea {
   width: 100%;
   padding: 8px 12px;
@@ -1523,14 +1631,15 @@ select {
   color: var(--t1);
   font-size: 14px;
   font-family: var(--font);
-  resize: vertical;
+  resize: none;
   min-height: 80px;
+  flex: 1;
 }
 
 .detail-save-btn {
   width: 100%;
   padding: 10px;
-  margin-top: 8px;
+  margin-top: auto;
   border: none;
   border-radius: 8px;
   background: var(--cta);
@@ -1833,7 +1942,7 @@ select {
 /* -- Inbox View -- */
 
 .inbox-view {
-  padding: 16px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1899,10 +2008,14 @@ select {
 .inbox-row {
   position: relative;
   overflow: hidden;
+  display: flex;
+  align-items: center;
   border-bottom: 1px solid var(--border);
 }
 
 .inbox-row-content {
+  flex: 1;
+  min-width: 0;
   padding: 10px 0;
 }
 
@@ -1993,7 +2106,7 @@ select {
 /* -- Tasks View -- */
 
 .tasks-view {
-  padding: 16px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -2017,6 +2130,17 @@ select {
   display: flex;
   align-items: center;
   gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  user-select: none;
+  width: 100%;
+  text-align: left;
+}
+.task-group-chevron {
+  font-size: 12px;
+  width: 12px;
 }
 
 .task-group-count {
@@ -2100,9 +2224,29 @@ select {
 }
 
 .note-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
+}
+.note-row-inner {
+  flex: 1;
+  min-width: 0;
+}
+.note-row-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.note-row-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--raised);
+  color: var(--t3);
 }
 
 .note-row-header {

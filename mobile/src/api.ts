@@ -320,6 +320,8 @@ export function getTasks(): Promise<TaskRef[]> {
 export interface AppConfig {
   tags: { name: string; color: string }[]
   github_configured: boolean
+  avatar_seed?: string
+  user_name?: string
 }
 
 export function getAppConfig(): Promise<AppConfig> {

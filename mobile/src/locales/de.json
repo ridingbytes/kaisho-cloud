@@ -189,5 +189,6 @@
   "detail.edit": "Bearbeiten",
   "detail.save": "Speichern",
   "detail.title": "Titel",
-  "detail.addTag": "Tag hinzufügen..."
+  "detail.addTag": "Tag hinzufügen...",
+  "detail.all": "Alle"
 }
