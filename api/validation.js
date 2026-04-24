@@ -141,6 +141,8 @@ const snapshotSchema = z.object({
     })).optional().default([]),
     github_configured: z.boolean()
       .optional().default(false),
+    avatar_seed: z.string().optional().default(""),
+    user_name: z.string().optional().default(""),
   }).optional(),
   snapshot_at: z.string().optional(),
 })

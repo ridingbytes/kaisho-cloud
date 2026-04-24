@@ -262,12 +262,6 @@ function TaskDetailSheet({
                 onChange={setTags}
                 allTags={config.tags}
               />
-              <button
-                className="detail-save-btn"
-                onClick={handleSave}
-              >
-                {t("detail.save")}
-              </button>
             </div>
           ) : (
             <>
