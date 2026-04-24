@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import {
   addSyncedTask,
@@ -567,7 +568,7 @@ export function TasksView() {
         </div>
       )}
 
-      {selected && (
+      {selected && createPortal(
         <TaskDetailSheet
           task={selected}
           onClose={() => setSelected(null)}
@@ -576,7 +577,8 @@ export function TasksView() {
           }
           config={config}
           customers={customers}
-        />
+        />,
+        document.body,
       )}
     </div>
   )

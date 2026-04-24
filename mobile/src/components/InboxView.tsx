@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import {
   addInboxItem,
@@ -515,7 +516,7 @@ export function InboxView() {
         </div>
       )}
 
-      {selected && (
+      {selected && createPortal(
         <InboxDetailSheet
           item={selected}
           onClose={() => setSelected(null)}
@@ -524,7 +525,8 @@ export function InboxView() {
             handleUpdate(selected, updates)
           }
           customers={customers}
-        />
+        />,
+        document.body,
       )}
     </div>
   )

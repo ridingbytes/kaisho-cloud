@@ -1178,7 +1178,7 @@ select {
   border: none;
   background: none;
   color: var(--t1);
-  font-size: 14px;
+  font-size: 16px;
   font-family: var(--font);
   outline: none;
   min-width: 60px;

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import {
   getAppConfig,
@@ -521,7 +522,7 @@ export function NotesView() {
         </div>
       )}
 
-      {selected && (
+      {selected && createPortal(
         <NoteDetailSheet
           note={selected}
           onClose={() => setSelected(null)}
@@ -532,7 +533,8 @@ export function NotesView() {
           config={config}
           customers={customers}
           tasks={refTasks}
-        />
+        />,
+        document.body,
       )}
     </div>
   )
