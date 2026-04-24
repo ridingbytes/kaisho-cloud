@@ -1259,6 +1259,18 @@ select {
 .profile-row + .profile-row {
   border-top: 1px solid var(--border);
 }
+.profile-name-input {
+  border: none;
+  background: none;
+  color: var(--t1);
+  font-size: 14px;
+  font-family: var(--font);
+  text-align: right;
+  outline: none;
+  padding: 0;
+  min-width: 0;
+  flex: 1;
+}
 
 .plan-badge {
   font-size: 13px;

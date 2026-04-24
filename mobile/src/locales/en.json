@@ -70,6 +70,7 @@
   "edit.saving": "Saving...",
   "edit.saved": "Entry updated",
   "edit.error_save": "Failed to save",
+  "profile.name": "Name",
   "profile.email": "Email",
   "profile.plan": "Plan",
   "profile.subscription": "Subscription",

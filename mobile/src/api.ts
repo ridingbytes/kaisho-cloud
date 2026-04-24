@@ -328,6 +328,15 @@ export function getAppConfig(): Promise<AppConfig> {
   return request<AppConfig>("/ref/config")
 }
 
+export function updateAppConfig(
+  updates: Partial<AppConfig>,
+): Promise<AppConfig> {
+  return request<AppConfig>("/ref/config", {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  })
+}
+
 // -- Billing --
 
 export function getSubscription(): Promise<{

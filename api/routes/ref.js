@@ -101,4 +101,43 @@ router.get(
   }),
 )
 
+// ── PATCH /ref/config ──────────────────────────────────
+
+/**
+ * Update specific config fields. Merges into the
+ * existing config JSONB. Used by the PWA to sync
+ * user_name back to the desktop app.
+ *
+ * @route PATCH /ref/config
+ */
+router.patch(
+  "/config",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const updates = req.body || {}
+
+    const { data: existing } = await supabase
+      .from("ref_config")
+      .select("config")
+      .eq("user_id", req.userId)
+      .maybeSingle()
+
+    const merged = {
+      ...(existing?.config || {}),
+      ...updates,
+    }
+
+    await supabase.from("ref_config").upsert(
+      {
+        user_id: req.userId,
+        config: merged,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    )
+
+    res.json(merged)
+  }),
+)
+
 module.exports = router

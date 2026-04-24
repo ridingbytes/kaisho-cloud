@@ -70,6 +70,7 @@
   "edit.saving": "Guardando...",
   "edit.saved": "Registro actualizado",
   "edit.error_save": "Error al guardar",
+  "profile.name": "Nombre",
   "profile.email": "Correo electrónico",
   "profile.plan": "Plan",
   "profile.subscription": "Suscripción",

@@ -8,8 +8,10 @@ import { setLanguage } from "../i18n"
 import {
   createCheckout,
   createPortalSession,
+  getAppConfig,
   getSubscription,
   regenerateApiKey,
+  updateAppConfig,
   aiUsage,
   ApiError,
 } from "../api"
@@ -33,6 +35,8 @@ export function ProfileView() {
     { id: "dark", label: t("profile.theme.dark") },
     { id: "system", label: t("profile.theme.system") },
   ]
+  const [fullName, setFullName] = useState("")
+  const [nameLoaded, setNameLoaded] = useState(false)
   const [newKey, setNewKey] = useState<string | null>(
     null,
   )
@@ -63,7 +67,15 @@ export function ProfileView() {
       .catch((e) => console.warn("subscription:", e))
   }
 
-  useEffect(() => { refreshSub() }, [])
+  useEffect(() => {
+    refreshSub()
+    getAppConfig()
+      .then((cfg) => {
+        setFullName(cfg.user_name || "")
+        setNameLoaded(true)
+      })
+      .catch(() => setNameLoaded(true))
+  }, [])
 
   const plan = sub?.plan || user?.plan || "free"
   const isPaid = plan === "sync" || plan === "sync_ai"
@@ -157,6 +169,26 @@ export function ProfileView() {
 
       {/* Account */}
       <div className="card">
+        {nameLoaded && (
+          <div className="profile-row">
+            <span className="text-muted">
+              {t("profile.name")}
+            </span>
+            <input
+              className="profile-name-input"
+              value={fullName}
+              onChange={(e) =>
+                setFullName(e.target.value)
+              }
+              onBlur={() => {
+                updateAppConfig({
+                  user_name: fullName.trim(),
+                }).catch(() => {})
+              }}
+              placeholder={t("profile.name")}
+            />
+          </div>
+        )}
         <div className="profile-row">
           <span className="text-muted">
             {t("profile.email")}
