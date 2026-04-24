@@ -47,12 +47,14 @@ async function authenticate(token, apiKey) {
     }
   }
 
-  // Try API key
+  // Try API key (prefix-based lookup)
   if (apiKey) {
+    const prefix = apiKey.slice(0, 8)
     const { data: users } = await supabase
       .from("users")
       .select("id, plan, api_key_hash")
-      .not("api_key_hash", "is", null)
+      .eq("api_key_prefix", prefix)
+      .limit(5)
 
     if (users) {
       for (const user of users) {
@@ -167,12 +169,16 @@ function setupWebSocket(server) {
         clearTimeout(authTimeout)
         try {
           const msg = JSON.parse(String(raw))
-          if (msg.type !== "auth" || !msg.token) {
+          if (
+            msg.type !== "auth"
+            || (!msg.token && !msg.api_key)
+          ) {
             ws.close(4001, "Invalid auth message")
             return
           }
           const userId = await authenticate(
-            msg.token, "",
+            msg.token || "",
+            msg.api_key || "",
           )
           if (!userId) {
             ws.close(4001, "Unauthorized")

@@ -61,34 +61,54 @@ async function requireApiKey(req, res, next) {
     return next()
   }
 
-  // TODO: store a key prefix or SHA-256 hash in an
-  // indexed column to avoid scanning all users.
+  // Look up candidate by prefix (indexed), then verify
+  // with a single bcrypt compare instead of scanning all.
+  const prefix = apiKey.slice(0, 8)
   const { data: users } = await supabase
     .from("users")
+    .select("id, plan, api_key_hash, api_key_prefix")
+    .eq("api_key_prefix", prefix)
+    .limit(5)
+
+  if (users) {
+    for (const user of users) {
+      const match = await bcrypt.compare(
+        apiKey, user.api_key_hash,
+      )
+      if (match) {
+        cacheUser(user.id, apiKey, user)
+        req.userId = user.id
+        req.userPlan = user.plan
+        return next()
+      }
+    }
+  }
+
+  // Fallback: scan users without a prefix (pre-migration
+  // accounts). Backfill the prefix on successful match.
+  const { data: legacy } = await supabase
+    .from("users")
     .select("id, plan, api_key_hash")
+    .is("api_key_prefix", null)
     .not("api_key_hash", "is", null)
     .limit(200)
 
-  if (!users) {
-    return res.status(401).json({ error: "Unauthorized" })
-  }
-
-  for (const user of users) {
-    const cached = getCachedUser(user.id, apiKey)
-    if (cached) {
-      req.userId = cached.id
-      req.userPlan = cached.plan
-      return next()
-    }
-
-    const match = await bcrypt.compare(
-      apiKey, user.api_key_hash,
-    )
-    if (match) {
-      cacheUser(user.id, apiKey, user)
-      req.userId = user.id
-      req.userPlan = user.plan
-      return next()
+  if (legacy) {
+    for (const user of legacy) {
+      const match = await bcrypt.compare(
+        apiKey, user.api_key_hash,
+      )
+      if (match) {
+        // Backfill prefix for future fast lookups
+        await supabase
+          .from("users")
+          .update({ api_key_prefix: prefix })
+          .eq("id", user.id)
+        cacheUser(user.id, apiKey, user)
+        req.userId = user.id
+        req.userPlan = user.plan
+        return next()
+      }
     }
   }
 

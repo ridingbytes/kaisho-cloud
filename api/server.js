@@ -10,6 +10,7 @@
 const path = require("path")
 const http = require("http")
 const express = require("express")
+const helmet = require("helmet")
 const cors = require("cors")
 const cookieParser = require("cookie-parser")
 const { PORT, BASE_URL } = require("./config")
@@ -38,6 +39,18 @@ app.use(
   express.raw({ type: "application/json" }),
 )
 
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", BASE_URL, "wss:"],
+    },
+  },
+  hsts: { maxAge: 31536000, includeSubDomains: true },
+}))
 app.use(cors({ origin: BASE_URL, credentials: true }))
 app.use(cookieParser())
 app.use(express.json({ limit: "1mb" }))

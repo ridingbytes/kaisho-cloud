@@ -52,6 +52,20 @@ const MODEL_FAST = process.env.AI_MODEL_FAST
 const MODEL_DEFAULT = process.env.AI_MODEL_DEFAULT
   || "anthropic/claude-sonnet-4"
 
+// Models clients are allowed to request. Prevents users
+// from proxying requests through expensive models at our
+// cost. Configurable via comma-separated env var.
+const ALLOWED_MODELS = new Set(
+  (process.env.AI_ALLOWED_MODELS || [
+    MODEL_FAST,
+    MODEL_DEFAULT,
+    "google/gemini-2.0-flash-lite-001",
+    "google/gemini-2.5-flash",
+    "anthropic/claude-haiku-4",
+    "anthropic/claude-sonnet-4",
+  ].join(",")).split(",").map((s) => s.trim()),
+)
+
 // Monthly soft cap: 200K tokens. Requests over this
 // limit return 429 instead of proxying. The cap prevents
 // runaway costs while keeping the UX friendly.
@@ -281,8 +295,15 @@ router.post(
       })
     }
 
+    const chosen = model || MODEL_DEFAULT
+    if (!ALLOWED_MODELS.has(chosen)) {
+      return res.status(400).json({
+        error: `Model not allowed: ${chosen}`,
+      })
+    }
+
     const result = await callModel({
-      model: model || MODEL_DEFAULT,
+      model: chosen,
       system,
       messages,
       tools,

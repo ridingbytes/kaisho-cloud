@@ -72,10 +72,14 @@ router.post(
 
     const apiKey = crypto.randomUUID()
     const keyHash = await bcrypt.hash(apiKey, 10)
+    const keyPrefix = apiKey.slice(0, 8)
 
     await supabase
       .from("users")
-      .update({ api_key_hash: keyHash })
+      .update({
+        api_key_hash: keyHash,
+        api_key_prefix: keyPrefix,
+      })
       .eq("id", userId)
 
     sendWelcomeEmail({ email, apiKey })
@@ -182,10 +186,14 @@ router.post(
   asyncHandler(async (req, res) => {
     const apiKey = crypto.randomUUID()
     const keyHash = await bcrypt.hash(apiKey, 10)
+    const keyPrefix = apiKey.slice(0, 8)
 
     await supabase
       .from("users")
-      .update({ api_key_hash: keyHash })
+      .update({
+        api_key_hash: keyHash,
+        api_key_prefix: keyPrefix,
+      })
       .eq("id", req.userId)
 
     invalidateAuthCache(req.userId)
