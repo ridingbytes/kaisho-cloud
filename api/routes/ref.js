@@ -76,4 +76,29 @@ router.get(
   }),
 )
 
+// ── GET /ref/config ────────────────────────────────────
+
+/**
+ * Return synced config (tags, feature flags) for the
+ * authenticated user.
+ *
+ * @route GET /ref/config
+ */
+router.get(
+  "/config",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { data } = await supabase
+      .from("ref_config")
+      .select("config")
+      .eq("user_id", req.userId)
+      .maybeSingle()
+
+    res.json(data?.config || {
+      tags: [],
+      github_configured: false,
+    })
+  }),
+)
+
 module.exports = router

@@ -4,8 +4,29 @@ import {
   addInboxItem,
   deleteInboxItem,
   getInboxItems,
+  updateInboxItem,
 } from "../api"
 import type { InboxItem } from "../types"
+import {
+  formatShortDate,
+  formatFullDate,
+} from "../utils/formatDate"
+import { Markdown } from "./Markdown"
+
+/** Strip markdown syntax for plain-text preview. */
+function stripMd(text: string): string {
+  return text
+    .replace(/\\n/g, " ")
+    .replace(/#{1,6}\s+/g, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/^\s*[-*]\s+/gm, "")
+    .replace(/\|/g, " ")
+    .replace(/\n+/g, " ")
+    .trim()
+}
 
 function TypeBadge({ type }: { type: string }) {
   const colors: Record<string, string> = {
@@ -26,9 +47,11 @@ function TypeBadge({ type }: { type: string }) {
 function InboxItemRow({
   item,
   onDelete,
+  onSelect,
 }: {
   item: InboxItem
   onDelete: (item: InboxItem) => void
+  onSelect: (item: InboxItem) => void
 }) {
   const { t } = useTranslation()
   const [swiped, setSwiped] = useState(false)
@@ -46,9 +69,7 @@ function InboxItemRow({
   }
 
   const created = item.created_at
-    ? new Date(item.created_at).toLocaleDateString(
-        undefined, { month: "short", day: "numeric" },
-      )
+    ? formatShortDate(item.created_at)
     : ""
 
   return (
@@ -56,6 +77,8 @@ function InboxItemRow({
       className={"inbox-row" + (swiped ? " swiped" : "")}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
+      onClick={() => !swiped && onSelect(item)}
+      style={{ cursor: "pointer" }}
     >
       <div className="inbox-row-content">
         <div className="inbox-row-header">
@@ -69,17 +92,160 @@ function InboxItemRow({
         </div>
         <p className="inbox-title">{item.title}</p>
         {item.body && (
-          <p className="inbox-body">{item.body}</p>
+          <p className="inbox-body">
+            {stripMd(item.body).slice(0, 120)}
+            {item.body.length > 120 ? "..." : ""}
+          </p>
         )}
       </div>
+      {!swiped && (
+        <span className="row-chevron">&#8250;</span>
+      )}
       {swiped && (
         <button
           className="inbox-delete-btn"
-          onClick={() => onDelete(item)}
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete(item)
+          }}
         >
           {t("inbox.delete")}
         </button>
       )}
+    </div>
+  )
+}
+
+function InboxDetailSheet({
+  item,
+  onClose,
+  onDelete,
+  onUpdate,
+}: {
+  item: InboxItem
+  onClose: () => void
+  onDelete: (item: InboxItem) => void
+  onUpdate: (updates: Partial<InboxItem>) => void
+}) {
+  const { t } = useTranslation()
+  const [editing, setEditing] = useState(false)
+  const [title, setTitle] = useState(item.title)
+  const [body, setBody] = useState(item.body || "")
+
+  const created = item.created_at
+    ? formatFullDate(item.created_at)
+    : ""
+
+  function handleSave() {
+    onUpdate({ title, body })
+    setEditing(false)
+  }
+
+  return (
+    <div className="detail-panel">
+      <div className="detail-panel-header">
+        <button
+          className="detail-panel-back"
+          onClick={onClose}
+        >
+          &#8249; {t("shell.group.organize")}
+        </button>
+        <span className="detail-panel-title" />
+        <div className="detail-panel-actions">
+          {!editing ? (
+            <button
+              className="detail-panel-back"
+              onClick={() => setEditing(true)}
+            >
+              {t("detail.edit")}
+            </button>
+          ) : (
+            <button
+              className="detail-panel-back"
+              onClick={handleSave}
+            >
+              {t("detail.save")}
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="detail-panel-body">
+        <h3 style={{ margin: "0 0 16px" }}>
+          {item.title}
+        </h3>
+        {editing ? (
+          <>
+            <div className="detail-field">
+              <div className="detail-label">
+                {t("detail.title")}
+              </div>
+              <input
+                className="detail-input"
+                value={title}
+                onChange={(e) =>
+                  setTitle(e.target.value)
+                }
+              />
+            </div>
+            <div className="detail-field">
+              <div className="detail-label">
+                {t("detail.description")}
+              </div>
+              <textarea
+                className="detail-textarea"
+                value={body}
+                onChange={(e) =>
+                  setBody(e.target.value)
+                }
+                rows={8}
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="detail-field">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <TypeBadge type={item.type} />
+                {item.customer && (
+                  <span className="inbox-customer">
+                    {item.customer}
+                  </span>
+                )}
+                {created && (
+                  <span className="inbox-date">
+                    {created}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {item.body && (
+              <div className="detail-field">
+                <div className="detail-label">
+                  {t("detail.description")}
+                </div>
+                <Markdown>{item.body}</Markdown>
+              </div>
+            )}
+
+            <button
+              className="detail-delete-btn"
+              onClick={() => {
+                onDelete(item)
+                onClose()
+              }}
+            >
+              {t("detail.delete")}
+            </button>
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -90,6 +256,8 @@ export function InboxView() {
   const [loading, setLoading] = useState(true)
   const [text, setText] = useState("")
   const [msg, setMsg] = useState("")
+  const [selected, setSelected] =
+    useState<InboxItem | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function refresh() {
@@ -129,6 +297,24 @@ export function InboxView() {
     } catch {
       setMsg(t("inbox.captureError"))
       setTimeout(() => setMsg(""), 3000)
+    }
+  }
+
+  async function handleUpdate(
+    item: InboxItem,
+    updates: Partial<InboxItem>,
+  ) {
+    try {
+      await updateInboxItem(item, updates)
+      const updated = { ...item, ...updates }
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === item.id ? updated : i
+        ),
+      )
+      setSelected(updated)
+    } catch {
+      // ignore
     }
   }
 
@@ -186,9 +372,21 @@ export function InboxView() {
               key={item.id}
               item={item}
               onDelete={handleDelete}
+              onSelect={setSelected}
             />
           ))}
         </div>
+      )}
+
+      {selected && (
+        <InboxDetailSheet
+          item={selected}
+          onClose={() => setSelected(null)}
+          onDelete={handleDelete}
+          onUpdate={(updates) =>
+            handleUpdate(selected, updates)
+          }
+        />
       )}
     </div>
   )

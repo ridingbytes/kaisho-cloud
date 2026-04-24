@@ -196,15 +196,12 @@ router.post(
 
 // ── POST /auth/forgot-password ──────────────────────────
 
-const RESET_SECRET =
-  process.env.RESET_TOKEN_SECRET ||
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+const RESET_SECRET = process.env.RESET_TOKEN_SECRET
 
 if (!RESET_SECRET) {
   console.warn(
-    "WARNING: RESET_TOKEN_SECRET and "
-    + "SUPABASE_SERVICE_ROLE_KEY are both unset. "
-    + "Password reset is disabled.",
+    "WARNING: RESET_TOKEN_SECRET is not set. "
+    + "Password reset endpoints will return 503.",
   )
 }
 const RESET_TTL_MS = 60 * 60 * 1000 // 1 hour
@@ -247,7 +244,14 @@ function verifyResetToken(token) {
       .createHmac("sha256", RESET_SECRET)
       .update(`${userId}.${ts}`)
       .digest("base64url")
-    if (sig !== expected) return null
+    const sigBuf = Buffer.from(sig)
+    const expBuf = Buffer.from(expected)
+    if (
+      sigBuf.length !== expBuf.length ||
+      !crypto.timingSafeEqual(sigBuf, expBuf)
+    ) {
+      return null
+    }
     return userId
   } catch {
     return null
@@ -272,6 +276,11 @@ router.post(
     }
     const { email } = req.body
 
+    // TODO: listUsers() fetches all users and filters
+    // client-side. Supabase Admin API does not support
+    // filtering by email. Consider using a direct
+    // query against auth.users if scaling becomes an
+    // issue.
     const { data: authUsers } =
       await supabase.auth.admin.listUsers()
     const authUser = authUsers?.users?.find(
@@ -309,6 +318,11 @@ router.post(
   "/reset-password",
   authLimiter,
   asyncHandler(async (req, res) => {
+    if (!RESET_SECRET) {
+      return res.status(503).json({
+        error: "Password reset is not configured.",
+      })
+    }
     const { token, password } = req.body
 
     if (!token || !password) {

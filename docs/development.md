@@ -64,7 +64,7 @@ pnpm dev
 
 # Terminal 2: Vite dev server
 cd mobile && pnpm dev
-# Open http://localhost:5173/m/
+# Open http://localhost:5174/m/
 ```
 
 Vite proxies `/auth`, `/clocks`, `/sync`, `/ref`,

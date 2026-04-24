@@ -40,7 +40,7 @@ app.use(
 
 app.use(cors({ origin: BASE_URL, credentials: true }))
 app.use(cookieParser())
-app.use(express.json())
+app.use(express.json({ limit: "1mb" }))
 app.use(httpLogger)
 
 // ── Routes ──────────────────────────────────────────────
@@ -114,7 +114,7 @@ app.post(
       )
       return res
         .status(400)
-        .send(`Webhook Error: ${err.message}`)
+        .json({ error: `Webhook Error: ${err.message}` })
     }
 
     const { data: existing } = await supabase

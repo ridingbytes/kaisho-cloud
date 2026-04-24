@@ -123,6 +123,8 @@
   "shell.tab.advisor": "AI",
   "shell.tab.entries": "Entries",
   "shell.tab.profile": "Profile",
+  "shell.group.time": "Time",
+  "shell.group.organize": "Organize",
   "auth.email": "Email",
   "auth.password": "Password",
   "auth.login": "Log in",
@@ -175,5 +177,17 @@
   "notes.addPlaceholder": "Add a note...",
   "notes.created": "Note created",
   "notes.createError": "Failed to create note",
-  "notes.empty": "No notes"
+  "notes.empty": "No notes",
+  "detail.status": "Status",
+  "detail.description": "Description",
+  "detail.github": "GitHub",
+  "detail.tags": "Tags",
+  "detail.created": "Created",
+  "detail.delete": "Delete",
+  "detail.type": "Type",
+  "detail.channel": "Channel",
+  "detail.edit": "Edit",
+  "detail.save": "Save",
+  "detail.title": "Title",
+  "detail.addTag": "Add tag..."
 }

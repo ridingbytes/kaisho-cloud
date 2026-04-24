@@ -22,16 +22,38 @@ type Tab =
   | "dashboard"
   | "book"
   | "entries"
-  | "profile"
 
-const TABS: { id: Tab; icon: string }[] = [
+type TabGroup = "time" | "organize"
+
+interface TabDef {
+  id: Tab
+  icon: string
+}
+
+const TIME_TABS: TabDef[] = [
   { id: "timer", icon: "play" },
+  { id: "entries", icon: "list" },
+  { id: "book", icon: "plus" },
+]
+
+const ORGANIZE_TABS: TabDef[] = [
   { id: "tasks", icon: "check" },
   { id: "inbox", icon: "inbox" },
-  { id: "advisor", icon: "ai" },
   { id: "notes", icon: "edit" },
-  { id: "profile", icon: "user" },
+  { id: "advisor", icon: "ai" },
 ]
+
+const TIME_IDS = new Set(TIME_TABS.map((t) => t.id))
+
+function groupForTab(tab: Tab): TabGroup {
+  return TIME_IDS.has(tab) ? "time" : "organize"
+}
+
+const ALL_TAB_IDS = new Set<Tab>([
+  ...TIME_TABS.map((t) => t.id),
+  ...ORGANIZE_TABS.map((t) => t.id),
+  "dashboard",
+])
 
 function TabIcon({ icon }: { icon: string }) {
   switch (icon) {
@@ -143,13 +165,10 @@ function TabIcon({ icon }: { icon: string }) {
   }
 }
 
-const VALID_TABS = new Set<Tab>(
-  TABS.map((t) => t.id),
-)
-
-function tabFromHash(): Tab {
+function tabFromHash(): Tab | "profile" {
   const hash = window.location.hash.replace("#", "")
-  if (VALID_TABS.has(hash as Tab)) return hash as Tab
+  if (hash === "profile") return "profile"
+  if (ALL_TAB_IDS.has(hash as Tab)) return hash as Tab
   return "timer"
 }
 
@@ -158,20 +177,39 @@ export function AppShell() {
   const { user } = useAuth()
   const isPaid = user?.plan === "sync"
     || user?.plan === "sync_ai"
+  const [profileOpen, setProfileOpen] = useState(false)
   const [tab, setTab] = useState<Tab>(() => {
-    // After Stripe checkout, land on Profile so the user
-    // can generate a connect key for the desktop app.
     const params = new URLSearchParams(
       window.location.search,
     )
     if (params.get("upgraded") === "true") {
       window.history.replaceState(
-        {}, "", window.location.pathname + "#profile",
+        {}, "", window.location.pathname + "#timer",
       )
-      return "profile"
+      // Open profile sheet after mount
+      setTimeout(() => setProfileOpen(true), 0)
+      return "timer"
     }
-    return tabFromHash()
+    const initial = tabFromHash()
+    if (initial === "profile") {
+      setTimeout(() => setProfileOpen(true), 0)
+      return "timer"
+    }
+    return initial
   })
+
+  const activeGroup = groupForTab(tab)
+  const visibleTabs = activeGroup === "time"
+    ? TIME_TABS
+    : ORGANIZE_TABS
+
+  function switchGroup(group: TabGroup) {
+    if (group === activeGroup) return
+    const firstTab = group === "time"
+      ? TIME_TABS[0].id
+      : ORGANIZE_TABS[0].id
+    setTab(firstTab)
+  }
 
   // Persist tab in hash and listen for back/forward
   useEffect(() => {
@@ -179,7 +217,14 @@ export function AppShell() {
   }, [tab])
 
   useEffect(() => {
-    const onHash = () => setTab(tabFromHash())
+    const onHash = () => {
+      const next = tabFromHash()
+      if (next === "profile") {
+        setProfileOpen(true)
+      } else {
+        setTab(next)
+      }
+    }
     window.addEventListener("hashchange", onHash)
     return () =>
       window.removeEventListener("hashchange", onHash)
@@ -222,13 +267,17 @@ export function AppShell() {
         <Logo size={22} className="app-header-logo" />
         <span className="app-header-title">Kaisho</span>
         {isPaid && (
-          <button
-            className="header-plan-badge"
-            onClick={() => setTab("profile")}
-          >
+          <span className="header-plan-badge">
             {planLabel(user!.plan)}
-          </button>
+          </span>
         )}
+        <button
+          className="header-avatar-btn"
+          onClick={() => setProfileOpen(true)}
+          aria-label={t("shell.tab.profile")}
+        >
+          <TabIcon icon="user" />
+        </button>
       </header>
       <main className="app-content">
         {tab === "timer" && <TimerView />}
@@ -239,10 +288,35 @@ export function AppShell() {
         {tab === "dashboard" && <DashboardView />}
         {tab === "book" && <BookView />}
         {tab === "entries" && <EntriesView />}
-        {tab === "profile" && <ProfileView />}
       </main>
+      <div className="tab-group-switcher">
+        <div className="segmented">
+          <button
+            type="button"
+            className={
+              "segmented-btn" +
+              (activeGroup === "time"
+                ? " segmented-btn--active" : "")
+            }
+            onClick={() => switchGroup("time")}
+          >
+            {t("shell.group.time")}
+          </button>
+          <button
+            type="button"
+            className={
+              "segmented-btn" +
+              (activeGroup === "organize"
+                ? " segmented-btn--active" : "")
+            }
+            onClick={() => switchGroup("organize")}
+          >
+            {t("shell.group.organize")}
+          </button>
+        </div>
+      </div>
       <nav className="tab-bar">
-        {TABS.map((tabItem) => (
+        {visibleTabs.map((tabItem) => (
           <button
             key={tabItem.id}
             className={
@@ -258,6 +332,31 @@ export function AppShell() {
           </button>
         ))}
       </nav>
+
+      {profileOpen && (
+        <div
+          className="edit-sheet-backdrop"
+          onClick={() => setProfileOpen(false)}
+        >
+          <div
+            className="edit-sheet profile-sheet"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="edit-sheet-header">
+              <h3>{t("shell.tab.profile")}</h3>
+              <button
+                className="edit-sheet-close"
+                onClick={() => setProfileOpen(false)}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="edit-sheet-body">
+              <ProfileView />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -2,56 +2,60 @@ import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   addSyncedTask,
+  getAppConfig,
   getSyncedTasks,
   updateSyncedTask,
 } from "../api"
+import type { AppConfig } from "../api"
 import type { Task } from "../types"
+import { formatFullDate } from "../utils/formatDate"
+import { Markdown } from "./Markdown"
+import { TagEditor } from "./TagEditor"
 
 const STATUS_ORDER = [
-  "TODO", "IN_PROGRESS", "REVIEW", "DONE",
+  "TODO", "NEXT", "IN-PROGRESS", "WAIT",
+  "DONE", "CANCELLED",
 ]
 
 function statusLabel(status: string): string {
-  return status.replace("_", " ")
+  return status.replace(/-/g, " ")
 }
 
-function StatusBadge({
-  status,
-  onClick,
-}: {
-  status: string
-  onClick?: () => void
-}) {
+function StatusBadge({ status }: { status: string }) {
   const cls: Record<string, string> = {
-    TODO: "task-status-todo",
-    IN_PROGRESS: "task-status-progress",
-    REVIEW: "task-status-review",
-    DONE: "task-status-done",
+    "TODO": "task-status-todo",
+    "NEXT": "task-status-next",
+    "IN-PROGRESS": "task-status-progress",
+    "WAIT": "task-status-wait",
+    "DONE": "task-status-done",
+    "CANCELLED": "task-status-cancelled",
   }
   return (
-    <button
-      className={"task-status-badge " + (cls[status] || "")}
-      onClick={onClick}
+    <span
+      className={
+        "task-status-badge " + (cls[status] || "")
+      }
     >
       {statusLabel(status)}
-    </button>
+    </span>
   )
 }
 
 function TaskRow({
   task,
-  onToggle,
+  onSelect,
 }: {
   task: Task
-  onToggle: (task: Task) => void
+  onSelect: (task: Task) => void
 }) {
   return (
-    <div className="task-row">
+    <div
+      className="task-row"
+      onClick={() => onSelect(task)}
+      style={{ cursor: "pointer" }}
+    >
       <div className="task-row-left">
-        <StatusBadge
-          status={task.status}
-          onClick={() => onToggle(task)}
-        />
+        <StatusBadge status={task.status} />
       </div>
       <div className="task-row-content">
         <p className="task-title">{task.title}</p>
@@ -61,8 +65,217 @@ function TaskRow({
           </span>
         )}
       </div>
+      <span className="row-chevron">&#8250;</span>
     </div>
   )
+}
+
+function TaskDetailSheet({
+  task,
+  onClose,
+  onUpdate,
+  config,
+}: {
+  task: Task
+  onClose: () => void
+  onUpdate: (updates: Partial<Task>) => void
+  config: AppConfig
+}) {
+  const { t } = useTranslation()
+  const [editing, setEditing] = useState(false)
+  const [title, setTitle] = useState(task.title)
+  const [body, setBody] = useState(task.body || "")
+  const [githubUrl, setGithubUrl] = useState(
+    task.github_url || "",
+  )
+  const [tags, setTags] = useState(task.tags || [])
+
+  const created = task.created_at
+    ? formatFullDate(task.created_at)
+    : ""
+
+  function handleSave() {
+    onUpdate({
+      title,
+      body,
+      github_url: githubUrl,
+      tags,
+    })
+    setEditing(false)
+  }
+
+  return (
+    <div className="detail-panel">
+      <div className="detail-panel-header">
+        <button
+          className="detail-panel-back"
+          onClick={onClose}
+        >
+          &#8249; {t("shell.group.organize")}
+        </button>
+        <span className="detail-panel-title" />
+        <div className="detail-panel-actions">
+          {!editing ? (
+            <button
+              className="detail-panel-back"
+              onClick={() => setEditing(true)}
+            >
+              {t("detail.edit")}
+            </button>
+          ) : (
+            <button
+              className="detail-panel-back"
+              onClick={handleSave}
+            >
+              {t("detail.save")}
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="detail-panel-body">
+        <h3 style={{ margin: "0 0 16px" }}>
+          {task.title}
+        </h3>
+        <div className="detail-field">
+          <div className="detail-label">
+            {t("detail.status")}
+          </div>
+          <select
+            className="detail-select"
+            value={task.status}
+            onChange={(e) =>
+              onUpdate({ status: e.target.value })
+            }
+            >
+              {STATUS_ORDER.map((s) => (
+                <option key={s} value={s}>
+                  {statusLabel(s)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {editing ? (
+            <>
+              <div className="detail-field">
+                <div className="detail-label">
+                  {t("detail.title")}
+                </div>
+                <input
+                  className="detail-input"
+                  value={title}
+                  onChange={(e) =>
+                    setTitle(e.target.value)
+                  }
+                />
+              </div>
+              <div className="detail-field">
+                <div className="detail-label">
+                  {t("detail.description")}
+                </div>
+                <textarea
+                  className="detail-textarea"
+                  value={body}
+                  onChange={(e) =>
+                    setBody(e.target.value)
+                  }
+                  rows={8}
+                />
+              </div>
+              {config.github_configured && (
+                <div className="detail-field">
+                  <div className="detail-label">
+                    {t("detail.github")}
+                  </div>
+                  <input
+                    className="detail-input"
+                    value={githubUrl}
+                    onChange={(e) =>
+                      setGithubUrl(e.target.value)
+                    }
+                    placeholder="https://github.com/..."
+                  />
+                </div>
+              )}
+              <TagEditor
+                tags={tags}
+                editing={true}
+                onChange={setTags}
+                allTags={config.tags}
+              />
+              <button
+                className="detail-save-btn"
+                onClick={handleSave}
+              >
+                {t("detail.save")}
+              </button>
+            </>
+          ) : (
+            <>
+              {task.customer && (
+                <div className="detail-field">
+                  <div className="detail-label">
+                    {t("timer.customer")}
+                  </div>
+                  <div className="detail-value">
+                    {task.customer}
+                  </div>
+                </div>
+              )}
+
+              {task.body && (
+                <div className="detail-field">
+                  <div className="detail-label">
+                    {t("detail.description")}
+                  </div>
+                  <Markdown>{task.body}</Markdown>
+                </div>
+              )}
+
+              {config.github_configured
+                && task.github_url && (
+                <div className="detail-field">
+                  <div className="detail-label">
+                    {t("detail.github")}
+                  </div>
+                  <a
+                    className="detail-link"
+                    href={task.github_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {task.github_url}
+                  </a>
+                </div>
+              )}
+
+              <TagEditor
+                tags={tags}
+                editing={false}
+                onChange={() => {}}
+                allTags={config.tags}
+              />
+
+              {created && (
+                <div className="detail-field">
+                  <div className="detail-label">
+                    {t("detail.created")}
+                  </div>
+                  <div className="detail-value">
+                    {created}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+  )
+}
+
+const DEFAULT_CONFIG: AppConfig = {
+  tags: [],
+  github_configured: false,
 }
 
 export function TasksView() {
@@ -71,6 +284,10 @@ export function TasksView() {
   const [loading, setLoading] = useState(true)
   const [text, setText] = useState("")
   const [msg, setMsg] = useState("")
+  const [selected, setSelected] =
+    useState<Task | null>(null)
+  const [config, setConfig] =
+    useState<AppConfig>(DEFAULT_CONFIG)
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function refresh() {
@@ -86,6 +303,9 @@ export function TasksView() {
 
   useEffect(() => {
     refresh()
+    getAppConfig()
+      .then(setConfig)
+      .catch(() => {})
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -107,18 +327,19 @@ export function TasksView() {
     }
   }
 
-  async function handleToggle(task: Task) {
-    const idx = STATUS_ORDER.indexOf(task.status)
-    const next = STATUS_ORDER[
-      (idx + 1) % STATUS_ORDER.length
-    ]
+  async function handleUpdate(
+    task: Task,
+    updates: Partial<Task>,
+  ) {
     try {
-      await updateSyncedTask(task, { status: next })
+      await updateSyncedTask(task, updates)
+      const updated = { ...task, ...updates }
       setTasks((prev) =>
         prev.map((t) =>
-          t.id === task.id ? { ...t, status: next } : t
+          t.id === task.id ? updated : t
         ),
       )
+      setSelected(updated)
     } catch {
       // ignore
     }
@@ -180,12 +401,23 @@ export function TasksView() {
                 <TaskRow
                   key={task.id}
                   task={task}
-                  onToggle={handleToggle}
+                  onSelect={setSelected}
                 />
               ))}
             </div>
           ))}
         </div>
+      )}
+
+      {selected && (
+        <TaskDetailSheet
+          task={selected}
+          onClose={() => setSelected(null)}
+          onUpdate={(updates) =>
+            handleUpdate(selected, updates)
+          }
+          config={config}
+        />
       )}
     </div>
   )

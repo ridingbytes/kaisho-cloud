@@ -123,6 +123,8 @@
   "shell.tab.advisor": "KI",
   "shell.tab.entries": "Einträge",
   "shell.tab.profile": "Profil",
+  "shell.group.time": "Zeit",
+  "shell.group.organize": "Verwalten",
   "auth.email": "E-Mail",
   "auth.password": "Passwort",
   "auth.login": "Anmelden",
@@ -175,5 +177,17 @@
   "notes.addPlaceholder": "Notiz hinzufügen...",
   "notes.created": "Notiz erstellt",
   "notes.createError": "Notiz konnte nicht erstellt werden",
-  "notes.empty": "Keine Notizen"
+  "notes.empty": "Keine Notizen",
+  "detail.status": "Status",
+  "detail.description": "Beschreibung",
+  "detail.github": "GitHub",
+  "detail.tags": "Tags",
+  "detail.created": "Erstellt",
+  "detail.delete": "Loschen",
+  "detail.type": "Typ",
+  "detail.channel": "Kanal",
+  "detail.edit": "Bearbeiten",
+  "detail.save": "Speichern",
+  "detail.title": "Titel",
+  "detail.addTag": "Tag hinzufügen..."
 }

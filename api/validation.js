@@ -134,6 +134,14 @@ const snapshotSchema = z.object({
     title: z.string(),
     status: z.string(),
   })),
+  config: z.object({
+    tags: z.array(z.object({
+      name: z.string(),
+      color: z.string().optional().default(""),
+    })).optional().default([]),
+    github_configured: z.boolean()
+      .optional().default(false),
+  }).optional(),
   snapshot_at: z.string().optional(),
 })
 
@@ -188,6 +196,86 @@ const activeStartSchema = z.object({
 const activeStopSchema = z.object({
   id: z.string().uuid().optional(),
   end: z.string().min(1).optional(),
+})
+
+// ── Inbox sync schemas ─────────────────────────────
+
+/**
+ * One entry in a POST /sync/inbox/apply batch.
+ * @type {z.ZodObject}
+ */
+const inboxEntrySchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  customer: z.string(),
+  title: z.string(),
+  body: z.string(),
+  channel: z.string(),
+  direction: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  deleted_at: z.string().nullable().optional(),
+})
+
+/**
+ * POST /sync/inbox/apply request body.
+ * @type {z.ZodObject}
+ */
+const inboxApplySchema = z.object({
+  entries: z.array(inboxEntrySchema).max(500),
+})
+
+// ── Task sync schemas ──────────────────────────────
+
+/**
+ * One entry in a POST /sync/tasks/apply batch.
+ * @type {z.ZodObject}
+ */
+const taskEntrySchema = z.object({
+  id: z.string(),
+  customer: z.string(),
+  title: z.string(),
+  status: z.string(),
+  tags: z.array(z.string()),
+  body: z.string(),
+  github_url: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  deleted_at: z.string().nullable().optional(),
+})
+
+/**
+ * POST /sync/tasks/apply request body.
+ * @type {z.ZodObject}
+ */
+const taskApplySchema = z.object({
+  entries: z.array(taskEntrySchema).max(500),
+})
+
+// ── Note sync schemas ──────────────────────────────
+
+/**
+ * One entry in a POST /sync/notes/apply batch.
+ * @type {z.ZodObject}
+ */
+const noteEntrySchema = z.object({
+  id: z.string(),
+  customer: z.string(),
+  title: z.string(),
+  body: z.string(),
+  tags: z.array(z.string()),
+  task_id: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  deleted_at: z.string().nullable().optional(),
+})
+
+/**
+ * POST /sync/notes/apply request body.
+ * @type {z.ZodObject}
+ */
+const noteApplySchema = z.object({
+  entries: z.array(noteEntrySchema).max(500),
 })
 
 // ── Query schemas ───────────────────────────────────────
@@ -300,6 +388,12 @@ module.exports = {
   snapshotSchema,
   syncEntrySchema,
   syncApplySchema,
+  inboxEntrySchema,
+  inboxApplySchema,
+  taskEntrySchema,
+  taskApplySchema,
+  noteEntrySchema,
+  noteApplySchema,
   activeStartSchema,
   activeStopSchema,
   periodQuerySchema,

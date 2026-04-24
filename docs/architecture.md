@@ -22,14 +22,16 @@ app, the Kaisho Cloud server, and the mobile PWA.
 
 **Local app**: Python/FastAPI backend + React frontend. Stores
 all data as plain text files (org-mode, Markdown, or JSON).
-Runs `kai serve` on port 8765.
+Runs `kai serve` on port 8766 (dev) or 8765 (desktop).
 
 **Cloud server**: Node.js/Express on a VPS. Handles
-authentication, clock entry sync, mobile PWA serving, Stripe
-billing, and AI gateway proxying.
+authentication, bidirectional sync (clocks, inbox, tasks,
+notes), mobile PWA serving, Stripe billing, and AI gateway
+proxying.
 
 **Mobile PWA**: React SPA served by the cloud server. Provides
-timer, entries, dashboard, and AI features on mobile.
+timer, entries, book, tasks, inbox, notes, dashboard, and AI
+features on mobile.
 
 **Supabase**: Managed Postgres database for user accounts, clock
 entries, reference data, Stripe events, and AI usage tracking.
@@ -175,7 +177,16 @@ The local app runs a sync cycle periodically (default: every
            Push locally-changed entries in 400-entry batches.
            Running timers use POST /sync/active/start instead.
 
-4. SNAPSHOT — POST /sync/push-snapshot
+4. INBOX — GET /sync/inbox/changes, POST /sync/inbox/apply
+           Pull and push inbox items (same LWW protocol).
+
+5. TASKS — GET /sync/tasks/changes, POST /sync/tasks/apply
+           Pull and push tasks (same LWW protocol).
+
+6. NOTES — GET /sync/notes/changes, POST /sync/notes/apply
+           Pull and push notes (same LWW protocol).
+
+7. SNAPSHOT — POST /sync/push-snapshot
            Push customer and task reference data so the
            mobile PWA has dropdown options.
 ```
@@ -376,6 +387,9 @@ Event deduplication via the `stripe_events` table.
 |-------|---------|
 | `users` | Extends Supabase Auth with plan, Stripe IDs, API key hash |
 | `clock_entries` | Synced time entries (TIMESTAMPTZ, soft-delete) |
+| `inbox_entries` | Synced inbox items (LWW, soft-delete) |
+| `tasks` | Synced tasks (LWW, soft-delete) |
+| `notes` | Synced notes (LWW, soft-delete) |
 | `ref_customers` | Read-only customer snapshots from local app |
 | `ref_tasks` | Read-only task snapshots from local app |
 | `stripe_events` | Webhook event IDs for idempotency |

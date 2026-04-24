@@ -123,6 +123,8 @@
   "shell.tab.advisor": "IA",
   "shell.tab.entries": "Registros",
   "shell.tab.profile": "Perfil",
+  "shell.group.time": "Tiempo",
+  "shell.group.organize": "Organizar",
   "auth.email": "Correo electrónico",
   "auth.password": "Contraseña",
   "auth.login": "Iniciar sesión",
@@ -175,5 +177,17 @@
   "notes.addPlaceholder": "Agregar nota...",
   "notes.created": "Nota creada",
   "notes.createError": "Error al crear nota",
-  "notes.empty": "Sin notas"
+  "notes.empty": "Sin notas",
+  "detail.status": "Estado",
+  "detail.description": "Descripcion",
+  "detail.github": "GitHub",
+  "detail.tags": "Etiquetas",
+  "detail.created": "Creado",
+  "detail.delete": "Eliminar",
+  "detail.type": "Tipo",
+  "detail.channel": "Canal",
+  "detail.edit": "Editar",
+  "detail.save": "Guardar",
+  "detail.title": "Titulo",
+  "detail.addTag": "Agregar etiqueta..."
 }

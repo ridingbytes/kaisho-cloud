@@ -57,7 +57,19 @@ export function setOnAuthExpired(cb: () => void) {
   onAuthExpired = cb
 }
 
+let refreshPromise: Promise<boolean> | null = null
+
 async function refreshAccess(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise
+  refreshPromise = doRefreshAccess()
+  try {
+    return await refreshPromise
+  } finally {
+    refreshPromise = null
+  }
+}
+
+async function doRefreshAccess(): Promise<boolean> {
   if (!refreshToken) return false
   const res = await fetch("/auth/refresh", {
     method: "POST",
@@ -305,6 +317,15 @@ export function getTasks(): Promise<TaskRef[]> {
   return request("/ref/tasks")
 }
 
+export interface AppConfig {
+  tags: { name: string; color: string }[]
+  github_configured: boolean
+}
+
+export function getAppConfig(): Promise<AppConfig> {
+  return request<AppConfig>("/ref/config")
+}
+
 // -- Billing --
 
 export function getSubscription(): Promise<{
@@ -337,17 +358,205 @@ export function createPortalSession(): Promise<{
 
 // -- AI --
 
+const AI_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "add_task",
+      description:
+        "Create a new task. Use when the user asks "
+        + "to add, create, or track a task.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: {
+            type: "string",
+            description: "Task title",
+          },
+          customer: {
+            type: "string",
+            description: "Customer name (optional)",
+          },
+          status: {
+            type: "string",
+            enum: [
+              "TODO", "NEXT", "IN-PROGRESS",
+              "WAIT", "DONE", "CANCELLED",
+            ],
+            description: "Initial status",
+          },
+        },
+        required: ["title"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_inbox_item",
+      description:
+        "Add an item to the inbox. Use for ideas, "
+        + "notes, leads, or anything to triage later.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: {
+            type: "string",
+            description: "Item title",
+          },
+          type: {
+            type: "string",
+            enum: [
+              "NOTE", "IDEA", "EMAIL", "LEAD",
+            ],
+            description: "Item type",
+          },
+          customer: {
+            type: "string",
+            description: "Customer name (optional)",
+          },
+          body: {
+            type: "string",
+            description: "Body text (optional)",
+          },
+        },
+        required: ["title"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_note",
+      description:
+        "Create a note. Use for meeting notes, "
+        + "documentation, or longer-form content.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: {
+            type: "string",
+            description: "Note title",
+          },
+          body: {
+            type: "string",
+            description: "Note body (markdown)",
+          },
+          customer: {
+            type: "string",
+            description: "Customer name (optional)",
+          },
+        },
+        required: ["title"],
+      },
+    },
+  },
+]
+
+interface AiToolCall {
+  id: string
+  function: { name: string; arguments: string }
+}
+
+interface AiResponse {
+  text: string
+  tool_calls: AiToolCall[] | null
+  finish_reason: string
+}
+
+async function executeAiTool(
+  name: string,
+  args: Record<string, string>,
+): Promise<Record<string, unknown>> {
+  switch (name) {
+    case "add_task":
+      await addSyncedTask({
+        title: args.title,
+        customer: args.customer,
+        status: args.status,
+      })
+      return { ok: true, created: "task" }
+    case "add_inbox_item":
+      await addInboxItem({
+        title: args.title,
+        type: args.type,
+        customer: args.customer,
+        body: args.body,
+      })
+      return { ok: true, created: "inbox_item" }
+    case "add_note":
+      await addSyncedNote({
+        title: args.title,
+        body: args.body,
+        customer: args.customer,
+      })
+      return { ok: true, created: "note" }
+    default:
+      return { error: `unknown tool: ${name}` }
+  }
+}
+
+const MAX_AI_TURNS = 5
+
 export async function aiComplete(
   system: string,
   messages: { role: string; content: string }[],
 ): Promise<string> {
-  const data = await request<{
-    text: string
-  }>("/ai/complete", {
-    method: "POST",
-    body: JSON.stringify({ system, messages }),
-  })
-  return data.text || ""
+  const msgs = [...messages]
+
+  for (let i = 0; i < MAX_AI_TURNS; i++) {
+    const data = await request<AiResponse>(
+      "/ai/complete",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          system,
+          messages: msgs,
+          tools: AI_TOOLS,
+          max_tokens: 4096,
+        }),
+      },
+    )
+
+    const calls = data.tool_calls
+    if (!calls || calls.length === 0) {
+      return data.text || ""
+    }
+
+    // Append assistant message with tool calls
+    msgs.push({
+      role: "assistant",
+      content: data.text || "",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tool_calls: calls as any,
+    } as any) // eslint-disable-line
+
+    // Execute each tool and append results
+    for (const call of calls) {
+      let args: Record<string, string> = {}
+      try {
+        args = JSON.parse(
+          call.function.arguments || "{}",
+        )
+      } catch {
+        // ignore
+      }
+      const result = await executeAiTool(
+        call.function.name, args,
+      )
+      msgs.push({
+        role: "tool",
+        content: JSON.stringify(result),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        tool_call_id: call.id,
+      } as any) // eslint-disable-line
+    }
+  }
+
+  return msgs
+    .filter((m) => m.role === "assistant")
+    .map((m) => m.content)
+    .pop() || ""
 }
 
 export function aiParseBooking(
@@ -424,6 +633,23 @@ export function addInboxItem(data: {
   })
 }
 
+export function updateInboxItem(
+  item: InboxItem,
+  updates: Partial<InboxItem>,
+): Promise<{ updated: number }> {
+  const now = new Date().toISOString()
+  return request("/sync/inbox/apply", {
+    method: "POST",
+    body: JSON.stringify({
+      entries: [{
+        ...item,
+        ...updates,
+        updated_at: now,
+      }],
+    }),
+  })
+}
+
 export function deleteInboxItem(
   item: InboxItem,
 ): Promise<{ updated: number }> {
@@ -456,7 +682,7 @@ export function addSyncedTask(data: {
   customer?: string
   status?: string
 }): Promise<{ inserted: number }> {
-  const id = crypto.randomUUID().slice(0, 12)
+  const id = crypto.randomUUID()
   const now = new Date().toISOString()
   return request("/sync/tasks/apply", {
     method: "POST",
@@ -509,7 +735,7 @@ export function addSyncedNote(data: {
   customer?: string
   body?: string
 }): Promise<{ inserted: number }> {
-  const id = crypto.randomUUID().slice(0, 12)
+  const id = crypto.randomUUID()
   const now = new Date().toISOString()
   return request("/sync/notes/apply", {
     method: "POST",
@@ -522,6 +748,23 @@ export function addSyncedNote(data: {
         tags: [],
         task_id: null,
         created_at: now,
+        updated_at: now,
+      }],
+    }),
+  })
+}
+
+export function updateSyncedNote(
+  note: Note,
+  updates: Partial<Note>,
+): Promise<{ updated: number }> {
+  const now = new Date().toISOString()
+  return request("/sync/notes/apply", {
+    method: "POST",
+    body: JSON.stringify({
+      entries: [{
+        ...note,
+        ...updates,
         updated_at: now,
       }],
     }),

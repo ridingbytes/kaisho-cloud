@@ -120,6 +120,24 @@ async function requireAuth(req, res, next) {
     if (!error && data?.user) {
       req.userId = data.user.id
       req.userEmail = data.user.email
+      const cached = PLAN_CACHE.get(data.user.id)
+      if (
+        cached &&
+        Date.now() - cached.ts < PLAN_CACHE_TTL
+      ) {
+        req.userPlan = cached.plan
+      } else {
+        const { data: u } = await supabase
+          .from("users")
+          .select("plan")
+          .eq("id", data.user.id)
+          .maybeSingle()
+        const plan = u?.plan || "free"
+        PLAN_CACHE.set(
+          data.user.id, { plan, ts: Date.now() },
+        )
+        req.userPlan = plan
+      }
       return next()
     }
   }

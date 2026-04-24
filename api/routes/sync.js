@@ -25,6 +25,7 @@
 
 const { Router } = require("express")
 const { supabase } = require("../db")
+const { apiLimiter } = require("../config")
 const {
   requireAuth, requirePlan,
 } = require("../middleware")
@@ -35,6 +36,9 @@ const {
   validateQuery,
   snapshotSchema,
   syncApplySchema,
+  inboxApplySchema,
+  taskApplySchema,
+  noteApplySchema,
   activeStartSchema,
   activeStopSchema,
   syncChangesQuerySchema,
@@ -42,6 +46,8 @@ const {
 const { asyncHandler } = require("../utils/asyncHandler")
 
 const router = Router()
+
+router.use(apiLimiter)
 
 // ── Helpers ─────────────────────────────────────────────
 
@@ -84,7 +90,7 @@ router.post(
   requireSync,
   validate(snapshotSchema),
   asyncHandler(async (req, res) => {
-    const { customers, tasks } = req.body
+    const { customers, tasks, config } = req.body
 
     await supabase
       .from("ref_customers")
@@ -118,6 +124,26 @@ router.post(
           status: t.status,
         })),
       )
+    }
+
+    // Store config (tags, feature flags)
+    if (config) {
+      const { error: cfgErr } = await supabase
+        .from("ref_config")
+        .upsert(
+          {
+            user_id: req.userId,
+            config,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" },
+        )
+      if (cfgErr) {
+        req.log.error(
+          { err: cfgErr },
+          "ref_config upsert failed",
+        )
+      }
     }
 
     res.json({ ok: true })
@@ -532,6 +558,11 @@ router.post(
         error: "ids must be a non-empty array",
       })
     }
+    if (!ids.every((id) => typeof id === "string")) {
+      return res.status(400).json({
+        error: "ids must contain only strings",
+      })
+    }
     const now = new Date().toISOString()
     const { error, count } = await supabase
       .from("clock_entries")
@@ -546,7 +577,7 @@ router.post(
         .json({ error: "Failed to ack" })
     }
 
-    res.json({ acked: count || ids.length })
+    res.json({ acked: count ?? ids.length })
   }),
 )
 
@@ -573,50 +604,30 @@ router.delete(
     // snapshots. The local org file is the single
     // source of truth — everything gets rebuilt from
     // a full push on the next connect.
-    const { error: clockErr, count: clockCount } =
-      await supabase
-        .from("clock_entries")
+    const tables = [
+      "clock_entries", "inbox_entries", "tasks",
+      "notes", "ref_customers", "ref_tasks",
+    ]
+    let totalDeleted = 0
+
+    for (const table of tables) {
+      const { error, count } = await supabase
+        .from(table)
         .delete()
         .eq("user_id", req.userId)
-
-    const { count: inboxCount } = await supabase
-      .from("inbox_entries")
-      .delete()
-      .eq("user_id", req.userId)
-
-    await supabase
-      .from("tasks")
-      .delete()
-      .eq("user_id", req.userId)
-
-    await supabase
-      .from("notes")
-      .delete()
-      .eq("user_id", req.userId)
-
-    await supabase
-      .from("ref_customers")
-      .delete()
-      .eq("user_id", req.userId)
-
-    await supabase
-      .from("ref_tasks")
-      .delete()
-      .eq("user_id", req.userId)
-
-    if (clockErr) {
-      req.log.error(
-        { err: clockErr },
-        "Failed to wipe entries",
-      )
-      return res
-        .status(500)
-        .json({ error: "Failed to wipe entries" })
+      if (error) {
+        req.log.error(
+          { err: error, table },
+          "Failed to wipe entries",
+        )
+        return res.status(500).json({
+          error: `Failed to delete from ${table}`,
+        })
+      }
+      totalDeleted += count || 0
     }
 
-    res.json({
-      deleted: (clockCount || 0) + (inboxCount || 0),
-    })
+    res.json({ deleted: totalDeleted })
   }),
 )
 
@@ -808,13 +819,9 @@ router.post(
   "/inbox/apply",
   requireAuth,
   requireSync,
+  validate(inboxApplySchema),
   asyncHandler(async (req, res) => {
-    const entries = req.body?.entries || []
-    if (!Array.isArray(entries) || entries.length > 500) {
-      return res.status(400).json({
-        error: "entries must be an array (max 500)",
-      })
-    }
+    const { entries } = req.body
 
     const counts = {
       inserted: 0, updated: 0, skipped: 0, errors: 0,
@@ -913,6 +920,11 @@ router.post(
         error: "ids must be a non-empty array",
       })
     }
+    if (!ids.every((id) => typeof id === "string")) {
+      return res.status(400).json({
+        error: "ids must contain only strings",
+      })
+    }
     const now = new Date().toISOString()
     const { count } = await supabase
       .from("inbox_entries")
@@ -921,7 +933,7 @@ router.post(
       .in("id", ids.slice(0, 500))
       .is("synced_at", null)
 
-    res.json({ acked: count || ids.length })
+    res.json({ acked: count ?? ids.length })
   }),
 )
 
@@ -1003,13 +1015,9 @@ router.post(
   "/tasks/apply",
   requireAuth,
   requireSync,
+  validate(taskApplySchema),
   asyncHandler(async (req, res) => {
-    const entries = req.body?.entries || []
-    if (!Array.isArray(entries) || entries.length > 500) {
-      return res.status(400).json({
-        error: "entries must be an array (max 500)",
-      })
-    }
+    const { entries } = req.body
     const counts = {
       inserted: 0, updated: 0, skipped: 0, errors: 0,
     }
@@ -1097,6 +1105,11 @@ router.post(
         error: "ids must be a non-empty array",
       })
     }
+    if (!ids.every((id) => typeof id === "string")) {
+      return res.status(400).json({
+        error: "ids must contain only strings",
+      })
+    }
     const now = new Date().toISOString()
     const { count } = await supabase
       .from("tasks")
@@ -1104,7 +1117,7 @@ router.post(
       .eq("user_id", req.userId)
       .in("id", ids.slice(0, 500))
       .is("synced_at", null)
-    res.json({ acked: count || ids.length })
+    res.json({ acked: count ?? ids.length })
   }),
 )
 
@@ -1184,13 +1197,9 @@ router.post(
   "/notes/apply",
   requireAuth,
   requireSync,
+  validate(noteApplySchema),
   asyncHandler(async (req, res) => {
-    const entries = req.body?.entries || []
-    if (!Array.isArray(entries) || entries.length > 500) {
-      return res.status(400).json({
-        error: "entries must be an array (max 500)",
-      })
-    }
+    const { entries } = req.body
     const counts = {
       inserted: 0, updated: 0, skipped: 0, errors: 0,
     }
@@ -1278,6 +1287,11 @@ router.post(
         error: "ids must be a non-empty array",
       })
     }
+    if (!ids.every((id) => typeof id === "string")) {
+      return res.status(400).json({
+        error: "ids must contain only strings",
+      })
+    }
     const now = new Date().toISOString()
     const { count } = await supabase
       .from("notes")
@@ -1285,7 +1299,7 @@ router.post(
       .eq("user_id", req.userId)
       .in("id", ids.slice(0, 500))
       .is("synced_at", null)
-    res.json({ acked: count || ids.length })
+    res.json({ acked: count ?? ids.length })
   }),
 )
 
