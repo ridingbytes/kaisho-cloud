@@ -333,6 +333,25 @@ select {
   padding-bottom: 16px;
 }
 
+/* -- Pull to refresh -- */
+
+.ptr-indicator {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--t3);
+  padding-bottom: 8px;
+  transition: height 0.1s;
+}
+.ptr-spinner {
+  transition: transform 0.2s;
+}
+.ptr-spinner.ptr-ready {
+  color: var(--accent, #3b82f6);
+  transform: rotate(180deg);
+}
+
 /* -- Tab group switcher -- */
 
 .tab-group-switcher {

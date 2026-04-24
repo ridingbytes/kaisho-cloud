@@ -15,6 +15,7 @@ import { getAppConfig } from "../api"
 import type { AppConfig } from "../api"
 import { planLabel } from "../utils/planLabel"
 import { PixelAvatar } from "./PixelAvatar"
+import { PullToRefresh } from "./PullToRefresh"
 
 type Tab =
   | "timer"
@@ -310,7 +311,7 @@ export function AppShell() {
           />
         </button>
       </header>
-      <main className="app-content">
+      <PullToRefresh className="app-content">
         {tab === "timer" && <TimerView />}
         {tab === "tasks" && <TasksView />}
         {tab === "inbox" && <InboxView />}
@@ -319,7 +320,7 @@ export function AppShell() {
         {tab === "dashboard" && <DashboardView />}
         {tab === "book" && <BookView />}
         {tab === "entries" && <EntriesView />}
-      </main>
+      </PullToRefresh>
       <div className="tab-group-switcher">
         <div className="segmented">
           <button
