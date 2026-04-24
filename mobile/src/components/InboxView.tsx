@@ -332,6 +332,28 @@ function InboxDetailSheet({
               </div>
             )}
 
+            {item.channel && (
+              <div className="detail-field">
+                <div className="detail-label">
+                  {t("detail.channel")}
+                </div>
+                <div className="detail-value">
+                  {item.channel}
+                </div>
+              </div>
+            )}
+
+            {item.direction && (
+              <div className="detail-field">
+                <div className="detail-label">
+                  {t("detail.direction")}
+                </div>
+                <div className="detail-value">
+                  {item.direction}
+                </div>
+              </div>
+            )}
+
             <button
               className="detail-delete-btn"
               onClick={() => {

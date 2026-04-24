@@ -124,6 +124,9 @@ per-user socket map (`userId -> Set<WebSocket>`).
 | `timer:stopped` | entry | POST /clocks/stop, /sync/active/stop |
 | `entries:changed` | `{ count }` | POST /sync/apply, PATCH /clocks/:id |
 | `entries:deleted` | `{ ids }` | DELETE /clocks/:id |
+| `inbox:changed` | `{ count }` | POST /sync/inbox/apply |
+| `tasks:changed` | `{ count }` | POST /sync/tasks/apply |
+| `notes:changed` | `{ count }` | POST /sync/notes/apply |
 
 ### Heartbeat and Reconnect
 
@@ -186,10 +189,25 @@ The local app runs a sync cycle periodically (default: every
 6. NOTES — GET /sync/notes/changes, POST /sync/notes/apply
            Pull and push notes (same LWW protocol).
 
-7. SNAPSHOT — POST /sync/push-snapshot
-           Push customer and task reference data so the
-           mobile PWA has dropdown options.
+7. CONFIG PULL — GET /ref/config
+           Pull user_name changes from the PWA and
+           update local user.yaml.
+
+8. SNAPSHOT — POST /sync/push-snapshot
+           Push customer/task reference data, tags,
+           avatar_seed, and user_name so the mobile
+           PWA has dropdown options and synced settings.
 ```
+
+### Echo-Back Prevention
+
+When the local app pulls a change (e.g. a status update from
+the PWA), applying it locally updates the entry's timestamp.
+Without protection, the push phase would send this entry back
+to the cloud, potentially overwriting a newer PWA change via
+LWW. To prevent this, each `pull_and_apply_*` function returns
+the set of sync IDs it touched. The corresponding
+`collect_*_changes` function excludes those IDs from the push.
 
 ### Batch Optimization
 
@@ -338,6 +356,23 @@ when exceeded).
   external access (web search, URL fetch) work through the
   agentic loop. Jobs can opt out to use local Ollama instead.
 
+### Mobile PWA Tool Calling
+
+The PWA's AI advisor also supports tool calling. Unlike the
+local app (which has 32 tools), the PWA exposes three tools
+that create entities via the sync API:
+
+| Tool | Action |
+|------|--------|
+| `add_task` | Creates a task via POST /sync/tasks/apply |
+| `add_inbox_item` | Creates an inbox item via POST /sync/inbox/apply |
+| `add_note` | Creates a note via POST /sync/notes/apply |
+
+The agentic loop runs client-side in `api.ts` (up to 5 turns).
+Tool calls are executed locally in the browser using the
+existing sync API functions. Created items sync to the desktop
+app through the normal sync cycle.
+
 ### Mobile AI Endpoints
 
 | Endpoint | Model | Purpose |
@@ -392,6 +427,7 @@ Event deduplication via the `stripe_events` table.
 | `notes` | Synced notes (LWW, soft-delete) |
 | `ref_customers` | Read-only customer snapshots from local app |
 | `ref_tasks` | Read-only task snapshots from local app |
+| `ref_config` | Synced settings: tags, avatar, user_name, feature flags |
 | `stripe_events` | Webhook event IDs for idempotency |
 | `ai_usage` | Per-user per-month token counters |
 

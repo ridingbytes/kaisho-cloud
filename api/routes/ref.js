@@ -114,7 +114,13 @@ router.patch(
   "/config",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const updates = req.body || {}
+    // Only allow user-editable fields
+    const ALLOWED = ["user_name"]
+    const raw = req.body || {}
+    const updates = {}
+    for (const key of ALLOWED) {
+      if (key in raw) updates[key] = raw[key]
+    }
 
     const { data: existing } = await supabase
       .from("ref_config")
