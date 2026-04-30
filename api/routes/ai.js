@@ -129,10 +129,30 @@ const ALLOWED_BACKEND_KEY_ENVS = new Set([
   "OPENROUTER_API_KEY",
   "OLLAMA_CLOUD_API_KEY",
   "LITELLM_API_KEY",
+  "ANTHROPIC_API_KEY",
+  "OPENAI_API_KEY",
+  "GOOGLE_API_KEY",
 ])
 
 function isAllowedKeyEnv(name) {
   return ALLOWED_BACKEND_KEY_ENVS.has(name)
+}
+
+const crypto = require("crypto")
+
+/**
+ * Return the first 8 hex chars of SHA-256 of an arbitrary
+ * string. Used to log rejected attacker-controlled values
+ * without echoing them verbatim. Collision-prone — the
+ * point is correlation, not identity.
+ */
+function hashShort(value) {
+  if (typeof value !== "string") return "non-string"
+  return crypto
+    .createHash("sha256")
+    .update(value)
+    .digest("hex")
+    .slice(0, 8)
 }
 
 /**
@@ -228,8 +248,16 @@ async function getBackend() {
   // single compromised SQL row.
   let envName = cfg.backend_api_key_env
   if (!isAllowedKeyEnv(envName)) {
+    // Don't log the rejected name verbatim — an attacker
+    // who tampered the row controls the string and can
+    // inject log lines or exfiltrate via log aggregation.
+    // Log only the SHA-256 prefix so operators can match
+    // a single rejection across logs without exposing
+    // the literal value.
     logger.error(
-      { backend_api_key_env: envName },
+      {
+        backend_api_key_env_hash: hashShort(envName),
+      },
       "gateway_config.backend_api_key_env not in "
       + "ALLOWED_BACKEND_KEY_ENVS; falling back to "
       + "env default",
@@ -311,9 +339,39 @@ async function resolveModel(userId, mode) {
   const safeOverride = safeOverrideModel(overrides, mode)
   if (safeOverride) return safeOverride
 
-  if (mode === "advisor") return config.model_advisor
-  if (mode === "cron") return config.model_cron
-  return config.model_default
+  // gateway_config model fields go through the same
+  // allowlist. PR #4 only validated per-user overrides;
+  // a SQL write to gateway_config could still route
+  // every user to an arbitrary slug, bypassing the
+  // check. Apply the same defense here.
+  let modelKey
+  if (mode === "advisor") modelKey = "model_advisor"
+  else if (mode === "cron") modelKey = "model_cron"
+  else modelKey = "model_default"
+  return safeConfigModel(config, modelKey, mode)
+}
+
+/**
+ * Return the gateway_config model for a key, validated
+ * against ALLOWED_MODELS. Falls back to the env-baked
+ * FALLBACK_MODEL_BY_MODE constant when the row's value
+ * isn't allowed (logs a warning so the operator notices).
+ */
+function safeConfigModel(config, key, mode) {
+  const value = config?.[key]
+  if (value && ALLOWED_MODELS.has(value)) return value
+  const fallback = (
+    FALLBACK_MODEL_BY_MODE[mode]
+    || FALLBACK_MODEL_BY_MODE.default
+  )
+  if (value) {
+    logger.warn(
+      { gateway_config_value: value, mode, key },
+      "gateway_config model not in ALLOWED_MODELS; "
+      + "falling back to env default",
+    )
+  }
+  return fallback
 }
 
 // ── Guard middleware ───────────────────────────────────
@@ -416,8 +474,17 @@ async function getUsage(userId, month) {
 async function recordUsage(
   userId, month, inputTokens, outputTokens,
 ) {
-  // Atomic upsert — avoids read-then-write race
-  // when concurrent requests increment the same row.
+  // Atomic increment via the increment_ai_usage RPC
+  // (migration 005). Avoids the read-then-write race
+  // when concurrent requests touch the same row.
+  //
+  // The RPC has shipped since 1.0.0 — there is no
+  // fallback. A previous insert-or-update fallback
+  // OVERWROTE the existing row's counters with just
+  // the current request's tokens, silently corrupting
+  // metering whenever the RPC errored. Better to fail
+  // loudly: if this throws, the request 5xxs and the
+  // operator gets paged.
   const { error } = await supabase.rpc(
     "increment_ai_usage",
     {
@@ -427,23 +494,14 @@ async function recordUsage(
       p_output: outputTokens,
     },
   )
-  // Fallback: if the RPC doesn't exist yet, use
-  // the insert-or-update approach.
   if (error) {
-    logger.warn(
+    logger.error(
       { error },
-      "increment_ai_usage RPC failed, using upsert",
+      "increment_ai_usage RPC failed; usage metering "
+      + "is broken until this is restored",
     )
-    await supabase.from("ai_usage").upsert(
-      {
-        user_id: userId,
-        month,
-        input_tokens: inputTokens,
-        output_tokens: outputTokens,
-        request_count: 1,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id,month" },
+    throw new Error(
+      "AI usage metering unavailable",
     )
   }
 }

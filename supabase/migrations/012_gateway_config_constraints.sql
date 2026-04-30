@@ -30,3 +30,14 @@ ALTER TABLE users
 -- DB level. Those are validated in code against an
 -- allowlist (see api/routes/ai.js) so the allowlist can
 -- evolve without a schema migration.
+
+-- Rollback (for incident response):
+--
+--   ALTER TABLE gateway_config
+--       DROP CONSTRAINT gateway_config_backend_url_https;
+--   ALTER TABLE users
+--       DROP CONSTRAINT users_token_cap_override_range;
+--
+-- Use only if a constraint blocks a legitimate change
+-- in production. After applying, immediately add the
+-- constraint back once the offending row is fixed.
