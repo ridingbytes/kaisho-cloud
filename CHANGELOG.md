@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.3
+
+- Move `crypto = require("crypto")` to the top of
+  `api/routes/ai.js` to match the imports-on-top
+  convention. No behaviour change
+
 ## 1.2.2
 
 - Validate `gateway_config.model_advisor` /
