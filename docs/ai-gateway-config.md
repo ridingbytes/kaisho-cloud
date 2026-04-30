@@ -24,11 +24,21 @@ changes take effect within a minute, no restart needed.
 
 | column | type | default |
 |---|---|---|
+| `backend_url` | text | `https://openrouter.ai/api/v1/chat/completions` |
+| `backend_api_key_env` | text | `OPENROUTER_API_KEY` |
+| `backend_label` | text | `openrouter` |
 | `monthly_token_cap` | int | 250000 |
 | `model_advisor` | text | `anthropic/claude-haiku-4.5` |
 | `model_cron` | text | `google/gemma-4-31b-it` |
 | `model_default` | text | `anthropic/claude-haiku-4.5` |
 | `max_tokens_per_request` | int | 8192 |
+
+The gateway POSTs to `backend_url` in OpenAI chat-completions
+format. The API key is **not stored in the database** — only
+the env-var name (`backend_api_key_env`). On each request the
+gateway resolves `process.env[backend_api_key_env]`. This keeps
+secrets out of the DB and lets you rotate keys via the VPS env
+without touching the table.
 
 ### `users` overrides
 
@@ -93,6 +103,55 @@ WHERE id = 'USER_UUID';
 That user's advisor calls go to Sonnet; everyone else
 stays on the configured advisor model.
 
+### Switch backend (e.g. to Ollama Cloud)
+
+Two-step:
+
+1. Add the new API key to the VPS env and restart the
+   container once:
+
+   ```sh
+   # /etc/kaisho-cloud.env
+   OLLAMA_CLOUD_API_KEY=...
+   ```
+
+2. Single SQL transaction flips the backend + models +
+   nukes per-user overrides that referenced the old
+   provider's slugs:
+
+   ```sql
+   BEGIN;
+   UPDATE gateway_config
+   SET backend_url =
+         'https://ollama.com/v1/chat/completions',
+       backend_api_key_env = 'OLLAMA_CLOUD_API_KEY',
+       backend_label = 'ollama_cloud',
+       model_advisor = 'qwen3:32b',
+       model_cron = 'gemma3:27b',
+       model_default = 'qwen3:32b'
+   WHERE id = 1;
+
+   UPDATE users
+   SET advisor_model_override = NULL,
+       cron_model_override = NULL;
+   COMMIT;
+   ```
+
+Within ~60s, all traffic goes to the new backend. Roll
+back with the inverse transaction.
+
+To switch to a self-hosted LiteLLM proxy (which speaks
+OpenRouter-style slugs), only the URL and key need to
+change — model names stay valid:
+
+```sql
+UPDATE gateway_config
+SET backend_url = 'https://litellm.internal/v1/chat/completions',
+    backend_api_key_env = 'LITELLM_API_KEY',
+    backend_label = 'litellm'
+WHERE id = 1;
+```
+
 ### Inspect current overrides
 
 ```sql
@@ -136,7 +195,10 @@ overridable per deploy via the VPS environment.
 
 | var | meaning |
 |---|---|
-| `MONTHLY_TOKEN_CAP` | unused at the moment — see note below |
+| `BACKEND_URL` | fallback backend endpoint |
+| `BACKEND_API_KEY_ENV` | fallback name of the env var holding the key |
+| `BACKEND_LABEL` | fallback backend label |
+| `OPENROUTER_API_KEY` | the actual key, looked up by name |
 | `AI_MODEL_ADVISOR` | fallback advisor model |
 | `AI_MODEL_CRON` | fallback cron model |
 | `AI_MODEL_KAISHO_DEFAULT` | fallback default-mode model |

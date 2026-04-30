@@ -20,6 +20,19 @@
 CREATE TABLE gateway_config (
     id                     INT PRIMARY KEY DEFAULT 1
                            CHECK (id = 1),
+
+    -- Backend selection. The gateway POSTs to backend_url
+    -- in OpenAI chat-completions format using the API key
+    -- read from process.env[backend_api_key_env]. Switch
+    -- backends by updating these three columns plus the
+    -- model_* columns in a single SQL transaction.
+    backend_url            TEXT NOT NULL
+                           DEFAULT 'https://openrouter.ai/api/v1/chat/completions',
+    backend_api_key_env    TEXT NOT NULL
+                           DEFAULT 'OPENROUTER_API_KEY',
+    backend_label          TEXT NOT NULL
+                           DEFAULT 'openrouter',
+
     monthly_token_cap      INT NOT NULL DEFAULT 250000,
     model_advisor          TEXT NOT NULL
                            DEFAULT 'anthropic/claude-haiku-4.5',

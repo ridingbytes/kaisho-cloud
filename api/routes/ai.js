@@ -39,10 +39,17 @@ router.use(requirePlan("sync_ai"))
 // models and handles rate limiting, fallbacks, and cost
 // tracking on their side.
 
-const OPENROUTER_API_KEY =
-  process.env.OPENROUTER_API_KEY || ""
-const OPENROUTER_URL =
-  "https://openrouter.ai/api/v1/chat/completions"
+// Backend defaults — used as last-resort fallback when
+// the gateway_config table is empty/unreachable. The
+// effective values per request come from getBackend().
+const FALLBACK_BACKEND_URL =
+  process.env.BACKEND_URL
+  || "https://openrouter.ai/api/v1/chat/completions"
+const FALLBACK_BACKEND_API_KEY_ENV =
+  process.env.BACKEND_API_KEY_ENV
+  || "OPENROUTER_API_KEY"
+const FALLBACK_BACKEND_LABEL =
+  process.env.BACKEND_LABEL || "openrouter"
 
 // Model selection per use case:
 //   - FAST: cheap structured extraction (parse-booking)
@@ -139,12 +146,36 @@ async function getGatewayConfig() {
       "gateway_config read failed, using env fallbacks",
     )
     return {
+      backend_url: FALLBACK_BACKEND_URL,
+      backend_api_key_env: FALLBACK_BACKEND_API_KEY_ENV,
+      backend_label: FALLBACK_BACKEND_LABEL,
       monthly_token_cap: FALLBACK_MONTHLY_TOKEN_CAP,
       model_advisor: FALLBACK_MODEL_BY_MODE.advisor,
       model_cron: FALLBACK_MODEL_BY_MODE.cron,
       model_default: FALLBACK_MODEL_BY_MODE.default,
       max_tokens_per_request: 8192,
     }
+  }
+}
+
+/**
+ * Resolve the backend to call right now. Reads
+ * backend_url and the API key (looked up via the env var
+ * name in backend_api_key_env) from gateway_config. The
+ * key is NOT stored in the DB — only the env-var name.
+ *
+ * @returns {Promise<{
+ *   url: string, apiKey: string, label: string,
+ * }>}
+ */
+async function getBackend() {
+  const cfg = await getGatewayConfig()
+  const apiKey =
+    process.env[cfg.backend_api_key_env] || ""
+  return {
+    url: cfg.backend_url,
+    apiKey,
+    label: cfg.backend_label,
   }
 }
 
@@ -224,14 +255,20 @@ async function resolveModel(userId, mode) {
 // ── Guard middleware ───────────────────────────────────
 
 /**
- * Reject early when the OpenRouter key is not configured.
+ * Reject early when the active backend's API key is not
+ * configured in env. Looks up the env-var name from
+ * gateway_config so this works after a backend swap.
  */
-function requireOpenRouterKey(req, res, next) {
-  if (!OPENROUTER_API_KEY) {
-    return res
-      .status(503)
-      .json({ error: "AI not configured" })
+async function requireBackendKey(req, res, next) {
+  const backend = await getBackend()
+  if (!backend.apiKey) {
+    return res.status(503).json({
+      error:
+        "AI backend not configured: env var "
+        + "missing for active backend",
+    })
   }
+  req.aiBackend = backend
   next()
 }
 
@@ -382,11 +419,16 @@ async function callModel(opts) {
   if (opts.tools && opts.tools.length > 0) {
     body.tools = opts.tools
   }
-  const res = await fetch(OPENROUTER_URL, {
+
+  const backend = opts.backend || await getBackend()
+  // OpenRouter looks at HTTP-Referer / X-Title for
+  // attribution; other OpenAI-compatible backends
+  // ignore them. Always sending is harmless.
+  const res = await fetch(backend.url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": "Bearer " + OPENROUTER_API_KEY,
+      "Authorization": "Bearer " + backend.apiKey,
       "HTTP-Referer": "https://kaisho.dev",
       "X-Title": "Kaisho",
     },
@@ -395,10 +437,16 @@ async function callModel(opts) {
   if (!res.ok) {
     const errBody = await res.text()
     logger.error(
-      { status: res.status, body: errBody },
-      "OpenRouter API error",
+      {
+        status: res.status,
+        backend: backend.label,
+        body: errBody,
+      },
+      "AI backend error",
     )
-    throw new Error("OpenRouter API " + res.status)
+    throw new Error(
+      backend.label + " API " + res.status,
+    )
   }
   return res.json()
 }
@@ -439,7 +487,7 @@ function extractUsage(result) {
 router.post(
   "/complete",
   validate(aiCompleteSchema),
-  requireOpenRouterKey,
+  asyncHandler(requireBackendKey),
   asyncHandler(requireTokenQuota),
   asyncHandler(async (req, res) => {
     const month = req.aiMonth
@@ -472,6 +520,7 @@ router.post(
     }
 
     const result = await callModel({
+      backend: req.aiBackend,
       model: chosen,
       system,
       messages,
@@ -541,7 +590,7 @@ router.post(
 
     next()
   }),
-  requireOpenRouterKey,
+  asyncHandler(requireBackendKey),
   asyncHandler(requireTokenQuota),
   asyncHandler(async (req, res) => {
     const { text: input } = req.body
@@ -623,7 +672,7 @@ router.post(
     }
     next()
   }),
-  requireOpenRouterKey,
+  asyncHandler(requireBackendKey),
   asyncHandler(requireTokenQuota),
   asyncHandler(async (req, res) => {
     const { entries } = req.body
