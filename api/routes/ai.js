@@ -52,7 +52,7 @@ const MODEL_FAST = process.env.AI_MODEL_FAST
 const MODEL_DEFAULT = process.env.AI_MODEL_DEFAULT
   || "anthropic/claude-sonnet-4"
 
-// Mode → model mapping for kaisho:* requests. Clients
+// Mode → model defaults for kaisho:* requests. Clients
 // pass ``mode`` on the request body; the gateway
 // resolves it to a concrete upstream model server-side.
 // This keeps users from proxying through expensive
@@ -67,7 +67,13 @@ const MODEL_DEFAULT = process.env.AI_MODEL_DEFAULT
 //              workload well.
 //   - default: fallback when a mode-aware client sends
 //              an unrecognized mode.
-const MODEL_BY_MODE = {
+//
+// These are the LAST-RESORT fallback if the
+// gateway_config table is empty or unreachable. The
+// effective model used per request comes from
+// resolveModel(): user override → gateway_config →
+// these env values.
+const FALLBACK_MODEL_BY_MODE = {
   advisor: process.env.AI_MODEL_ADVISOR
     || "anthropic/claude-haiku-4.5",
   cron: process.env.AI_MODEL_CRON
@@ -91,11 +97,129 @@ const ALLOWED_MODELS = new Set(
   ].join(",")).split(",").map((s) => s.trim()),
 )
 
-// Monthly soft cap: 250K tokens shared across modes.
-// Sized so that a single user fully utilizing Haiku for
-// the advisor costs <= ~$1.10/month worst case.
-// Requests over the cap return 429.
-const MONTHLY_TOKEN_CAP = 250_000
+// Last-resort cap when the gateway_config table is
+// empty/unreachable. Effective cap per user comes from
+// resolveCap(): user override → gateway_config → this.
+const FALLBACK_MONTHLY_TOKEN_CAP = 250_000
+
+// ── Runtime config (gateway_config table) ──────────────
+//
+// Cached for CONFIG_TTL_MS so requests don't hit Supabase
+// for config on every call. Refresh interval is short
+// enough (60s) that ops changes via SQL feel near-instant
+// without the gateway needing a restart.
+
+const CONFIG_TTL_MS = 60_000
+
+/** @type {{ data: object, fetchedAt: number } | null} */
+let _configCache = null
+
+async function getGatewayConfig() {
+  if (_configCache
+      && Date.now() - _configCache.fetchedAt
+         < CONFIG_TTL_MS) {
+    return _configCache.data
+  }
+  try {
+    const { data, error } = await supabase
+      .from("gateway_config")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error("gateway_config row missing")
+    _configCache = { data, fetchedAt: Date.now() }
+    return data
+  } catch (err) {
+    // Fall back to env defaults — keeps the gateway
+    // serving requests even if the migration hasn't run
+    // or Supabase is briefly unreachable.
+    logger.warn(
+      { err: err.message },
+      "gateway_config read failed, using env fallbacks",
+    )
+    return {
+      monthly_token_cap: FALLBACK_MONTHLY_TOKEN_CAP,
+      model_advisor: FALLBACK_MODEL_BY_MODE.advisor,
+      model_cron: FALLBACK_MODEL_BY_MODE.cron,
+      model_default: FALLBACK_MODEL_BY_MODE.default,
+      max_tokens_per_request: 8192,
+    }
+  }
+}
+
+/**
+ * Fetch the per-user override columns. NULL fields mean
+ * "use the gateway_config value".
+ *
+ * @param {string} userId
+ * @returns {Promise<{
+ *   monthly_token_cap_override: number | null,
+ *   advisor_model_override: string | null,
+ *   cron_model_override: string | null,
+ * }>}
+ */
+async function getUserOverrides(userId) {
+  const { data } = await supabase
+    .from("users")
+    .select(
+      "monthly_token_cap_override, "
+      + "advisor_model_override, "
+      + "cron_model_override",
+    )
+    .eq("id", userId)
+    .maybeSingle()
+  return data || {
+    monthly_token_cap_override: null,
+    advisor_model_override: null,
+    cron_model_override: null,
+  }
+}
+
+/**
+ * Resolve the effective monthly token cap for a user:
+ * user override → gateway_config → env fallback.
+ *
+ * @param {string} userId
+ * @returns {Promise<number>}
+ */
+async function resolveCap(userId) {
+  const [config, overrides] = await Promise.all([
+    getGatewayConfig(),
+    getUserOverrides(userId),
+  ])
+  if (overrides.monthly_token_cap_override != null) {
+    return overrides.monthly_token_cap_override
+  }
+  return config.monthly_token_cap
+}
+
+/**
+ * Resolve the effective model for a kaisho:* mode call:
+ * user override (advisor / cron only) → gateway_config →
+ * fallback constant.
+ *
+ * @param {string} userId
+ * @param {string} mode - "advisor", "cron", or "default".
+ * @returns {Promise<string>}
+ */
+async function resolveModel(userId, mode) {
+  const [config, overrides] = await Promise.all([
+    getGatewayConfig(),
+    getUserOverrides(userId),
+  ])
+  if (mode === "advisor"
+      && overrides.advisor_model_override) {
+    return overrides.advisor_model_override
+  }
+  if (mode === "cron"
+      && overrides.cron_model_override) {
+    return overrides.cron_model_override
+  }
+  if (mode === "advisor") return config.model_advisor
+  if (mode === "cron") return config.model_cron
+  return config.model_default
+}
 
 // ── Guard middleware ───────────────────────────────────
 
@@ -113,23 +237,31 @@ function requireOpenRouterKey(req, res, next) {
 
 /**
  * Reject when the user has exceeded the monthly token
- * cap. Attaches ``req.aiMonth`` and ``req.aiUsage`` for
- * downstream handlers.
+ * cap. The cap is resolved per request (user override →
+ * gateway_config → env fallback) so SQL changes take
+ * effect within ~60s without a restart.
+ *
+ * Attaches ``req.aiMonth``, ``req.aiUsage``, and
+ * ``req.aiCap`` for downstream handlers.
  */
 async function requireTokenQuota(req, res, next) {
   const month = currentMonth()
-  const usage = await getUsage(req.userId, month)
+  const [usage, cap] = await Promise.all([
+    getUsage(req.userId, month),
+    resolveCap(req.userId),
+  ])
   const total =
     usage.input_tokens + usage.output_tokens
-  if (total >= MONTHLY_TOKEN_CAP) {
+  if (total >= cap) {
     return res.status(429).json({
       error: "Monthly AI quota exceeded",
       usage: total,
-      cap: MONTHLY_TOKEN_CAP,
+      cap,
     })
   }
   req.aiMonth = month
   req.aiUsage = usage
+  req.aiCap = cap
   next()
 }
 
@@ -323,11 +455,13 @@ router.post(
 
     // Mode wins over an explicit ``model`` — the gateway
     // picks the upstream model itself for kaisho:* calls.
-    // Legacy clients without a mode fall back to the
-    // ``model`` field (still gated by ALLOWED_MODELS).
+    // Resolution: per-user override → gateway_config →
+    // env fallback. Legacy clients without a mode fall
+    // back to the ``model`` field (still gated by
+    // ALLOWED_MODELS).
     let chosen
     if (mode) {
-      chosen = MODEL_BY_MODE[mode] || MODEL_BY_MODE.default
+      chosen = await resolveModel(req.userId, mode)
     } else {
       chosen = model || MODEL_DEFAULT
       if (!ALLOWED_MODELS.has(chosen)) {
@@ -532,7 +666,10 @@ router.get(
   "/usage",
   asyncHandler(async (req, res) => {
     const month = currentMonth()
-    const usage = await getUsage(req.userId, month)
+    const [usage, cap] = await Promise.all([
+      getUsage(req.userId, month),
+      resolveCap(req.userId),
+    ])
     res.json({
       month,
       input_tokens: usage.input_tokens,
@@ -540,7 +677,7 @@ router.get(
       total_tokens:
         usage.input_tokens + usage.output_tokens,
       request_count: usage.request_count,
-      cap: MONTHLY_TOKEN_CAP,
+      cap,
     })
   }),
 )
