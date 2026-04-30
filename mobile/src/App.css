@@ -1781,7 +1781,44 @@ select {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* Lets the browser keep the scroll gesture inside
+   * this container instead of letting it propagate to
+   * the app shell, which would otherwise trigger pull-
+   * to-refresh while reading long answers. */
+  overscroll-behavior-y: contain;
   padding: 16px;
+}
+
+.advisor-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 16px 0;
+  flex-shrink: 0;
+}
+
+.advisor-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--t3);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.advisor-clear-btn:not(:disabled):active {
+  border-color: var(--t4);
+  color: var(--t1);
+}
+
+.advisor-clear-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .advisor-welcome {

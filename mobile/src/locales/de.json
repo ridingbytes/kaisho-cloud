@@ -118,6 +118,8 @@
   "advisor.send": "Senden",
   "advisor.stop": "Stopp",
   "advisor.error_failed": "Anfrage fehlgeschlagen",
+  "advisor.clear": "Löschen",
+  "advisor.confirm_clear": "Unterhaltung löschen? Dies kann nicht rückgängig gemacht werden.",
   "shell.tab.timer": "Timer",
   "shell.tab.dashboard": "Dashboard",
   "shell.tab.book": "Buchen",
