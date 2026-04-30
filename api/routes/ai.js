@@ -52,24 +52,50 @@ const MODEL_FAST = process.env.AI_MODEL_FAST
 const MODEL_DEFAULT = process.env.AI_MODEL_DEFAULT
   || "anthropic/claude-sonnet-4"
 
-// Models clients are allowed to request. Prevents users
-// from proxying requests through expensive models at our
-// cost. Configurable via comma-separated env var.
+// Mode → model mapping for kaisho:* requests. Clients
+// pass ``mode`` on the request body; the gateway
+// resolves it to a concrete upstream model server-side.
+// This keeps users from proxying through expensive
+// models on our dime.
+//
+//   - advisor: agentic loop with tool calling. Needs
+//              reliable tool adherence + multi-turn
+//              quality. Haiku 4.5 is the price/quality
+//              sweet spot vs Sonnet's 3x premium.
+//   - cron:    single-shot summarization. Gemma 4 31B is
+//              ~25x cheaper than Haiku and handles the
+//              workload well.
+//   - default: fallback when a mode-aware client sends
+//              an unrecognized mode.
+const MODEL_BY_MODE = {
+  advisor: process.env.AI_MODEL_ADVISOR
+    || "anthropic/claude-haiku-4.5",
+  cron: process.env.AI_MODEL_CRON
+    || "google/gemma-4-31b-it",
+  default: process.env.AI_MODEL_KAISHO_DEFAULT
+    || "anthropic/claude-haiku-4.5",
+}
+
+// Models clients can request via the legacy ``model``
+// field. Mode-routed requests bypass this list because
+// the gateway picks the model itself.
 const ALLOWED_MODELS = new Set(
   (process.env.AI_ALLOWED_MODELS || [
     MODEL_FAST,
     MODEL_DEFAULT,
     "google/gemini-2.0-flash-lite-001",
     "google/gemini-2.5-flash",
-    "anthropic/claude-haiku-4",
-    "anthropic/claude-sonnet-4",
+    "google/gemma-4-31b-it",
+    "anthropic/claude-haiku-4.5",
+    "anthropic/claude-sonnet-4.6",
   ].join(",")).split(",").map((s) => s.trim()),
 )
 
-// Monthly soft cap: 200K tokens. Requests over this
-// limit return 429 instead of proxying. The cap prevents
-// runaway costs while keeping the UX friendly.
-const MONTHLY_TOKEN_CAP = 200_000
+// Monthly soft cap: 250K tokens shared across modes.
+// Sized so that a single user fully utilizing Haiku for
+// the advisor costs <= ~$1.10/month worst case.
+// Requests over the cap return 429.
+const MONTHLY_TOKEN_CAP = 250_000
 
 // ── Guard middleware ───────────────────────────────────
 
@@ -287,7 +313,7 @@ router.post(
     const month = req.aiMonth
 
     const {
-      system, messages, max_tokens, model, tools,
+      system, messages, max_tokens, model, mode, tools,
     } = req.body
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({
@@ -295,11 +321,20 @@ router.post(
       })
     }
 
-    const chosen = model || MODEL_DEFAULT
-    if (!ALLOWED_MODELS.has(chosen)) {
-      return res.status(400).json({
-        error: `Model not allowed: ${chosen}`,
-      })
+    // Mode wins over an explicit ``model`` — the gateway
+    // picks the upstream model itself for kaisho:* calls.
+    // Legacy clients without a mode fall back to the
+    // ``model`` field (still gated by ALLOWED_MODELS).
+    let chosen
+    if (mode) {
+      chosen = MODEL_BY_MODE[mode] || MODEL_BY_MODE.default
+    } else {
+      chosen = model || MODEL_DEFAULT
+      if (!ALLOWED_MODELS.has(chosen)) {
+        return res.status(400).json({
+          error: `Model not allowed: ${chosen}`,
+        })
+      }
     }
 
     const result = await callModel({
