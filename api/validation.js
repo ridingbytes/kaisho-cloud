@@ -313,6 +313,12 @@ const aiCompleteSchema = z.object({
   system: z.string().optional(),
   messages: z.array(z.any()),
   max_tokens: z.number().optional(),
+  // Mode picks the upstream model server-side. The
+  // legacy ``model`` field is still accepted for
+  // pre-1.2.0 clients but newer clients send ``mode``.
+  mode: z.enum([
+    "advisor", "cron", "default",
+  ]).optional(),
   model: z.string().optional(),
   tools: z.array(z.any()).optional(),
 })
