@@ -109,6 +109,58 @@ const ALLOWED_MODELS = new Set(
 // resolveCap(): user override → gateway_config → this.
 const FALLBACK_MONTHLY_TOKEN_CAP = 250_000
 
+// ── Defensive allowlists ──────────────────────────────
+//
+// Everything in gateway_config and users.*_override is
+// editable via SQL. Without these allowlists, an actor
+// with DB write access could:
+//
+//   - Set backend_api_key_env to "STRIPE_SECRET_KEY",
+//     "SUPABASE_SERVICE_KEY", etc., and exfiltrate the
+//     value via the Bearer token sent to backend_url.
+//   - Set users.advisor_model_override to an arbitrary
+//     OpenRouter slug and burn the master key on
+//     anything available there.
+//
+// Both lists live in code (not the DB) so a SQL-only
+// compromise can't widen them.
+
+const ALLOWED_BACKEND_KEY_ENVS = new Set([
+  "OPENROUTER_API_KEY",
+  "OLLAMA_CLOUD_API_KEY",
+  "LITELLM_API_KEY",
+])
+
+function isAllowedKeyEnv(name) {
+  return ALLOWED_BACKEND_KEY_ENVS.has(name)
+}
+
+/**
+ * Return the validated user override for a given mode,
+ * or null if absent / unrecognised. An override pointing
+ * at a slug not in ALLOWED_MODELS is treated as null and
+ * logged so we don't burn the master key on a model the
+ * platform never approved.
+ */
+function safeOverrideModel(overrides, mode) {
+  const key =
+    mode === "advisor" ? "advisor_model_override"
+    : mode === "cron" ? "cron_model_override"
+    : null
+  if (!key) return null
+  const value = overrides?.[key]
+  if (!value) return null
+  if (!ALLOWED_MODELS.has(value)) {
+    logger.warn(
+      { user_override: value, mode },
+      "user model override not in ALLOWED_MODELS; "
+      + "falling back to gateway_config",
+    )
+    return null
+  }
+  return value
+}
+
 // ── Runtime config (gateway_config table) ──────────────
 //
 // Cached for CONFIG_TTL_MS so requests don't hit Supabase
@@ -170,8 +222,21 @@ async function getGatewayConfig() {
  */
 async function getBackend() {
   const cfg = await getGatewayConfig()
-  const apiKey =
-    process.env[cfg.backend_api_key_env] || ""
+  // Defense: if the DB-stored env-var name is not on the
+  // code-level allowlist, refuse to read it. Avoids
+  // exfiltrating Stripe / Supabase / etc. keys via a
+  // single compromised SQL row.
+  let envName = cfg.backend_api_key_env
+  if (!isAllowedKeyEnv(envName)) {
+    logger.error(
+      { backend_api_key_env: envName },
+      "gateway_config.backend_api_key_env not in "
+      + "ALLOWED_BACKEND_KEY_ENVS; falling back to "
+      + "env default",
+    )
+    envName = FALLBACK_BACKEND_API_KEY_ENV
+  }
+  const apiKey = process.env[envName] || ""
   return {
     url: cfg.backend_url,
     apiKey,
@@ -239,14 +304,13 @@ async function resolveModel(userId, mode) {
     getGatewayConfig(),
     getUserOverrides(userId),
   ])
-  if (mode === "advisor"
-      && overrides.advisor_model_override) {
-    return overrides.advisor_model_override
-  }
-  if (mode === "cron"
-      && overrides.cron_model_override) {
-    return overrides.cron_model_override
-  }
+  // Per-user override wins only if it's in
+  // ALLOWED_MODELS — otherwise we'd let a single
+  // compromised users row direct traffic to an
+  // unapproved (and possibly very expensive) model.
+  const safeOverride = safeOverrideModel(overrides, mode)
+  if (safeOverride) return safeOverride
+
   if (mode === "advisor") return config.model_advisor
   if (mode === "cron") return config.model_cron
   return config.model_default

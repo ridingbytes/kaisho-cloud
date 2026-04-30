@@ -40,6 +40,29 @@ gateway resolves `process.env[backend_api_key_env]`. This keeps
 secrets out of the DB and lets you rotate keys via the VPS env
 without touching the table.
 
+### Defensive constraints
+
+These guard against operator errors and against the scenario
+where someone has SQL write access but not the runtime env:
+
+- **`backend_url` must be `https://`** — prevents an
+  accidental row from sending the master key as a cleartext
+  Bearer token. Enforced at the DB level (CHECK constraint).
+- **`backend_api_key_env` must be on a code-level
+  allowlist** (`OPENROUTER_API_KEY`, `OLLAMA_CLOUD_API_KEY`,
+  `LITELLM_API_KEY`). A row with an arbitrary name (e.g.
+  `STRIPE_SECRET_KEY`) is logged and the gateway falls back
+  to the env default. To approve a new backend, add its env
+  var to `ALLOWED_BACKEND_KEY_ENVS` in `api/routes/ai.js`
+  and redeploy.
+- **`advisor_model_override` and `cron_model_override`
+  must be in `ALLOWED_MODELS`** — an unrecognised slug is
+  logged and the user falls through to the gateway_config
+  default.
+- **`monthly_token_cap_override` must be `0..10_000_000`**
+  — a typo (negative or unbounded value) won't silently
+  disable metering. Enforced at the DB level.
+
 ### `users` overrides
 
 | column | type | meaning |
