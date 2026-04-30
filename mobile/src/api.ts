@@ -512,6 +512,7 @@ const MAX_AI_TURNS = 5
 export async function aiComplete(
   system: string,
   messages: { role: string; content: string }[],
+  mode: string = "advisor",
 ): Promise<string> {
   const msgs = [...messages]
 
@@ -523,6 +524,7 @@ export async function aiComplete(
         body: JSON.stringify({
           system,
           messages: msgs,
+          mode,
           tools: AI_TOOLS,
           max_tokens: 4096,
         }),

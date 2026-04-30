@@ -311,16 +311,27 @@ export function AppShell() {
           />
         </button>
       </header>
-      <PullToRefresh className="app-content">
-        {tab === "timer" && <TimerView />}
-        {tab === "tasks" && <TasksView />}
-        {tab === "inbox" && <InboxView />}
-        {tab === "advisor" && <AdvisorView />}
-        {tab === "notes" && <NotesView />}
-        {tab === "dashboard" && <DashboardView />}
-        {tab === "book" && <BookView />}
-        {tab === "entries" && <EntriesView />}
-      </PullToRefresh>
+      {/* Advisor manages its own scrolling region with
+          long messages — wrapping it in PullToRefresh
+          causes the outer handler to intercept upward
+          touch gestures and reload the page, wiping the
+          conversation. The advisor has nothing to refresh
+          remotely anyway, so it's rendered outside. */}
+      {tab === "advisor" ? (
+        <div className="app-content">
+          <AdvisorView />
+        </div>
+      ) : (
+        <PullToRefresh className="app-content">
+          {tab === "timer" && <TimerView />}
+          {tab === "tasks" && <TasksView />}
+          {tab === "inbox" && <InboxView />}
+          {tab === "notes" && <NotesView />}
+          {tab === "dashboard" && <DashboardView />}
+          {tab === "book" && <BookView />}
+          {tab === "entries" && <EntriesView />}
+        </PullToRefresh>
+      )}
       <div className="tab-group-switcher">
         <div className="segmented">
           <button

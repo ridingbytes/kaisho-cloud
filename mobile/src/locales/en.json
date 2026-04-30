@@ -118,6 +118,8 @@
   "advisor.send": "Send",
   "advisor.stop": "Stop",
   "advisor.error_failed": "Request failed",
+  "advisor.clear": "Clear",
+  "advisor.confirm_clear": "Clear the conversation? This cannot be undone.",
   "shell.tab.timer": "Timer",
   "shell.tab.dashboard": "Dashboard",
   "shell.tab.book": "Book",

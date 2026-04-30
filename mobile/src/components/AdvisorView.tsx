@@ -12,6 +12,7 @@ import {
 } from "../api"
 import { useAuth } from "../auth"
 import { ErrorBanner } from "./ErrorBanner"
+import { useConfirm } from "./ConfirmDialog"
 
 // ── Example prompts ────────────────────────────────────
 
@@ -76,6 +77,46 @@ interface Message {
   text: string
 }
 
+// ── Conversation persistence ───────────────────────────
+
+// localStorage key — bump when changing the Message
+// shape so old entries don't deserialize incorrectly.
+const STORAGE_KEY = "kaisho.advisor.messages.v1"
+
+// Cap the conversation history sent to the gateway so a
+// single long-running thread doesn't blow through the
+// monthly token budget. The user still sees all prior
+// messages locally; only the last N are forwarded.
+const MAX_HISTORY_MESSAGES = 20
+
+function loadStoredMessages(): Message[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (m): m is Message =>
+        m && typeof m.text === "string"
+        && (m.role === "user" || m.role === "assistant"),
+    )
+  } catch {
+    return []
+  }
+}
+
+function saveMessages(messages: Message[]) {
+  try {
+    localStorage.setItem(
+      STORAGE_KEY, JSON.stringify(messages),
+    )
+  } catch {
+    // Storage may be full or disabled (private mode).
+    // Silently drop — the conversation still works in
+    // memory; only persistence is lost.
+  }
+}
+
 // ── Component ──────────────────────────────────────────
 
 export function AdvisorView() {
@@ -83,12 +124,19 @@ export function AdvisorView() {
   const { user } = useAuth()
   const hasAI = user?.plan === "sync_ai"
 
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>(
+    loadStoredMessages,
+  )
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const [confirm, confirmDialog] = useConfirm()
+
+  useEffect(() => {
+    saveMessages(messages)
+  }, [messages])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -107,6 +155,14 @@ export function AdvisorView() {
       if (!question.trim() || loading) return
       setInput("")
       setError(null)
+
+      // Snapshot prior history before adding the new
+      // user turn — this is what gets forwarded to the
+      // gateway as conversation context.
+      const priorMessages = messages.slice(
+        -MAX_HISTORY_MESSAGES,
+      )
+
       setMessages((prev) => [
         ...prev,
         { role: "user", text: question },
@@ -118,15 +174,31 @@ export function AdvisorView() {
 
       try {
         const context = await buildContext()
-        const prompt =
-          "## Context\n\n" + context
-          + "\n\n## Question\n\n" + question
+
+        // Send full prior conversation + the new turn.
+        // Context (clock entries, tasks, etc.) is
+        // injected only on the latest user message so
+        // the gateway sees a fresh snapshot each turn
+        // without re-paying for it on earlier turns.
+        const wireMessages = [
+          ...priorMessages.map((m) => ({
+            role: m.role,
+            content: m.text,
+          })),
+          {
+            role: "user",
+            content:
+              "## Context\n\n" + context
+              + "\n\n## Question\n\n" + question,
+          },
+        ]
 
         const result = await aiComplete(
           "You are the Kaisho AI advisor. Answer "
-          + "based on the context provided. Be "
+          + "based on the context provided and any "
+          + "earlier turns in this conversation. Be "
           + "concise and actionable.",
-          [{ role: "user", content: prompt }],
+          wireMessages,
         )
         if (!controller.signal.aborted) {
           setMessages((prev) => [
@@ -146,8 +218,18 @@ export function AdvisorView() {
         setLoading(false)
       }
     },
-    [loading],
+    [loading, messages, t],
   )
+
+  async function clearConversation() {
+    if (loading) return
+    const ok = await confirm(
+      t("advisor.confirm_clear"),
+    )
+    if (!ok) return
+    setMessages([])
+    setError(null)
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -168,10 +250,38 @@ export function AdvisorView() {
 
   return (
     <div className="view advisor-view">
+      {confirmDialog}
       <ErrorBanner
         message={error}
         onDismiss={() => setError(null)}
       />
+
+      {messages.length > 0 && (
+        <div className="advisor-toolbar">
+          <button
+            type="button"
+            className="advisor-clear-btn"
+            onClick={clearConversation}
+            disabled={loading}
+            aria-label={t("advisor.clear")}
+          >
+            <svg
+              width="14" height="14"
+              viewBox="0 0 24 24"
+              fill="none" stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6M14 11v6" />
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+            </svg>
+            <span>{t("advisor.clear")}</span>
+          </button>
+        </div>
+      )}
 
       <div className="advisor-messages">
         {messages.length === 0 && !loading && (

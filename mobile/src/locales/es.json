@@ -118,6 +118,8 @@
   "advisor.send": "Enviar",
   "advisor.stop": "Detener",
   "advisor.error_failed": "La solicitud falló",
+  "advisor.clear": "Limpiar",
+  "advisor.confirm_clear": "¿Limpiar la conversación? Esto no se puede deshacer.",
   "shell.tab.timer": "Timer",
   "shell.tab.dashboard": "Panel",
   "shell.tab.book": "Registrar",
