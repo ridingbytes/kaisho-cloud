@@ -11,6 +11,7 @@
  * All endpoints require the ``sync_ai`` plan.
  */
 
+const crypto = require("crypto")
 const { Router } = require("express")
 const { supabase } = require("../db")
 const {
@@ -137,8 +138,6 @@ const ALLOWED_BACKEND_KEY_ENVS = new Set([
 function isAllowedKeyEnv(name) {
   return ALLOWED_BACKEND_KEY_ENVS.has(name)
 }
-
-const crypto = require("crypto")
 
 /**
  * Return the first 8 hex chars of SHA-256 of an arbitrary
