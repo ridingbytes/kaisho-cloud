@@ -1737,6 +1737,31 @@ select {
   color: var(--t3);
 }
 
+/* GitHub-flavoured Markdown task lists. Without this
+   the checkbox renders alongside the default bullet,
+   so each task-list item shows BOTH a • and a ☐ on
+   separate visual lines. Suppress the bullet, pull the
+   item flush with its parent's left edge, and inline
+   the checkbox next to the label text. Applies wherever
+   .markdown-body is used (notes preview, advisor
+   replies, detail sheets, ...). */
+.markdown-body .contains-task-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.markdown-body .task-list-item {
+  list-style: none;
+  margin-left: 0;
+  padding-left: 0;
+}
+
+.markdown-body .task-list-item input[type="checkbox"] {
+  margin-right: 6px;
+  vertical-align: middle;
+  cursor: default;
+}
+
 /* -- Detail sheet fields -- */
 
 .detail-field {
