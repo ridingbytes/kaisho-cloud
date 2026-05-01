@@ -51,6 +51,18 @@ export function TimerView() {
   const [timer, setTimer] = useState<ActiveTimer | null>(
     null,
   )
+  // After Stop, we keep the just-finished timer in the
+  // UI with its frozen elapsed time so the user can
+  // resume the same customer/task/description with one
+  // tap. A second tap on the (now-Clear) button flushes
+  // this local state and returns to the empty start
+  // form. The underlying entry is already persisted —
+  // this state only controls what the running-timer
+  // card shows.
+  const [stopped, setStopped] = useState<{
+    timer: ActiveTimer
+    finalElapsed: string
+  } | null>(null)
   const [elapsed, setElapsed] = useState("00:00:00")
   const [customers, setCustomers] = useState<Customer[]>(
     [],
@@ -308,20 +320,74 @@ export function TimerView() {
   }
 
   async function handleStop() {
+    if (!timer) return
     setError(null)
-    // Optimistic: clear timer immediately
     suppressUntilRef.current = Date.now() + 3000
     const prev = timer
+    // Snapshot the timer for the "stopped, ready to
+    // resume" view. We freeze the elapsed text at the
+    // moment of stop so the displayed duration matches
+    // what was actually recorded.
+    setStopped({ timer: prev, finalElapsed: elapsed })
     setTimer(null)
     toast(t("timer.stopped"))
     try {
       await stopTimer()
     } catch (err) {
-      // Revert on failure
+      // Revert on failure: restore the running timer
+      // and drop the stopped snapshot.
+      setStopped(null)
       setTimer(prev)
       if (err instanceof ApiError) {
         setError(err.message)
       }
+    }
+  }
+
+  function handleClearStopped() {
+    setStopped(null)
+  }
+
+  async function handleResume() {
+    if (!stopped) return
+    const src = stopped.timer
+    setError(null)
+    setLoading(true)
+    suppressUntilRef.current = Date.now() + 3000
+    setStopped(null)
+    // Optimistic: pop the running-timer card immediately
+    // with the same fields so the user does not see a
+    // flash of the empty start form.
+    const optimistic: ActiveTimer = {
+      active: true,
+      id: "",
+      customer: src.customer ?? null,
+      description: src.description ?? "",
+      start: new Date().toISOString(),
+      end: null,
+      task_id: src.task_id ?? null,
+      contract: src.contract ?? null,
+    }
+    setTimer(optimistic)
+    try {
+      const result = await startTimer({
+        customer: src.customer || undefined,
+        description: src.description ?? "",
+        task_id: src.task_id || undefined,
+        contract: src.contract || undefined,
+      })
+      setTimer(result)
+      toast(t("timer.started"))
+    } catch (err) {
+      setTimer(null)
+      // Restore the stopped card so the user can try
+      // again or clear it.
+      setStopped({
+        timer: src, finalElapsed: stopped.finalElapsed,
+      })
+      if (err instanceof ApiError) setError(err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -444,6 +510,78 @@ export function TimerView() {
             }}
           />
         )}
+      </div>
+    )
+  }
+
+  if (stopped) {
+    return (
+      <div className="view view--timer-running">
+        <div className="timer-active card">
+          <div className="timer-header-row">
+            <div className="timer-elapsed-line">
+              <div className="timer-elapsed">
+                {stopped.finalElapsed}
+              </div>
+              <button
+                type="button"
+                className="timer-icon-btn timer-icon-btn--resume"
+                onClick={handleResume}
+                disabled={loading}
+                title={t("timer.resume")}
+                aria-label={t("timer.resume")}
+              >
+                <svg
+                  width="14" height="14"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="timer-icon-btn timer-icon-btn--clear"
+                onClick={handleClearStopped}
+                title={t("timer.clear")}
+                aria-label={t("timer.clear")}
+              >
+                <svg
+                  width="14" height="14"
+                  viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line
+                    x1="18" y1="6" x2="6" y2="18"
+                  />
+                  <line
+                    x1="6" y1="6" x2="18" y2="18"
+                  />
+                </svg>
+              </button>
+            </div>
+            <span className="timer-stopped-badge">
+              {t("timer.stopped_badge")}
+            </span>
+          </div>
+          {stopped.timer.customer && (
+            <div className="timer-meta">
+              {stopped.timer.customer}
+            </div>
+          )}
+          {stopped.timer.description && (
+            <div className="timer-desc">
+              {stopped.timer.description}
+            </div>
+          )}
+          <ErrorBanner
+            message={error}
+            onDismiss={() => setError(null)}
+          />
+        </div>
       </div>
     )
   }
