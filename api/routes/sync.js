@@ -239,7 +239,21 @@ function wireToRow(entry, userId) {
     notes: entry.notes ?? "",
     invoiced: entry.invoiced ?? false,
     deleted_at: entry.deleted_at ?? null,
-    updated_at: new Date().toISOString(),
+    // Preserve the client's updated_at. Stamping a fresh
+    // server timestamp here causes a sync echo loop:
+    // - Client A pushes entry at T1 with updated_at=T1
+    // - Server bumps to T2 (now)
+    // - Client A's next pull (since=T1_pull_old) sees
+    //   updated_at=T2 > T1_pull_old, fetches the entry
+    // - Apply locally, set local updated_at=T2
+    // - Next push collects entries with
+    //   updated_at>push_cursor and re-pushes the entry
+    // - Server bumps to T3 ...
+    // LWW correctness only requires a monotonic ordering
+    // PER ENTRY, which the client already provides; we
+    // honor it.
+    updated_at: entry.updated_at
+      || new Date().toISOString(),
   }
 }
 
@@ -752,7 +766,10 @@ function inboxWireToRow(entry, userId) {
     direction: entry.direction ?? "in",
     created_at: entry.created_at ?? new Date().toISOString(),
     deleted_at: entry.deleted_at ?? null,
-    updated_at: new Date().toISOString(),
+    // Preserve client's updated_at — see clocks
+    // wireToRow comment for the echo-loop rationale.
+    updated_at: entry.updated_at
+      || new Date().toISOString(),
   }
 }
 
@@ -967,7 +984,10 @@ function taskWireToRow(entry, userId) {
     created_at: entry.created_at
       ?? new Date().toISOString(),
     deleted_at: entry.deleted_at ?? null,
-    updated_at: new Date().toISOString(),
+    // Preserve client's updated_at — see clocks
+    // wireToRow comment for the echo-loop rationale.
+    updated_at: entry.updated_at
+      || new Date().toISOString(),
   }
 }
 
@@ -1149,7 +1169,10 @@ function noteWireToRow(entry, userId) {
     created_at: entry.created_at
       ?? new Date().toISOString(),
     deleted_at: entry.deleted_at ?? null,
-    updated_at: new Date().toISOString(),
+    // Preserve client's updated_at — see clocks
+    // wireToRow comment for the echo-loop rationale.
+    updated_at: entry.updated_at
+      || new Date().toISOString(),
   }
 }
 
