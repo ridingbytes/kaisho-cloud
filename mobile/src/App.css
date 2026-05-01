@@ -1886,22 +1886,26 @@ select {
   cursor: not-allowed;
 }
 
-/* Header row above each assistant reply — small
-   timestamp + provider on the left, save-to-inbox icon
-   on the right. Mirrors the desktop inbox row layout
-   so users coming from the desktop app feel at home. */
-.advisor-msg-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 4px;
+/* Speech-bubble wrapper for assistant messages. The
+   bubble is positioned (so the save icon can absolute-
+   anchor to its bottom-right corner) and reserves
+   bottom padding so the icon never overlaps the last
+   line of text. The user bubble doesn't need this
+   wrapper but it costs nothing to share the layout. */
+.advisor-bubble {
+  position: relative;
+  max-width: 85%;
+}
+
+.advisor-msg--assistant .advisor-bubble {
+  padding-bottom: 24px;
 }
 
 .advisor-msg-meta {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  margin-bottom: 4px;
   font-family: "SF Mono", "Fira Code", "Menlo",
     monospace;
   font-size: 10px;
@@ -1912,7 +1916,14 @@ select {
 .advisor-msg-sep  { color: var(--t4); }
 .advisor-msg-source { color: var(--t4); }
 
+/* Save-to-inbox: icon button anchored to the bottom-
+   right of the assistant bubble. Stays visually inside
+   the bubble's content area thanks to the bottom
+   padding reserved above. */
 .advisor-msg-action {
+  position: absolute;
+  right: 4px;
+  bottom: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
