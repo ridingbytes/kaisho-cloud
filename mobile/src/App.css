@@ -511,24 +511,28 @@ select {
   cursor: not-allowed;
 }
 
+/* Stop is the most important affordance on the running
+   timer, so it ships filled-red by default. Resume
+   mirrors the same treatment in green so both states
+   read at the same visual weight. */
 .timer-icon-btn--stop {
-  color: var(--danger, #ef4444);
+  color: #fff;
+  background: var(--danger, #ef4444);
   border-color: var(--danger, #ef4444);
 }
 
 .timer-icon-btn--stop:not(:disabled):hover {
-  color: #fff;
-  background: var(--danger, #ef4444);
+  filter: brightness(1.05);
 }
 
 .timer-icon-btn--resume {
-  color: var(--green);
+  color: #fff;
+  background: var(--green);
   border-color: var(--green);
 }
 
 .timer-icon-btn--resume:not(:disabled):hover {
-  color: #fff;
-  background: var(--green);
+  filter: brightness(1.05);
 }
 
 .timer-icon-btn--clear {
