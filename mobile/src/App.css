@@ -519,6 +519,22 @@ select {
   margin-top: -2px;
 }
 
+/* Edit + Stop sit side by side at the bottom of the
+   running-timer card. Edit opens the bottom-sheet
+   editor (reused from EntriesView); Stop ends the
+   timer. */
+.timer-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.timer-actions .btn-secondary,
+.timer-actions .btn-danger {
+  flex: 1;
+}
+
 /* -- Dashboard -- */
 
 .dashboard-totals {

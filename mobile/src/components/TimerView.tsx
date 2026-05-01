@@ -2,7 +2,7 @@ import {
   useCallback, useEffect, useRef, useState,
 } from "react"
 import { useTranslation } from "react-i18next"
-import type { ActiveTimer, Customer, TaskRef } from "../types"
+import type { Customer, TaskRef } from "../types"
 import {
   getActive,
   getCustomers,
@@ -16,8 +16,33 @@ import { onWsEvent } from "../ws"
 import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
 import { CustomerPicker } from "./CustomerPicker"
+import { EditEntrySheet } from "./EditEntrySheet"
 import { UpgradeBanner } from "./UpgradeBanner"
 import { formatElapsed } from "../utils/formatElapsed"
+import type { ActiveTimer, ClockEntry } from "../types"
+
+/** Adapt a running ``ActiveTimer`` to the
+ * ``ClockEntry`` shape ``EditEntrySheet`` expects.
+ * The sheet only reads ``id``, ``start``, ``end``,
+ * ``customer``, ``description``, ``task_id``,
+ * ``contract``, ``notes``, ``invoiced``; we hand it
+ * sensible defaults for the rest so TypeScript stays
+ * happy without inventing data. */
+function activeTimerToEntry(t: ActiveTimer): ClockEntry {
+  return {
+    id: t.id ?? "",
+    start: t.start ?? new Date().toISOString(),
+    end: null,
+    customer: t.customer ?? null,
+    description: t.description ?? "",
+    duration_minutes: null,
+    task_id: t.task_id ?? null,
+    contract: t.contract ?? null,
+    notes: t.notes ?? "",
+    invoiced: t.invoiced ?? false,
+    updated_at: t.updated_at,
+  }
+}
 
 export function TimerView() {
   const { t } = useTranslation()
@@ -51,6 +76,12 @@ export function TimerView() {
   // edit — no new endpoint required.
   const [notes, setNotes] = useState("")
   const notesDebounceRef = useRef<number | null>(null)
+
+  // Edit sheet for the running entry — reuses the same
+  // bottom-sheet editor as the historical Entries view
+  // so we have one canonical place to change customer,
+  // contract, task, description, notes.
+  const [editing, setEditing] = useState(false)
 
   const refreshActive = useCallback(async () => {
     try {
@@ -319,14 +350,42 @@ export function TimerView() {
             message={error}
             onDismiss={() => setError(null)}
           />
-          <button
-            className="btn-danger"
-            onClick={handleStop}
-            disabled={loading}
-          >
-            {t("timer.stop")}
-          </button>
+          <div className="timer-actions">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setEditing(true)}
+              disabled={!timer.id}
+            >
+              {t("timer.edit")}
+            </button>
+            <button
+              className="btn-danger"
+              onClick={handleStop}
+              disabled={loading}
+            >
+              {t("timer.stop")}
+            </button>
+          </div>
         </div>
+        {editing && timer.id && (
+          <EditEntrySheet
+            entry={activeTimerToEntry(timer)}
+            onClose={() => setEditing(false)}
+            onSaved={(updated) => {
+              suppressUntilRef.current = Date.now() + 2000
+              setTimer({
+                ...timer,
+                customer: updated.customer,
+                description: updated.description,
+                contract: updated.contract ?? null,
+                task_id: updated.task_id ?? null,
+                notes: updated.notes,
+              })
+              setEditing(false)
+            }}
+          />
+        )}
       </div>
     )
   }
