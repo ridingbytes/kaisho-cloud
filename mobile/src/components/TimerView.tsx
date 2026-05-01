@@ -188,6 +188,26 @@ export function TimerView() {
     return () => clearInterval(id)
   }, [timer?.start])
 
+  // Pin a stopped snapshot whenever the running timer
+  // disappears — covers both the user's own Stop click
+  // (handleStop already sets `stopped`, so the !stopped
+  // guard makes this branch a no-op) AND a stop initiated
+  // by another device, where only the WS event fires
+  // setTimer(null) without setting the snapshot.
+  const prevTimerRef = useRef<ActiveTimer | null>(null)
+  useEffect(() => {
+    const prev = prevTimerRef.current
+    prevTimerRef.current = timer
+    const wasRunning = !!(prev && prev.start)
+    const stillRunning = !!(timer && timer.start)
+    if (wasRunning && !stillRunning && !stopped) {
+      setStopped({
+        timer: prev as ActiveTimer,
+        finalElapsed: formatElapsed(prev!.start!),
+      })
+    }
+  }, [timer, stopped])
+
   // Sync the local notes textarea with the active
   // timer's notes whenever the timer object changes
   // (e.g. WS refresh, page reload). We never overwrite
