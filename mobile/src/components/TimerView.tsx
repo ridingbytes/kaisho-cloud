@@ -9,6 +9,7 @@ import {
   getTasks,
   startTimer,
   stopTimer,
+  updateEntry,
   ApiError,
 } from "../api"
 import { onWsEvent } from "../ws"
@@ -41,6 +42,15 @@ export function TimerView() {
   // optimistic UI from flickering when the server's
   // broadcast arrives after our own API response.
   const suppressUntilRef = useRef(0)
+
+  // Inline notes capture on the running timer. The
+  // backend already accepts notes on PATCH /clocks/{id};
+  // we save the local value, then debounce-flush via
+  // the existing API. Sync propagates the notes back to
+  // the desktop the same way as any other clock-entry
+  // edit — no new endpoint required.
+  const [notes, setNotes] = useState("")
+  const notesDebounceRef = useRef<number | null>(null)
 
   const refreshActive = useCallback(async () => {
     try {
@@ -113,6 +123,36 @@ export function TimerView() {
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
   }, [timer?.start])
+
+  // Sync the local notes textarea with the active
+  // timer's notes whenever the timer object changes
+  // (e.g. WS refresh, page reload). We never overwrite
+  // a draft the user is currently typing — only when the
+  // timer id changes.
+  const lastTimerIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    const newId = timer?.id ?? null
+    if (newId !== lastTimerIdRef.current) {
+      setNotes(timer?.notes ?? "")
+      lastTimerIdRef.current = newId
+    }
+  }, [timer?.id, timer?.notes])
+
+  function handleNotesChange(next: string) {
+    setNotes(next)
+    if (!timer?.id) return
+    const entryId = timer.id
+    if (notesDebounceRef.current) {
+      window.clearTimeout(notesDebounceRef.current)
+    }
+    notesDebounceRef.current = window.setTimeout(() => {
+      suppressUntilRef.current = Date.now() + 2000
+      updateEntry(entryId, { notes: next })
+        .catch((err) => {
+          if (err instanceof ApiError) setError(err.message)
+        })
+    }, 600)
+  }
 
   // Resume: pre-fill form from an Entries-view tap.
   // When ``autoStart`` is set, submit the form
@@ -252,6 +292,10 @@ export function TimerView() {
       <div className="view">
         <div className="timer-active card">
           <div className="timer-elapsed">{elapsed}</div>
+          <div className="timer-active-indicator">
+            <span className="timer-active-dot" />
+            <span>{t("timer.active")}</span>
+          </div>
           {timer.customer && (
             <div className="timer-meta">
               {timer.customer}
@@ -262,6 +306,15 @@ export function TimerView() {
               {timer.description}
             </div>
           )}
+          <textarea
+            className="timer-notes-area"
+            value={notes}
+            onChange={(e) =>
+              handleNotesChange(e.target.value)
+            }
+            placeholder={t("timer.notes_placeholder")}
+            rows={3}
+          />
           <ErrorBanner
             message={error}
             onDismiss={() => setError(null)}

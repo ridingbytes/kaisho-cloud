@@ -7,6 +7,8 @@
   "timer.description_optional": "Description (optional)",
   "timer.started": "Timer started",
   "timer.stopped": "Timer stopped",
+  "timer.active": "Active",
+  "timer.notes_placeholder": "Notes (markdown) — auto-saved",
   "entries.range.day": "Day",
   "entries.range.week": "Week",
   "entries.range.month": "Month",

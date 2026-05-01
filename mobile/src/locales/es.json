@@ -7,6 +7,8 @@
   "timer.description_optional": "Descripción (opcional)",
   "timer.started": "Temporizador iniciado",
   "timer.stopped": "Temporizador detenido",
+  "timer.active": "Activo",
+  "timer.notes_placeholder": "Notas (markdown) — se guarda al instante",
   "entries.range.day": "Día",
   "entries.range.week": "Semana",
   "entries.range.month": "Mes",

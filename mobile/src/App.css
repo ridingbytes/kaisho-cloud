@@ -432,26 +432,91 @@ select {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   text-align: center;
 }
 
+/* Mirrors the desktop tray timer: monospace, light
+   weight, tabular-nums for stable column widths, slight
+   tracking so glyphs don't crowd. Uses primary text
+   color (not accent green) so the running indicator
+   below carries the "active" signal instead. */
 .timer-elapsed {
-  font-size: 48px;
-  font-weight: 700;
+  font-family: "SF Mono", "Fira Code", "Menlo",
+    monospace;
+  font-size: 44px;
+  font-weight: 300;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -1px;
+  letter-spacing: 1px;
+  color: var(--t1);
+  line-height: 1;
+}
+
+/* Pulsing green dot + "ACTIVE" label below the elapsed
+   readout — copies the desktop tray pattern. */
+.timer-active-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
   color: var(--green);
 }
 
+.timer-active-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: timer-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes timer-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
 .timer-meta {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--t3);
+  margin-top: 4px;
 }
 
 .timer-desc {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--t2);
+}
+
+/* Notes textarea on the running timer. Stretched and
+   given a monospace-ish feel so users can dump markdown
+   bullets while the clock runs. */
+.timer-notes-area {
+  width: 100%;
+  min-height: 80px;
+  padding: 8px 10px;
+  margin-top: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--t1);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.timer-notes-area:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.timer-notes-hint {
+  font-size: 10px;
+  color: var(--t4);
+  align-self: flex-end;
+  margin-top: -2px;
 }
 
 /* -- Dashboard -- */
