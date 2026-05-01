@@ -105,7 +105,13 @@ export function TimerView() {
   const refreshActive = useCallback(async () => {
     try {
       const active = await getActive()
-      setTimer(active.active ? active : null)
+      const newTimer = active.active ? active : null
+      setTimer(newTimer)
+      // If a new active timer arrived while we were
+      // showing a local "stopped" snapshot (e.g. another
+      // device started one), drop the snapshot so the
+      // user is not stuck in paused mode.
+      if (newTimer) setStopped(null)
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
@@ -137,10 +143,18 @@ export function TimerView() {
   // Real-time updates via WebSocket. Refresh active
   // timer when another device starts or stops.
   // Visibility fallback for iOS PWA background resume.
+  //
+  // ``suppressUntilRef`` is honoured for ``timer:stopped``
+  // (avoid flickering our own optimistic UI when the
+  // server's echo arrives a moment later) but NOT for
+  // ``timer:started``: a start event after a local stop
+  // means another device picked up — we always want to
+  // act on it, otherwise the user is stuck in the
+  // pinned-stopped view while the desktop is tracking.
   useEffect(() => {
     const offStart = onWsEvent(
       "timer:started", () => {
-        if (Date.now() > suppressUntilRef.current) refreshActive()
+        refreshActive()
       },
     )
     const offStop = onWsEvent(
