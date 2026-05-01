@@ -378,11 +378,13 @@ export function AdvisorView() {
               + msg.role
             }
           >
-            {msg.role === "assistant" && (
-              <div className="advisor-msg-header">
-                <span className="advisor-msg-meta">
+            <div className="advisor-bubble">
+              {msg.role === "assistant" && (
+                <div className="advisor-msg-meta">
                   {msg.ts && (
-                    <span className="advisor-msg-time">
+                    <span
+                      className="advisor-msg-time"
+                    >
                       {formatMessageTime(msg.ts)}
                     </span>
                   )}
@@ -394,7 +396,16 @@ export function AdvisorView() {
                   <span className="advisor-msg-source">
                     kaisho:advisor
                   </span>
-                </span>
+                </div>
+              )}
+              <div className="advisor-msg-text">
+                {msg.role === "assistant" ? (
+                  <Markdown>{msg.text}</Markdown>
+                ) : (
+                  msg.text
+                )}
+              </div>
+              {msg.role === "assistant" && (
                 <button
                   type="button"
                   className="advisor-msg-action"
@@ -427,13 +438,6 @@ export function AdvisorView() {
                     />
                   </svg>
                 </button>
-              </div>
-            )}
-            <div className="advisor-msg-text">
-              {msg.role === "assistant" ? (
-                <Markdown>{msg.text}</Markdown>
-              ) : (
-                msg.text
               )}
             </div>
           </div>
