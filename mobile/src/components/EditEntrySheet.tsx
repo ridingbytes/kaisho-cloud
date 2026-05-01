@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import type { ClockEntry, Customer } from "../types"
+import type {
+  ClockEntry, Customer, TaskRef,
+} from "../types"
 import {
   getCustomers,
+  getTasks,
   updateEntry,
   ApiError,
 } from "../api"
@@ -47,6 +50,10 @@ export function EditEntrySheet(props: Props) {
   const [contract, setContract] = useState(
     entry.contract || "",
   )
+  const [taskId, setTaskId] = useState(
+    entry.task_id || "",
+  )
+  const [tasks, setTasks] = useState<TaskRef[]>([])
   const [description, setDescription] = useState(
     entry.description || "",
   )
@@ -74,6 +81,9 @@ export function EditEntrySheet(props: Props) {
     getCustomers()
       .then(setCustomers)
       .catch((e) => console.warn("customers:", e))
+    getTasks()
+      .then(setTasks)
+      .catch((e) => console.warn("tasks:", e))
   }, [])
 
   const selectedCustomer = customers.find(
@@ -102,6 +112,7 @@ export function EditEntrySheet(props: Props) {
         customer: customer || null,
         description,
         contract: contract || null,
+        task_id: taskId || null,
         notes,
         invoiced,
       }
@@ -243,6 +254,25 @@ export function EditEntrySheet(props: Props) {
                 </select>
               </>
             )}
+
+            <label className="edit-sheet-label">
+              {t("edit.label.task")}
+            </label>
+            <select
+              value={taskId}
+              onChange={(e) => setTaskId(e.target.value)}
+            >
+              <option value="">
+                {t("edit.task.none")}
+              </option>
+              {tasks.map((task) => (
+                <option key={task.id} value={task.id}>
+                  {task.title}
+                  {task.customer
+                    ? ` (${task.customer})` : ""}
+                </option>
+              ))}
+            </select>
 
             <label className="edit-sheet-label">
               {t("edit.label.description")}
