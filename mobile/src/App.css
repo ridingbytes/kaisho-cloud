@@ -1886,34 +1886,57 @@ select {
   cursor: not-allowed;
 }
 
-/* Save-to-inbox button on assistant replies. Sits below
-   the message text, only visible on assistant turns. */
-.advisor-save-btn {
+/* Header row above each assistant reply — small
+   timestamp + provider on the left, save-to-inbox icon
+   on the right. Mirrors the desktop inbox row layout
+   so users coming from the desktop app feel at home. */
+.advisor-msg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.advisor-msg-meta {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-  padding: 3px 8px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--t3);
+  gap: 6px;
+  font-family: "SF Mono", "Fira Code", "Menlo",
+    monospace;
   font-size: 10px;
-  font-weight: 500;
+  color: var(--t4);
+}
+
+.advisor-msg-time { font-variant-numeric: tabular-nums; }
+.advisor-msg-sep  { color: var(--t4); }
+.advisor-msg-source { color: var(--t4); }
+
+.advisor-msg-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--t4);
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  transition: color 0.15s, background 0.15s;
 }
 
-.advisor-save-btn:not(:disabled):active {
-  border-color: var(--t4);
+.advisor-msg-action:not(:disabled):hover,
+.advisor-msg-action:not(:disabled):active {
   color: var(--t1);
+  background: var(--surface);
 }
 
-.advisor-save-btn:disabled {
-  opacity: 0.5;
+.advisor-msg-action:disabled {
+  opacity: 1;
   cursor: default;
   color: var(--accent);
-  border-color: var(--accent);
 }
 
 .advisor-welcome {
