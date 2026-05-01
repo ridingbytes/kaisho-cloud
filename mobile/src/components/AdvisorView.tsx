@@ -77,19 +77,37 @@ async function buildContext(): Promise<string> {
 interface Message {
   role: "user" | "assistant"
   text: string
+  /** ISO-8601 timestamp. Optional for backward
+   * compatibility with older v1 stored messages, which
+   * still load as undefined here and just render
+   * without a header timestamp. */
+  ts?: string
 }
 
 // ── Conversation persistence ───────────────────────────
 
 // localStorage key — bump when changing the Message
 // shape so old entries don't deserialize incorrectly.
-const STORAGE_KEY = "kaisho.advisor.messages.v1"
+const STORAGE_KEY = "kaisho.advisor.messages.v2"
 
 // Cap the conversation history sent to the gateway so a
 // single long-running thread doesn't blow through the
 // monthly token budget. The user still sees all prior
 // messages locally; only the last N are forwarded.
 const MAX_HISTORY_MESSAGES = 20
+
+/** Format an ISO timestamp as ``HH:MM`` in the user's
+ * locale. Returns an empty string for unparseable input
+ * so old messages that lack ``ts`` simply hide the header
+ * timestamp. */
+function formatMessageTime(iso: string): string {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ""
+  return d.toLocaleTimeString([], {
+    hour: "2-digit", minute: "2-digit",
+  })
+}
+
 
 function loadStoredMessages(): Message[] {
   try {
@@ -171,7 +189,11 @@ export function AdvisorView() {
 
       setMessages((prev) => [
         ...prev,
-        { role: "user", text: question },
+        {
+          role: "user",
+          text: question,
+          ts: new Date().toISOString(),
+        },
       ])
       setLoading(true)
 
@@ -209,7 +231,11 @@ export function AdvisorView() {
         if (!controller.signal.aborted) {
           setMessages((prev) => [
             ...prev,
-            { role: "assistant", text: result },
+            {
+              role: "assistant",
+              text: result,
+              ts: new Date().toISOString(),
+            },
           ])
         }
       } catch (err) {
@@ -352,6 +378,57 @@ export function AdvisorView() {
               + msg.role
             }
           >
+            {msg.role === "assistant" && (
+              <div className="advisor-msg-header">
+                <span className="advisor-msg-meta">
+                  {msg.ts && (
+                    <span className="advisor-msg-time">
+                      {formatMessageTime(msg.ts)}
+                    </span>
+                  )}
+                  {msg.ts && (
+                    <span className="advisor-msg-sep">
+                      ·
+                    </span>
+                  )}
+                  <span className="advisor-msg-source">
+                    kaisho:advisor
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className="advisor-msg-action"
+                  onClick={() =>
+                    saveToInbox(i, msg.text)
+                  }
+                  disabled={savedAt.has(i)}
+                  title={
+                    savedAt.has(i)
+                      ? t("advisor.saved_to_inbox")
+                      : t("advisor.save_to_inbox")
+                  }
+                  aria-label={t(
+                    "advisor.save_to_inbox",
+                  )}
+                >
+                  <svg
+                    width="14" height="14"
+                    viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path
+                      d="M22 12h-6l-2 3h-4l-2-3H2"
+                    />
+                    <path
+                      d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
             <div className="advisor-msg-text">
               {msg.role === "assistant" ? (
                 <Markdown>{msg.text}</Markdown>
@@ -359,37 +436,6 @@ export function AdvisorView() {
                 msg.text
               )}
             </div>
-            {msg.role === "assistant" && (
-              <button
-                type="button"
-                className="advisor-save-btn"
-                onClick={() => saveToInbox(i, msg.text)}
-                disabled={savedAt.has(i)}
-                aria-label={t("advisor.save_to_inbox")}
-              >
-                <svg
-                  width="12" height="12"
-                  viewBox="0 0 24 24"
-                  fill="none" stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M22 12h-6l-2 3h-4l-2-3H2" />
-                  <path
-                    d="M5.45 5.11L2 12v6a2 2 0 0 0 2
-                    2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2
-                    2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79
-                    1.11z"
-                  />
-                </svg>
-                <span>
-                  {savedAt.has(i)
-                    ? t("advisor.saved_to_inbox")
-                    : t("advisor.save_to_inbox")}
-                </span>
-              </button>
-            )}
           </div>
         ))}
 
