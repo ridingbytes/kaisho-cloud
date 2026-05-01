@@ -1,5 +1,48 @@
 # Changelog
 
+## 1.3.0
+
+PWA-focused release. Desktop-app changes are tracked in the
+`kaisho` repo's CHANGELOG.
+
+### Features
+
+- **Advisor → Inbox**: small icon in each assistant reply
+  (top-left timestamp, bottom-right save icon, both inside
+  the bubble) saves the answer to the inbox via the existing
+  add-inbox API. Synced to desktop on the next cycle. Saved
+  state persists across page reloads
+- **Timer styling parity with desktop**: monospace elapsed
+  counter, font-weight 300, tabular-nums; pulsing green
+  "Active" pill replaces the previous green digits
+- **Inline markdown notes** on the running timer: full-height
+  textarea with debounced auto-save, live preview when not
+  editing (tap to switch back to raw)
+- **Editable customer/task/contract** on a running timer via
+  an Edit button → bottom-sheet editor (the same one used
+  for historical entries; now includes a Task select)
+- **Pause / Resume** on Stop: the just-stopped timer stays
+  pinned with a frozen elapsed counter, a green Resume
+  button (one-tap re-fire of the same customer/description)
+  and a neutral Clear button (drops the snapshot, returns
+  to the empty start form)
+- Cross-device pin: a stop initiated on desktop now pins the
+  PWA in the same Resume/Clear state, and a start on another
+  device drops the local pin
+- Filled-red Stop / filled-green Resume circular buttons,
+  sized below the elapsed font for visual hierarchy
+
+### Improvements
+
+- Markdown task lists (`- [ ] foo` / `- [x] done`) render
+  with the checkbox inline next to the label and no
+  redundant bullet
+- Bullet markers in the notes preview no longer clip
+  against the rounded card border (proper list padding)
+- Replaces the pill-shaped "Save to inbox" button beside
+  each assistant reply with a small icon inside the bubble,
+  alongside an `HH:MM · kaisho:advisor` header
+
 ## 1.2.5
 
 - Operational documentation in `docs/ai-gateway-config.md`:
