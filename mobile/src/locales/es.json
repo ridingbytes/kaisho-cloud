@@ -120,6 +120,8 @@
   "advisor.error_failed": "La solicitud falló",
   "advisor.clear": "Limpiar",
   "advisor.confirm_clear": "¿Limpiar la conversación? Esto no se puede deshacer.",
+  "advisor.save_to_inbox": "Guardar en bandeja",
+  "advisor.saved_to_inbox": "Guardado",
   "shell.tab.timer": "Timer",
   "shell.tab.dashboard": "Panel",
   "shell.tab.book": "Registrar",

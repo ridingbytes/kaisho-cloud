@@ -120,6 +120,8 @@
   "advisor.error_failed": "Request failed",
   "advisor.clear": "Clear",
   "advisor.confirm_clear": "Clear the conversation? This cannot be undone.",
+  "advisor.save_to_inbox": "Save to inbox",
+  "advisor.saved_to_inbox": "Saved to inbox",
   "shell.tab.timer": "Timer",
   "shell.tab.dashboard": "Dashboard",
   "shell.tab.book": "Book",

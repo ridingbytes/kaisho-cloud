@@ -120,6 +120,8 @@
   "advisor.error_failed": "Anfrage fehlgeschlagen",
   "advisor.clear": "Löschen",
   "advisor.confirm_clear": "Unterhaltung löschen? Dies kann nicht rückgängig gemacht werden.",
+  "advisor.save_to_inbox": "In Inbox speichern",
+  "advisor.saved_to_inbox": "Gespeichert",
   "shell.tab.timer": "Timer",
   "shell.tab.dashboard": "Dashboard",
   "shell.tab.book": "Buchen",

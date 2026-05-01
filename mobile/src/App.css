@@ -1821,6 +1821,36 @@ select {
   cursor: not-allowed;
 }
 
+/* Save-to-inbox button on assistant replies. Sits below
+   the message text, only visible on assistant turns. */
+.advisor-save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--t3);
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.advisor-save-btn:not(:disabled):active {
+  border-color: var(--t4);
+  color: var(--t1);
+}
+
+.advisor-save-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .advisor-welcome {
   text-align: center;
   padding: 32px 16px;

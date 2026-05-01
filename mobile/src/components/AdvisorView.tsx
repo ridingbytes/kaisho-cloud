@@ -5,12 +5,14 @@ import { useTranslation } from "react-i18next"
 import { Markdown } from "./Markdown"
 import {
   aiComplete,
+  addInboxItem,
   getEntries,
   getCustomers,
   getTasks,
   ApiError,
 } from "../api"
 import { useAuth } from "../auth"
+import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
 import { useConfirm } from "./ConfirmDialog"
 
@@ -122,7 +124,11 @@ function saveMessages(messages: Message[]) {
 export function AdvisorView() {
   const { t } = useTranslation()
   const { user } = useAuth()
+  const { toast } = useToast()
   const hasAI = user?.plan === "sync_ai"
+  const [savedAt, setSavedAt] = useState<Set<number>>(
+    () => new Set(),
+  )
 
   const [messages, setMessages] = useState<Message[]>(
     loadStoredMessages,
@@ -236,6 +242,37 @@ export function AdvisorView() {
     send(input)
   }
 
+  async function saveToInbox(idx: number, text: string) {
+    // Take the user's question above the assistant
+    // reply (if any) as the inbox item title — gives the
+    // entry meaning at a glance. Falls back to the first
+    // line of the answer for orphaned replies.
+    const question = idx > 0 && (
+      messages[idx - 1]?.role === "user"
+    ) ? messages[idx - 1].text : ""
+    const fallbackTitle = text
+      .split("\n")[0]
+      .replace(/^#+\s*/, "")
+      .slice(0, 80)
+    const title = question
+      ? `Advisor: ${question.slice(0, 80)}`
+      : fallbackTitle || "Advisor reply"
+
+    try {
+      await addInboxItem({
+        title,
+        type: "AI",
+        body: text,
+      })
+      setSavedAt((prev) => new Set(prev).add(idx))
+      toast(t("advisor.saved_to_inbox"))
+    } catch (err) {
+      const msg = err instanceof ApiError
+        ? err.message : t("advisor.error_failed")
+      setError(msg)
+    }
+  }
+
   if (!hasAI) {
     return (
       <div className="view advisor-view">
@@ -322,6 +359,37 @@ export function AdvisorView() {
                 msg.text
               )}
             </div>
+            {msg.role === "assistant" && (
+              <button
+                type="button"
+                className="advisor-save-btn"
+                onClick={() => saveToInbox(i, msg.text)}
+                disabled={savedAt.has(i)}
+                aria-label={t("advisor.save_to_inbox")}
+              >
+                <svg
+                  width="12" height="12"
+                  viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+                  <path
+                    d="M5.45 5.11L2 12v6a2 2 0 0 0 2
+                    2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2
+                    2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79
+                    1.11z"
+                  />
+                </svg>
+                <span>
+                  {savedAt.has(i)
+                    ? t("advisor.saved_to_inbox")
+                    : t("advisor.save_to_inbox")}
+                </span>
+              </button>
+            )}
           </div>
         ))}
 
