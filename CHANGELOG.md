@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.5
+
+- Operational documentation in `docs/ai-gateway-config.md`:
+  the allowlist-update workflow when adding a new model
+  to `gateway_config`, per-Express-worker cache
+  propagation behaviour (~60s per worker), `ai_usage`
+  retention guidance, and the desktop retry contract for
+  `/ai/*` 5xx (do not retry — risk of double-billing
+  via `recordUsage`)
+
 ## 1.2.4
 
 - Fix sync echo loop. `/sync/apply` (and inbox/task/note

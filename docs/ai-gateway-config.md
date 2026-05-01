@@ -234,3 +234,70 @@ not currently exposed via env — the migration seeds the
 table with the same default. If you ever drop the table
 and want a different env-driven default, expose it in
 `getGatewayConfig`'s catch branch.
+
+## Operational notes
+
+### Adding a new model to the allowlist
+
+`ALLOWED_MODELS` is a code-level set populated from
+either the `AI_ALLOWED_MODELS` env var or a hardcoded
+list in `api/routes/ai.js`. Setting
+`gateway_config.model_advisor` to a slug **not** in this
+set will be rejected with a warning log and the gateway
+will fall back to the env default.
+
+To add a new model:
+
+1. Set `AI_ALLOWED_MODELS=<existing>,new/model:slug` on
+   the VPS env, **or** edit the hardcoded list in code
+   and ship a release.
+2. Restart the container so the new env is read.
+3. `UPDATE gateway_config SET model_advisor = 'new/model:slug' WHERE id = 1;`
+4. Within ~60s the per-worker config cache picks it up.
+
+If you skip step 1, advisor calls keep using the env
+fallback and you'll see warnings in logs. No data is
+lost — just a silent degrade.
+
+### Cache propagation across workers
+
+When running multiple Express workers (PM2 cluster), each
+has its own 60-second config cache. A single SQL change
+to `gateway_config` propagates within ~60s **per worker**
+independently. During that window, traffic to different
+workers may see mixed configurations.
+
+If you need instant propagation, restart the workers
+after the SQL change: `pm2 restart kaisho-cloud`. For
+true online consistency, subscribe to Supabase Realtime
+on the `gateway_config` table and clear the cache on
+NOTIFY (not currently implemented).
+
+### `ai_usage` table retention
+
+The `ai_usage` table grows by one row per (user, month).
+Retention is unbounded today. At some scale (say >12
+months × N users beyond what's interesting) consider:
+
+- Archive rows older than 13 months to a cold table or
+  a CSV in object storage
+- Or just drop them — billing has already happened, and
+  the per-user UI only shows the current month
+
+A `pg_cron` job or external script can do this; not
+urgent below 1k users.
+
+### Desktop client retry contract
+
+`POST /ai/complete` returns 5xx if the AI request
+succeeded but `recordUsage` failed (e.g.
+`increment_ai_usage` RPC missing or DB error). The
+desktop and PWA clients should **not** retry on 5xx from
+`/ai/*` — a retry could double-bill if the first call's
+RPC eventually commits. Treat 5xx as "this request is
+final; show an error".
+
+If automated retry becomes a UX requirement, add a
+client-supplied request id and an idempotency table on
+the gateway side that returns the cached response for
+duplicate ids.
