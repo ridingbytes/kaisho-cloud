@@ -685,6 +685,28 @@ select {
   margin-bottom: 0;
 }
 
+/* Default UA padding for lists is too small for the
+   compact notes preview — the bullet glyphs ended up
+   clipped against the rounded border. Indent enough so
+   the marker has breathing room and the text stays
+   readable. Same treatment for ordered lists. */
+.timer-notes-preview .markdown-body ul,
+.timer-notes-preview .markdown-body ol {
+  padding-left: 22px;
+  margin: 4px 0;
+}
+
+.timer-notes-preview .markdown-body li {
+  margin: 2px 0;
+}
+
+/* Task lists have their own bullet (the checkbox) and
+   should sit flush so the checkboxes line up with the
+   surrounding text. */
+.timer-notes-preview .markdown-body .contains-task-list {
+  padding-left: 0;
+}
+
 .timer-notes-hint {
   font-size: 10px;
   color: var(--t4);
