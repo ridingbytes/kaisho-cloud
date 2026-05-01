@@ -464,25 +464,20 @@ select {
   flex: 1;
 }
 
-/* The elapsed counter and "Active" badge stay centered
-   relative to the whole card. The Stop button floats in
-   the top-right corner via .timer-icon-btn--stop's
-   absolute positioning so it does not nudge the centred
-   text off-axis. */
+/* Elapsed counter + inline Stop button on the same
+   row, with the Active badge centred underneath. */
 .timer-header-row {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 2px;
   width: 100%;
 }
 
-.timer-header-text {
-  display: flex;
-  flex-direction: column;
+.timer-elapsed-line {
+  display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 12px;
 }
 
 /* Compact circular icon button. The desktop tray uses
@@ -517,9 +512,6 @@ select {
 }
 
 .timer-icon-btn--stop {
-  position: absolute;
-  top: 12px;
-  right: 12px;
   color: var(--danger, #ef4444);
   border-color: var(--danger, #ef4444);
 }

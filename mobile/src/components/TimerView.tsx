@@ -334,34 +334,34 @@ export function TimerView() {
               sits right next to the readout instead of
               hiding at the bottom of the card. */}
           <div className="timer-header-row">
-            <div className="timer-header-text">
+            <div className="timer-elapsed-line">
               <div className="timer-elapsed">
                 {elapsed}
               </div>
-              <div className="timer-active-indicator">
-                <span className="timer-active-dot" />
-                <span>{t("timer.active")}</span>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="timer-icon-btn timer-icon-btn--stop"
-              onClick={handleStop}
-              disabled={loading}
-              title={t("timer.stop")}
-              aria-label={t("timer.stop")}
-            >
-              <svg
-                width="14" height="14"
-                viewBox="0 0 24 24"
-                fill="currentColor"
+              <button
+                type="button"
+                className="timer-icon-btn timer-icon-btn--stop"
+                onClick={handleStop}
+                disabled={loading}
+                title={t("timer.stop")}
+                aria-label={t("timer.stop")}
               >
-                <rect
-                  x="6" y="6" width="12" height="12"
-                  rx="1"
-                />
-              </svg>
-            </button>
+                <svg
+                  width="14" height="14"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <rect
+                    x="6" y="6" width="12" height="12"
+                    rx="1"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="timer-active-indicator">
+              <span className="timer-active-dot" />
+              <span>{t("timer.active")}</span>
+            </div>
           </div>
 
           {timer.customer && (
