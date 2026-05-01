@@ -10,6 +10,7 @@
   "timer.active": "Active",
   "timer.edit": "Edit",
   "timer.notes_placeholder": "Notes (markdown) — auto-saved",
+  "timer.notes_edit_hint": "Tap to edit",
   "entries.range.day": "Day",
   "entries.range.week": "Week",
   "entries.range.month": "Month",

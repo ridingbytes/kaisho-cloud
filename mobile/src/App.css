@@ -429,11 +429,109 @@ select {
 /* -- Timer -- */
 
 .timer-active {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
   text-align: center;
+}
+
+/* The notes area, preview, and edit button need to span
+   the card's full width; the elapsed/active block stays
+   center-aligned with the card. The Stop button is
+   pulled out of normal flow (see .timer-icon-btn--stop)
+   so it does not push the centered text off-axis. */
+.timer-active .timer-notes-area,
+.timer-active .timer-notes-preview,
+.timer-active .timer-edit-btn {
+  align-self: stretch;
+}
+
+/* When the timer is running we want the notes textarea
+   to dominate the screen, with the elapsed counter +
+   stop button in a compact top row. The view itself
+   stretches to fill the available content area so that
+   ``.timer-notes-area: flex: 1`` has somewhere to grow
+   into. */
+.view--timer-running {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.view--timer-running .timer-active {
+  flex: 1;
+}
+
+/* The elapsed counter and "Active" badge stay centered
+   relative to the whole card. The Stop button floats in
+   the top-right corner via .timer-icon-btn--stop's
+   absolute positioning so it does not nudge the centred
+   text off-axis. */
+.timer-header-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+}
+
+.timer-header-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Compact circular icon button. The desktop tray uses
+   an icon-only Stop in the same spot, so we mirror that
+   here to keep the running-timer header visually quiet
+   and let the elapsed counter dominate. */
+.timer-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--t2);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s,
+    border-color 0.15s;
+}
+
+.timer-icon-btn:not(:disabled):hover,
+.timer-icon-btn:not(:disabled):active {
+  color: var(--t1);
+  background: var(--surface-hover, var(--surface));
+}
+
+.timer-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.timer-icon-btn--stop {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: var(--danger, #ef4444);
+  border-color: var(--danger, #ef4444);
+}
+
+.timer-icon-btn--stop:not(:disabled):hover {
+  color: #fff;
+  background: var(--danger, #ef4444);
+}
+
+.timer-edit-btn {
+  align-self: stretch;
+  margin-top: auto;
 }
 
 /* Mirrors the desktop tray timer: monospace, light
@@ -444,7 +542,7 @@ select {
 .timer-elapsed {
   font-family: "SF Mono", "Fira Code", "Menlo",
     monospace;
-  font-size: 44px;
+  font-size: 40px;
   font-weight: 300;
   font-variant-numeric: tabular-nums;
   letter-spacing: 1px;
@@ -494,22 +592,60 @@ select {
    bullets while the clock runs. */
 .timer-notes-area {
   width: 100%;
-  min-height: 80px;
-  padding: 8px 10px;
+  flex: 1;
+  min-height: 220px;
+  padding: 10px 12px;
   margin-top: 4px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--t1);
   font-family: var(--font);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
   resize: vertical;
 }
 
 .timer-notes-area:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+/* Rendered-markdown preview shown when the user isn't
+   editing. Looks like a dimmer card; tapping it flips
+   back to the raw textarea so they can keep editing. */
+.timer-notes-preview {
+  flex: 1;
+  min-height: 220px;
+  padding: 10px 12px;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--t1);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+  cursor: text;
+  overflow-y: auto;
+}
+
+.timer-notes-preview:hover {
+  border-color: var(--t4);
+}
+
+.timer-notes-preview .markdown-body p:first-child {
+  margin-top: 0;
+}
+
+.timer-notes-preview .markdown-body p:last-child {
+  margin-bottom: 0;
 }
 
 .timer-notes-hint {

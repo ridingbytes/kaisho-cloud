@@ -17,6 +17,7 @@ import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
 import { CustomerPicker } from "./CustomerPicker"
 import { EditEntrySheet } from "./EditEntrySheet"
+import { Markdown } from "./Markdown"
 import { UpgradeBanner } from "./UpgradeBanner"
 import { formatElapsed } from "../utils/formatElapsed"
 import type { ActiveTimer, ClockEntry } from "../types"
@@ -76,6 +77,12 @@ export function TimerView() {
   // edit — no new endpoint required.
   const [notes, setNotes] = useState("")
   const notesDebounceRef = useRef<number | null>(null)
+  const notesAreaRef = useRef<HTMLTextAreaElement>(null)
+  // Markdown preview / edit toggle. Idle state shows
+  // the rendered markdown; tapping it switches into the
+  // raw textarea so the user can edit. Auto-flips back
+  // on blur if there's saved content to render.
+  const [editingNotes, setEditingNotes] = useState(false)
 
   // Edit sheet for the running entry — reuses the same
   // bottom-sheet editor as the historical Entries view
@@ -320,13 +327,43 @@ export function TimerView() {
 
   if (timer) {
     return (
-      <div className="view">
+      <div className="view view--timer-running">
         <div className="timer-active card">
-          <div className="timer-elapsed">{elapsed}</div>
-          <div className="timer-active-indicator">
-            <span className="timer-active-dot" />
-            <span>{t("timer.active")}</span>
+          {/* Elapsed counter + inline Stop. Stop is the
+              primary action while a timer runs, so it
+              sits right next to the readout instead of
+              hiding at the bottom of the card. */}
+          <div className="timer-header-row">
+            <div className="timer-header-text">
+              <div className="timer-elapsed">
+                {elapsed}
+              </div>
+              <div className="timer-active-indicator">
+                <span className="timer-active-dot" />
+                <span>{t("timer.active")}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="timer-icon-btn timer-icon-btn--stop"
+              onClick={handleStop}
+              disabled={loading}
+              title={t("timer.stop")}
+              aria-label={t("timer.stop")}
+            >
+              <svg
+                width="14" height="14"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <rect
+                  x="6" y="6" width="12" height="12"
+                  rx="1"
+                />
+              </svg>
+            </button>
           </div>
+
           {timer.customer && (
             <div className="timer-meta">
               {timer.customer}
@@ -337,36 +374,57 @@ export function TimerView() {
               {timer.description}
             </div>
           )}
-          <textarea
-            className="timer-notes-area"
-            value={notes}
-            onChange={(e) =>
-              handleNotesChange(e.target.value)
-            }
-            placeholder={t("timer.notes_placeholder")}
-            rows={3}
-          />
+
+          {/* Notes: rendered markdown when idle, raw
+              textarea when editing. Tapping the rendered
+              view (or the empty placeholder) switches to
+              edit mode. Blur returns to preview if any
+              content is saved; otherwise we keep the
+              textarea visible so the user can start
+              typing without an extra tap. */}
+          {editingNotes || !notes.trim() ? (
+            <textarea
+              ref={notesAreaRef}
+              className="timer-notes-area"
+              value={notes}
+              onChange={(e) =>
+                handleNotesChange(e.target.value)
+              }
+              onBlur={() => {
+                if (notes.trim()) setEditingNotes(false)
+              }}
+              placeholder={t("timer.notes_placeholder")}
+              autoFocus={editingNotes}
+            />
+          ) : (
+            <button
+              type="button"
+              className="timer-notes-preview"
+              onClick={() => {
+                setEditingNotes(true)
+                setTimeout(
+                  () => notesAreaRef.current?.focus(), 0,
+                )
+              }}
+              title={t("timer.notes_edit_hint")}
+            >
+              <Markdown>{notes}</Markdown>
+            </button>
+          )}
+
           <ErrorBanner
             message={error}
             onDismiss={() => setError(null)}
           />
-          <div className="timer-actions">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setEditing(true)}
-              disabled={!timer.id}
-            >
-              {t("timer.edit")}
-            </button>
-            <button
-              className="btn-danger"
-              onClick={handleStop}
-              disabled={loading}
-            >
-              {t("timer.stop")}
-            </button>
-          </div>
+
+          <button
+            type="button"
+            className="btn-secondary timer-edit-btn"
+            onClick={() => setEditing(true)}
+            disabled={!timer.id}
+          >
+            {t("timer.edit")}
+          </button>
         </div>
         {editing && timer.id && (
           <EditEntrySheet
