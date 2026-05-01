@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.4
+
+- Fix sync echo loop. `/sync/apply` (and inbox/task/note
+  variants) stamped a fresh `updated_at` on every write,
+  which made every locally-pushed entry come back on the
+  next pull (cloud's `updated_at` > client's pull cursor)
+  → applied locally → re-pushed → echoed forever. Symptom:
+  clicking Sync alternated "8 pulled" / "8 pushed"
+  indefinitely. Fix: honor the client's `updated_at` for
+  LWW correctness; only stamp fresh when the client
+  didn't supply one (defensive).
+
 ## 1.2.3
 
 - Move `crypto = require("crypto")` to the top of
