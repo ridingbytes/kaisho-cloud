@@ -50,7 +50,7 @@ Set in ``ridingbytes/kaisho`` > Settings > Secrets > Actions:
 |--------|-------|
 | ``APPLE_CERTIFICATE`` | Base64 of ``kaisho-devid.p12`` |
 | ``APPLE_CERTIFICATE_PASSWORD`` | Password set on the .p12 |
-| ``APPLE_SIGNING_IDENTITY`` | ``Developer ID Application: Ramon Bartl (75EHWS7L8X)`` (changes to ``RIDING BYTES GmbH`` after the org-transfer cert regeneration) |
+| ``APPLE_SIGNING_IDENTITY`` | ``Developer ID Application: RIDING BYTES GmbH (75EHWS7L8X)`` |
 | ``APPLE_ID`` | Apple ID email used for notarization |
 | ``APPLE_PASSWORD`` | App-specific password |
 | ``APPLE_TEAM_ID`` | ``75EHWS7L8X`` |
@@ -105,17 +105,39 @@ The certificate expires after 5 years. To renew:
    base64 -i ~/.kaisho/certificates/kaisho-devid.p12
    ```
 
-## Organization Transfer (May 2026, in progress)
+## Organization Transfer (completed 2026-05-08)
 
 The Apple Developer membership was transferred from
 ``Ramon Bartl`` (Individual) to ``RIDING BYTES GmbH``
-(Organization). The Team ID (``75EHWS7L8X``) is
-preserved, so ``APPLE_TEAM_ID`` does not change. After
-issuing the new organization Developer ID Application
-certificate, ``APPLE_SIGNING_IDENTITY`` will change from
-``Developer ID Application: Ramon Bartl (75EHWS7L8X)``
-to ``Developer ID Application: RIDING BYTES GmbH
-(75EHWS7L8X)``. Apple ID and the app-specific password
-used for notarization stay unchanged (those belong to
-the Apple ID, not the team). Update this section with
-the actual changeover date once the new cert is in CI.
+(Organization) on 2026-04-19. Apple preserved the
+Team ID (``75EHWS7L8X``), so ``APPLE_TEAM_ID`` did not
+change. On 2026-05-08 a new Developer ID Application
+certificate was issued under the org (CN=RIDING BYTES
+GmbH, valid through 2031-05-09), and the following
+GitHub secrets were rotated:
+
+- ``APPLE_CERTIFICATE`` (new ``.p12`` blob)
+- ``APPLE_CERTIFICATE_PASSWORD`` (new export password)
+- ``APPLE_SIGNING_IDENTITY`` (now ``Developer ID
+  Application: RIDING BYTES GmbH (75EHWS7L8X)``)
+
+``APPLE_ID``, ``APPLE_PASSWORD``, and ``APPLE_TEAM_ID``
+were left untouched — the first two belong to the Apple
+ID used for notarization (not the team), and the Team ID
+was preserved across the transfer. The first CI build
+under the new cert (workflow run 25547227062, macOS leg)
+signed and notarized cleanly.
+
+The pre-transfer personal artifacts are kept on the
+maintainer's machine in ``~/.kaisho/certificates/`` with
+``.personal-backup`` suffixes for forensic reference.
+
+### Hands-on cheat sheet
+
+For the day-of, copy-paste-friendly walkthrough that was
+actually used during the May 2026 transfer (CSR regen,
+portal navigation in German, ``security import``
+gotchas, intermediate CA install, ``gh secret set``
+sequence), see ``~/.kaisho/certificates/README.md`` on
+the maintainer's machine. That README references back to
+this runbook as the authoritative source.
