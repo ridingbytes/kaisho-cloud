@@ -307,6 +307,7 @@ export function AppShell() {
             seed={
               appConfig?.avatar_seed || "kaisho"
             }
+            style={appConfig?.avatar_style}
             size={24}
           />
         </button>

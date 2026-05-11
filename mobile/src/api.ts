@@ -321,6 +321,7 @@ export interface AppConfig {
   tags: { name: string; color: string }[]
   github_configured: boolean
   avatar_seed?: string
+  avatar_style?: string
   user_name?: string
 }
 

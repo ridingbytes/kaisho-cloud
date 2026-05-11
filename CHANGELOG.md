@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.3.1
+
+PWA + API patch. Companion to ``kaisho`` 1.5.1.
+
+### Multi-style avatars on the mobile PWA
+
+The desktop app gained a per-user ``avatar_style`` field
+in 1.5.1. The cloud now carries that field end-to-end so
+the mobile PWA renders the same avatar style the user
+picked on the desktop.
+
+- ``POST /sync/reference`` schema accepts the optional
+  ``avatar_style`` field on the embedded config object.
+  The value flows verbatim into the ``ref_config`` JSONB
+  blob and is returned by ``GET /ref/config``.
+- Mobile PWA's ``PixelAvatar`` is rewritten as a
+  multi-style renderer (``invaders`` default,
+  ``pixel-art`` / ``bottts`` / ``adventurer`` via DiceBear).
+  All four styles render fully client-side -- no DiceBear
+  HTTP API, the seed never leaves the device. DiceBear
+  styles are lazy-imported so only the renderer in use
+  ships in the runtime chunk.
+- The header avatar in the PWA picks up
+  ``appConfig.avatar_style`` automatically.
+
 ## 1.3.0
 
 PWA-focused release. Desktop-app changes are tracked in the
