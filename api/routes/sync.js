@@ -126,7 +126,15 @@ router.post(
       )
     }
 
-    // Store config (tags, feature flags)
+    // Store config (tags, feature flags). The validator
+    // strips unknown keys, so ``config`` here is exactly
+    // what we accept and persist. We echo it back so the
+    // client can digest the *stored* shape rather than its
+    // local payload; that way a schema mismatch (e.g.
+    // older server, newer client field) doesn't leave the
+    // client's digest convinced a field was pushed when
+    // the server actually dropped it.
+    let stored_config = null
     if (config) {
       const { error: cfgErr } = await supabase
         .from("ref_config")
@@ -143,10 +151,12 @@ router.post(
           { err: cfgErr },
           "ref_config upsert failed",
         )
+      } else {
+        stored_config = config
       }
     }
 
-    res.json({ ok: true })
+    res.json({ ok: true, config: stored_config })
   }),
 )
 
