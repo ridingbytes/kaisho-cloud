@@ -22,6 +22,7 @@ const LANG_OPTIONS = [
   { id: "en", label: "English" },
   { id: "de", label: "Deutsch" },
   { id: "es", label: "Español" },
+  { id: "ru", label: "Русский" },
 ]
 
 export function ProfileView() {
@@ -476,6 +477,18 @@ export function ProfileView() {
       >
         {t("profile.logout")}
       </button>
+
+      <p
+        className="text-muted"
+        style={{
+          fontSize: 11,
+          textAlign: "center",
+          marginTop: 16,
+          opacity: 0.6,
+        }}
+      >
+        Kaisho PWA v{import.meta.env.APP_VERSION}
+      </p>
     </div>
   )
 }

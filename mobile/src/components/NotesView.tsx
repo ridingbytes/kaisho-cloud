@@ -21,6 +21,7 @@ import {
 import { tagBadgeStyle } from "../utils/tagColors"
 import { Markdown } from "./Markdown"
 import { SearchBar } from "./SearchBar"
+import { SwipeToReveal } from "./SwipeToReveal"
 import { TagEditor } from "./TagEditor"
 
 function NoteRow({
@@ -37,32 +38,26 @@ function NoteRow({
   onTagClick: (tag: string) => void
 }) {
   const { t } = useTranslation()
-  const [swiped, setSwiped] = useState(false)
-  const startX = useRef(0)
-
-  function handleTouchStart(e: React.TouchEvent) {
-    startX.current = e.touches[0].clientX
-    setSwiped(false)
-  }
-
-  function handleTouchEnd(e: React.TouchEvent) {
-    const dx = e.changedTouches[0].clientX - startX.current
-    if (dx < -80) setSwiped(true)
-    else setSwiped(false)
-  }
-
   const created = note.created_at
     ? formatShortDate(note.created_at)
     : ""
 
   return (
-    <div
-      className={
-        "note-row" + (swiped ? " swiped" : "")
+    <SwipeToReveal
+      className="note-row"
+      onClick={() => onSelect(note)}
+      revealAction={
+        <button
+          className="inbox-delete-btn"
+          style={{ flex: 1 }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete(note)
+          }}
+        >
+          {t("inbox.delete")}
+        </button>
       }
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onClick={() => !swiped && onSelect(note)}
     >
       <div className="note-row-inner">
         <div className="note-row-header">
@@ -99,28 +94,14 @@ function NoteRow({
           </div>
         )}
       </div>
-      {!swiped && (
-        <span className="row-chevron">&#8250;</span>
-      )}
-      {swiped && (
-        <button
-          className="inbox-delete-btn"
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete(note)
-          }}
-        >
-          {t("inbox.delete")}
-        </button>
-      )}
-    </div>
+      <span className="row-chevron">&#8250;</span>
+    </SwipeToReveal>
   )
 }
 
 function NoteDetailSheet({
   note,
   onClose,
-  onDelete,
   onUpdate,
   config,
   customers,
@@ -128,7 +109,6 @@ function NoteDetailSheet({
 }: {
   note: Note
   onClose: () => void
-  onDelete: (note: Note) => void
   onUpdate: (updates: Partial<Note>) => void
   config: AppConfig
   customers: Customer[]
@@ -308,16 +288,6 @@ function NoteDetailSheet({
                 onChange={() => {}}
                 allTags={config.tags}
               />
-
-              <button
-                className="detail-delete-btn"
-                onClick={() => {
-                  onDelete(note)
-                  onClose()
-                }}
-              >
-                {t("detail.delete")}
-              </button>
             </>
           )}
         </div>
@@ -520,7 +490,6 @@ export function NotesView() {
         <NoteDetailSheet
           note={selected}
           onClose={() => setSelected(null)}
-          onDelete={handleDelete}
           onUpdate={(updates) =>
             handleUpdate(selected, updates)
           }

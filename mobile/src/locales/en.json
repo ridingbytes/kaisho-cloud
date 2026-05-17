@@ -187,6 +187,8 @@
   "tasks.created": "Task created",
   "tasks.createError": "Failed to create task",
   "tasks.empty": "No tasks",
+  "tasks.collapseAll": "Collapse all",
+  "tasks.expandAll": "Expand all",
   "shell.tab.notes": "Notes",
   "notes.addPlaceholder": "Add a note...",
   "notes.created": "Note created",

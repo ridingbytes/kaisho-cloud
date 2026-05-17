@@ -419,6 +419,15 @@ export function TasksView() {
     })
   }
 
+  function toggleAll(groups: string[]) {
+    const allCollapsed = groups.every(
+      (g) => collapsed.has(g),
+    )
+    setCollapsed(
+      allCollapsed ? new Set() : new Set(groups),
+    )
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const val = text.trim()
@@ -526,39 +535,70 @@ export function TasksView() {
         </p>
       ) : (
         <div className="tasks-list">
-          {grouped.map((group) => (
-            <div
-              key={group.status}
-              className="task-group"
+          <div className="tasks-list-toolbar">
+            <button
+              className="tasks-toggle-all"
+              onClick={() =>
+                toggleAll(grouped.map((g) => g.status))
+              }
             >
-              <button
-                className="task-group-label"
-                onClick={() =>
-                  toggleCollapse(group.status)
-                }
+              {grouped.every(
+                (g) => collapsed.has(g.status),
+              )
+                ? t("tasks.expandAll")
+                : t("tasks.collapseAll")}
+            </button>
+          </div>
+          {grouped.map((group) => {
+            const isCollapsed =
+              collapsed.has(group.status)
+            const color =
+              STATUS_COLORS[group.status] || "#9ca3af"
+            return (
+              <div
+                key={group.status}
+                className="task-group"
               >
-                <span className="task-group-chevron">
-                  {collapsed.has(group.status)
-                    ? "▸" : "▾"}
-                </span>
-                {statusLabel(group.status)}
-                <span className="task-group-count">
-                  {group.items.length}
-                </span>
-              </button>
-              {!collapsed.has(group.status) &&
-                group.items.map((task) => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    onSelect={setSelected}
-                    allTags={config.tags}
-                    onTagClick={toggleSearchTag}
-                    onStatusClick={toggleStatusFilter}
-                  />
-                ))}
-            </div>
-          ))}
+                <button
+                  className="task-group-label"
+                  onClick={() =>
+                    toggleCollapse(group.status)
+                  }
+                  style={{
+                    borderLeftColor: color,
+                    background: hexToRgba(color, 0.06),
+                  }}
+                >
+                  <span className="task-group-chevron">
+                    {isCollapsed ? "▸" : "▾"}
+                  </span>
+                  <span
+                    className="task-group-status"
+                    style={{ color }}
+                  >
+                    {statusLabel(group.status)}
+                  </span>
+                  <span className="task-group-count">
+                    {group.items.length}
+                  </span>
+                </button>
+                {!isCollapsed && (
+                  <div className="task-group-rows">
+                    {group.items.map((task) => (
+                      <TaskRow
+                        key={task.id}
+                        task={task}
+                        onSelect={setSelected}
+                        allTags={config.tags}
+                        onTagClick={toggleSearchTag}
+                        onStatusClick={toggleStatusFilter}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 

@@ -17,6 +17,7 @@ import {
 } from "../utils/formatDate"
 import { Markdown } from "./Markdown"
 import { SearchBar } from "./SearchBar"
+import { SwipeToReveal } from "./SwipeToReveal"
 
 /** Strip markdown syntax for plain-text preview. */
 function stripMd(text: string): string {
@@ -59,31 +60,26 @@ function InboxItemRow({
   onSelect: (item: InboxItem) => void
 }) {
   const { t } = useTranslation()
-  const [swiped, setSwiped] = useState(false)
-  const startX = useRef(0)
-
-  function handleTouchStart(e: React.TouchEvent) {
-    startX.current = e.touches[0].clientX
-    setSwiped(false)
-  }
-
-  function handleTouchEnd(e: React.TouchEvent) {
-    const dx = e.changedTouches[0].clientX - startX.current
-    if (dx < -80) setSwiped(true)
-    else setSwiped(false)
-  }
-
   const created = item.created_at
     ? formatShortDate(item.created_at)
     : ""
 
   return (
-    <div
-      className={"inbox-row" + (swiped ? " swiped" : "")}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onClick={() => !swiped && onSelect(item)}
-      style={{ cursor: "pointer" }}
+    <SwipeToReveal
+      className="inbox-row"
+      onClick={() => onSelect(item)}
+      revealAction={
+        <button
+          className="inbox-delete-btn"
+          style={{ flex: 1 }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete(item)
+          }}
+        >
+          {t("inbox.delete")}
+        </button>
+      }
     >
       <div className="inbox-row-content">
         <div className="inbox-row-header">
@@ -103,21 +99,8 @@ function InboxItemRow({
           </p>
         )}
       </div>
-      {!swiped && (
-        <span className="row-chevron">&#8250;</span>
-      )}
-      {swiped && (
-        <button
-          className="inbox-delete-btn"
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete(item)
-          }}
-        >
-          {t("inbox.delete")}
-        </button>
-      )}
-    </div>
+      <span className="row-chevron">&#8250;</span>
+    </SwipeToReveal>
   )
 }
 
@@ -129,13 +112,11 @@ const DIRECTIONS = ["in", "out"]
 function InboxDetailSheet({
   item,
   onClose,
-  onDelete,
   onUpdate,
   customers,
 }: {
   item: InboxItem
   onClose: () => void
-  onDelete: (item: InboxItem) => void
   onUpdate: (updates: Partial<InboxItem>) => void
   customers: Customer[]
 }) {
@@ -353,16 +334,6 @@ function InboxDetailSheet({
                 </div>
               </div>
             )}
-
-            <button
-              className="detail-delete-btn"
-              onClick={() => {
-                onDelete(item)
-                onClose()
-              }}
-            >
-              {t("detail.delete")}
-            </button>
           </>
         )}
       </div>
@@ -542,7 +513,6 @@ export function InboxView() {
         <InboxDetailSheet
           item={selected}
           onClose={() => setSelected(null)}
-          onDelete={handleDelete}
           onUpdate={(updates) =>
             handleUpdate(selected, updates)
           }

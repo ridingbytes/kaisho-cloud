@@ -1,4 +1,4 @@
-const CACHE = "kaisho-v9"
+const CACHE = "kaisho-v11"
 const PRECACHE = [
   "/m/",
   "/m/icon.svg",

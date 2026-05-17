@@ -186,6 +186,8 @@
   "tasks.created": "Tarea creada",
   "tasks.createError": "Error al crear tarea",
   "tasks.empty": "Sin tareas",
+  "tasks.collapseAll": "Contraer todo",
+  "tasks.expandAll": "Expandir todo",
   "shell.tab.notes": "Notas",
   "notes.addPlaceholder": "Agregar nota...",
   "notes.created": "Nota creada",

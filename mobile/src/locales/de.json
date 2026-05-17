@@ -186,6 +186,8 @@
   "tasks.created": "Aufgabe erstellt",
   "tasks.createError": "Aufgabe konnte nicht erstellt werden",
   "tasks.empty": "Keine Aufgaben",
+  "tasks.collapseAll": "Alle einklappen",
+  "tasks.expandAll": "Alle ausklappen",
   "shell.tab.notes": "Notizen",
   "notes.addPlaceholder": "Notiz hinzufügen...",
   "notes.created": "Notiz erstellt",
