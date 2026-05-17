@@ -6,7 +6,6 @@ import { useTheme } from "../theme"
 import type { Theme } from "../theme"
 import { setLanguage } from "../i18n"
 import {
-  createCheckout,
   createPortalSession,
   getAppConfig,
   getSubscription,
@@ -52,7 +51,6 @@ export function ProfileView() {
       status: string
     } | null
   } | null>(null)
-  const [upgrading, setUpgrading] = useState(false)
   const [usage, setUsage] = useState<{
     month: string
     input_tokens: number
@@ -113,29 +111,6 @@ export function ProfileView() {
       toast(t("profile.api_key_copied"))
       setTimeout(() => setCopied(false), 2000)
     })
-  }
-
-  async function handleUpgrade(
-    target: "sync" | "sync_ai",
-  ) {
-    if (upgrading) return
-    setUpgrading(true)
-    setError(null)
-    try {
-      const result = await createCheckout(target)
-      if (result.url) {
-        window.open(result.url, "_blank")
-      } else if (result.success) {
-        toast(`Upgraded to ${planLabel(target)}`)
-        refreshSub()
-      }
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message)
-      }
-    } finally {
-      setUpgrading(false)
-    }
   }
 
   async function handleManage() {
@@ -244,20 +219,6 @@ export function ProfileView() {
               className="upgrade-actions"
               style={{ marginTop: 12 }}
             >
-              {plan === "sync" && (
-                <button
-                  type="button"
-                  className="btn-primary upgrade-btn"
-                  onClick={() =>
-                    handleUpgrade("sync_ai")
-                  }
-                  disabled={upgrading}
-                >
-                  {upgrading
-                    ? t("profile.upgrade.upgrading")
-                    : t("profile.upgrade.to_sync_ai")}
-                </button>
-              )}
               <button
                 type="button"
                 className="btn-secondary upgrade-btn"
@@ -270,32 +231,17 @@ export function ProfileView() {
         ) : (
           <>
             <p className="text-muted">
-              {t("profile.upgrade.cta")}
+              <strong>{t("upgrade.coming_soon")}</strong>
+              {" — "}
+              {t("upgrade.coming_soon_detail")}{" "}
+              <a
+                href="https://kaisho.dev/#pricing"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {t("upgrade.coming_soon_link")}
+              </a>
             </p>
-            <div className="upgrade-actions">
-              <button
-                type="button"
-                className="btn-primary upgrade-btn"
-                onClick={() => handleUpgrade("sync")}
-                disabled={upgrading}
-              >
-                {upgrading
-                  ? t("profile.upgrade.processing")
-                  : t("profile.upgrade.cloud_sync")}
-              </button>
-              <button
-                type="button"
-                className="btn-secondary upgrade-btn"
-                onClick={() =>
-                  handleUpgrade("sync_ai")
-                }
-                disabled={upgrading}
-              >
-                {upgrading
-                  ? t("profile.upgrade.processing")
-                  : t("profile.upgrade.sync_ai")}
-              </button>
-            </div>
           </>
         )}
       </div>
