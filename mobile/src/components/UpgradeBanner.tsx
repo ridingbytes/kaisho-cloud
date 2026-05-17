@@ -1,65 +1,38 @@
-import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { createCheckout, ApiError } from "../api"
 
 interface Props {
   message?: string
 }
 
 /**
- * Inline banner shown when a feature requires a paid
- * plan. Offers one-tap upgrade via Stripe checkout.
+ * Inline banner shown when a feature requires a paid plan.
+ *
+ * 2.0 pivot: the old sync / sync_ai SKUs are archived. The
+ * new Companion / Pro / Team tiers launch in Q3 2026, so
+ * this banner currently only informs and links out — no
+ * Stripe checkout. The full upgrade flow returns when
+ * Companion ships.
  */
 export function UpgradeBanner({ message }: Props) {
   const { t } = useTranslation()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
   const displayMessage =
     message ?? t("upgrade_banner.default_message")
-
-  async function handleUpgrade(
-    plan: "sync" | "sync_ai",
-  ) {
-    setLoading(true)
-    setError("")
-    try {
-      const { url } = await createCheckout(plan)
-      if (url) window.open(url, "_blank")
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError(t("upgrade_banner.error"))
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
 
   return (
     <div className="upgrade-banner">
       <p className="upgrade-msg">{displayMessage}</p>
-      <div className="upgrade-actions">
-        <button
-          type="button"
-          className="btn-primary upgrade-btn"
-          onClick={() => handleUpgrade("sync")}
-          disabled={loading}
+      <p className="upgrade-coming-soon">
+        <strong>{t("upgrade.coming_soon")}</strong>
+        {" — "}
+        {t("upgrade.coming_soon_detail")}{" "}
+        <a
+          href="https://kaisho.dev/#pricing"
+          target="_blank"
+          rel="noopener noreferrer"
         >
-          {t("upgrade_banner.cloud_sync")}
-        </button>
-        <button
-          type="button"
-          className="btn-secondary upgrade-btn"
-          onClick={() => handleUpgrade("sync_ai")}
-          disabled={loading}
-        >
-          {t("upgrade_banner.sync_ai")}
-        </button>
-      </div>
-      {error && (
-        <p className="upgrade-error">{error}</p>
-      )}
+          {t("upgrade.coming_soon_link")}
+        </a>
+      </p>
     </div>
   )
 }
