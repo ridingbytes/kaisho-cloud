@@ -5,7 +5,7 @@
  *
  * Clock entry routes — start, stop, book, list, update,
  * and delete time entries. All routes require JWT auth
- * and an active "sync" or "sync_ai" plan.
+ * and any paid plan (companion / pro / team).
  */
 
 const { Router } = require("express")
@@ -31,7 +31,8 @@ const router = Router()
 
 router.use(requireAuth)
 router.use(apiLimiter)
-router.use(requirePlan("sync", "sync_ai"))
+// Any paid tier grants clocks sync.
+router.use(requirePlan("companion", "pro", "team"))
 
 // ── GET /clocks/active ──────────────────────────────────
 

@@ -17,7 +17,7 @@ const { supabase } = require("../db")
 const {
   requireAuth, requirePlan,
 } = require("../middleware")
-const { apiLimiter } = require("../config")
+const { apiLimiter, PLAN_QUOTAS } = require("../config")
 const { asyncHandler } = require("../utils/asyncHandler")
 const { logger } = require("../logger")
 const {
@@ -31,7 +31,10 @@ const router = Router()
 
 router.use(requireAuth)
 router.use(apiLimiter)
-router.use(requirePlan("sync_ai"))
+// Any paid tier grants AI gateway access. The per-plan
+// monthly token quota is enforced separately by
+// requireTokenQuota below.
+router.use(requirePlan("companion", "pro", "team"))
 
 // ── Config ──────────────────────────────────────────────
 //
@@ -272,14 +275,15 @@ async function getBackend() {
 }
 
 /**
- * Fetch the per-user override columns. NULL fields mean
- * "use the gateway_config value".
+ * Fetch the per-user override and bonus columns. NULL
+ * override fields mean "use the per-plan default".
  *
  * @param {string} userId
  * @returns {Promise<{
  *   monthly_token_cap_override: number | null,
  *   advisor_model_override: string | null,
  *   cron_model_override: string | null,
+ *   bonus_tokens_remaining: number,
  * }>}
  */
 async function getUserOverrides(userId) {
@@ -288,7 +292,8 @@ async function getUserOverrides(userId) {
     .select(
       "monthly_token_cap_override, "
       + "advisor_model_override, "
-      + "cron_model_override",
+      + "cron_model_override, "
+      + "bonus_tokens_remaining",
     )
     .eq("id", userId)
     .maybeSingle()
@@ -296,24 +301,41 @@ async function getUserOverrides(userId) {
     monthly_token_cap_override: null,
     advisor_model_override: null,
     cron_model_override: null,
+    bonus_tokens_remaining: 0,
   }
 }
 
 /**
- * Resolve the effective monthly token cap for a user:
- * user override → gateway_config → env fallback.
+ * Resolve the effective monthly token cap for a user.
+ *
+ * Resolution order:
+ *   1. users.monthly_token_cap_override (absolute
+ *      operator override; bonus tokens not added)
+ *   2. PLAN_QUOTAS[plan].tokens_per_month +
+ *      users.bonus_tokens_remaining (normal path)
+ *   3. gateway_config.monthly_token_cap (defensive
+ *      fallback for plans not in PLAN_QUOTAS — should
+ *      not happen since requirePlan upstream restricts
+ *      callers, but keeps the gateway functional in
+ *      case of plan-rename drift)
  *
  * @param {string} userId
+ * @param {string} plan - User's current plan name.
  * @returns {Promise<number>}
  */
-async function resolveCap(userId) {
-  const [config, overrides] = await Promise.all([
-    getGatewayConfig(),
-    getUserOverrides(userId),
-  ])
+async function resolveCap(userId, plan) {
+  const overrides = await getUserOverrides(userId)
   if (overrides.monthly_token_cap_override != null) {
     return overrides.monthly_token_cap_override
   }
+  const planQuota = PLAN_QUOTAS[plan]
+  if (planQuota) {
+    return (
+      planQuota.tokens_per_month
+      + (overrides.bonus_tokens_remaining || 0)
+    )
+  }
+  const config = await getGatewayConfig()
   return config.monthly_token_cap
 }
 
@@ -406,7 +428,7 @@ async function requireTokenQuota(req, res, next) {
   const month = currentMonth()
   const [usage, cap] = await Promise.all([
     getUsage(req.userId, month),
-    resolveCap(req.userId),
+    resolveCap(req.userId, req.userPlan),
   ])
   const total =
     usage.input_tokens + usage.output_tokens

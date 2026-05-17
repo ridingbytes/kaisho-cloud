@@ -62,9 +62,12 @@ const refreshSchema = z.object({
  */
 const checkoutSchema = z.object({
   plan: z.enum(
-    ["sync", "sync_ai"],
+    ["companion", "pro", "team"],
     { message: "Unknown plan" },
   ),
+  // Optional yearly toggle. When true the webhook chooses
+  // the *_YEARLY price ID instead of the monthly one.
+  yearly: z.boolean().optional(),
 })
 
 // ── Clock schemas ───────────────────────────────────────
