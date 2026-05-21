@@ -25,6 +25,7 @@ const { logger } = require("../logger")
 const {
   requireApiKey, requirePlan,
 } = require("../middleware")
+const { registerReadTools } = require("../mcp/tools/read")
 
 const router = Router()
 const requireCompanion =
@@ -60,9 +61,9 @@ async function handleMcpRequest(req, res) {
     capabilities: { tools: {} },
   })
 
-  // Empty tool registry for the scaffold. PR #31 (read)
-  // and #32 (write) wire in the real tools via
-  // server.registerTool(...).
+  // Read-side tools, scoped to the authenticated user.
+  // Write tools land in #32.
+  registerReadTools(server, req.userId)
 
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
