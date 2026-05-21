@@ -18,6 +18,7 @@ const { clearPlanCache } = require("../middleware")
 const {
   sendPlanUpgradeEmail,
   sendPlanCancelledEmail,
+  sendTokenPackPurchasedEmail,
 } = require("../emails/mailer")
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -330,6 +331,16 @@ async function onPaymentIntentSucceeded(pi) {
     },
     "Token pack credited",
   )
+
+  const { data: authData } =
+    await supabase.auth.admin.getUserById(userId)
+  if (authData?.user?.email) {
+    sendTokenPackPurchasedEmail({
+      email: authData.user.email,
+      tokens: TOKEN_PACK_SIZE,
+      bonusTotal: next,
+    })
+  }
 }
 
 /**
