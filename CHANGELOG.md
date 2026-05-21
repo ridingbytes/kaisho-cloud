@@ -6,6 +6,7 @@
 - Token-pack purchase email + Track AI tier copy refresh [#23](https://github.com/ridingbytes/kaisho-cloud/pull/23)
 - scripts: idempotent Stripe webhook endpoint syncer [#24](https://github.com/ridingbytes/kaisho-cloud/pull/24)
 - scripts: read-only Stripe setup audit [#25](https://github.com/ridingbytes/kaisho-cloud/pull/25)
+- MCP gateway scaffold (Companion+, behind feature flag) [#26](https://github.com/ridingbytes/kaisho-cloud/pull/26)
 
 ## 1.3.1
 

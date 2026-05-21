@@ -65,6 +65,14 @@ app.use("/ref", refRoutes)
 app.use("/billing", billingRoutes)
 app.use("/ai", aiRoutes)
 
+// Hosted MCP gateway (Companion+) — opt-in. Disabled by
+// default so deployments without the feature flag set
+// don't expose the endpoint at all (not even 401-ing).
+if (process.env.MCP_GATEWAY_ENABLED === "true") {
+  app.use("/mcp", require("./routes/mcp"))
+  logger.info("MCP gateway enabled at /mcp")
+}
+
 // ── Mobile SPA ──────────────────────────────────────────
 
 const mobileDir = path.join(
