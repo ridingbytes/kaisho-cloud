@@ -285,43 +285,60 @@ own rows.
 ### 4.1 Hosted MCP gateway (Companion+)
 
 The desktop MCP server runs over stdio against a local
-Kaisho. The hosted relay exposes the same tool surface
+Kaisho. The hosted gateway exposes the same tool surface
 over **streamable HTTP** (current MCP transport for remote
 servers) so Claude Code, Cursor and Claude Desktop can
 reach a tenant's data when the laptop is closed.
 
-Two implementations possible:
+**Approach: server-side dispatch against the same Supabase
+tables the PWA already reads and writes.** The PWA's
+existing write path proves that cloud-first mutations are
+safe to round-trip through the desktop's sync engine; the
+gateway reuses that path instead of inventing a parallel
+one.
 
-- **Thin relay**: hosted endpoint receives MCP calls,
-  forwards to the tenant's WebSocket-connected desktop if
-  online, falls back to the cloud row store for read-only
-  ops. Pros: keeps the heavy logic in the desktop. Cons:
-  only fully functional when the desktop is online.
-- **Server-side dispatch**: re-implement
-  `kaisho/cron/tools.py` tool surface in Node, dispatching
-  directly against the Supabase row store. Pros: works
-  always. Cons: must port + maintain ~40 tools across two
-  languages, divergence risk.
+This replaces the earlier "WebSocket relay + offline
+buffer" design. The relay was written under the assumption
+that the desktop is the canonical owner of every write —
+true for org-mode files on disk, but the PWA already
+violates that assumption every time a user adds a task on
+mobile, and the existing sync engine merges those rows
+back into the local org files cleanly. The relay would be
+solving a problem the sync engine has already solved.
 
-Recommendation: **server-side dispatch for the read-mostly
-core** (`list_tasks`, `list_customers`, `search_knowledge`,
-`list_clock_entries`, `list_inbox`, `list_notes`) — these
-are 80% of MCP traffic and trivially mappable to existing
-Supabase queries. **Relay for the write-side** (`add_task`,
-`book_time`, `update_*`, `delete_*`) — buffer the call if
-the desktop is offline, replay on reconnect, return a
-"queued" response to the AI so it knows the action is
-pending.
+Tool split:
 
-This keeps the source-of-truth on the desktop (preserves
-the local-first claim) while still being useful when the
-laptop sleeps.
+- **Read tools** (`list_tasks`, `list_customers`,
+  `search_knowledge`, `list_clock_entries`, `list_inbox`,
+  `list_notes`) — direct Supabase SELECTs. 80% of MCP
+  traffic. PR A scaffold + PR B (#31).
+- **Write tools** (`add_task`, `book_time`,
+  `add_inbox_item`, `add_note`, `update_task`,
+  `move_task`) — direct Supabase INSERTs / UPDATEs via
+  the same validators `/sync` and the PWA already use.
+  The desktop sync engine picks them up on the next cycle
+  (typically <30 s) and merges them into the local org
+  files. #32.
 
-New route: `api/routes/mcp.js` exposing
-`POST /mcp/streamable` (Anthropic spec). One new env var
-to enable: `MCP_GATEWAY_ENABLED=true`. Auth via
-`X-Kaisho-Api-Key` so the editor can hit the gateway with
-the same key the desktop uses.
+Tools that genuinely need a live laptop (`transcribe_youtube`,
+`fetch_url --render`, kb file writes outside the sync scope)
+stay desktop-only — those *would* need a WebSocket relay,
+but they aren't in the Companion read/write surface and
+can be added later as opt-in tools.
+
+Conflict model: last-write-wins by `updated_at`, same as
+the PWA today. If the user edits a task in their local
+org file at the same moment the AI mutates it via MCP,
+the later mutation wins on the next sync. Worth
+documenting in the user-facing MCP install guide;
+unlikely to bite in practice given typical AI tool-call
+cadence.
+
+New route: `api/routes/mcp.js` exposing `POST /mcp`
+(MCP Streamable HTTP). One new env var to enable:
+`MCP_GATEWAY_ENABLED=true`. Auth via
+`Authorization: Bearer <kaisho-api-key>` so the editor
+can hit the gateway with the same key the desktop uses.
 
 ### 4.2 Hosted cron runner (Companion+)
 
