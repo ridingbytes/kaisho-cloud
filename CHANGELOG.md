@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.0
+
+- Track AI plan rollout: rename tiers, add PLAN_QUOTAS, handle token-pack purchases [#22](https://github.com/ridingbytes/kaisho-cloud/pull/22)
+
 ## 1.3.1
 
 PWA + API patch. Companion to ``kaisho`` 1.5.1.
