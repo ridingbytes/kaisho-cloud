@@ -29,7 +29,8 @@ const { apiLimiter } = require("../config")
 const {
   requireAuth, requirePlan,
 } = require("../middleware")
-const requireSync = requirePlan("sync", "sync_ai")
+// Any paid tier grants sync. Free is gated.
+const requireSync = requirePlan("companion", "pro", "team")
 const { broadcast } = require("../ws")
 const {
   validate,

@@ -10,7 +10,10 @@
 const Stripe = require("stripe")
 const { supabase } = require("../db")
 const { logger } = require("../logger")
-const { planFromPriceId } = require("../config")
+const {
+  planFromPriceId,
+  TOKEN_PACK_SIZE,
+} = require("../config")
 const { clearPlanCache } = require("../middleware")
 const {
   sendPlanUpgradeEmail,
@@ -76,7 +79,9 @@ async function onSubscriptionUpdated(sub) {
 
   const priceId = sub.items?.data?.[0]?.price?.id
   const newPlan = planFromPriceId(priceId)
-  if (!newPlan) return
+  // token_pack is a one-off price; it should never
+  // appear on a subscription, but guard anyway.
+  if (!newPlan || newPlan === "token_pack") return
 
   if (sub.latest_invoice) {
     const invId =
@@ -136,7 +141,7 @@ async function onInvoicePaid(invoice) {
   const paidPriceId =
     paidSub.items?.data?.[0]?.price?.id
   const paidPlan = planFromPriceId(paidPriceId)
-  if (!paidPlan) return
+  if (!paidPlan || paidPlan === "token_pack") return
 
   const { data: invUser } = await supabase
     .from("users")
@@ -229,6 +234,105 @@ async function onCustomerDeleted(customerId) {
 }
 
 /**
+ * Resolve the internal user id for a PaymentIntent.
+ *
+ * Prefers ``pi.metadata.user_id`` (set at checkout via
+ * ``payment_intent_data.metadata``) and falls back to
+ * looking the user up by ``stripe_customer_id``.
+ *
+ * @param {object} pi - Stripe PaymentIntent.
+ * @returns {Promise<string|null>} User id or null.
+ */
+async function resolveUserFromPaymentIntent(pi) {
+  if (pi.metadata?.user_id) return pi.metadata.user_id
+  if (!pi.customer) return null
+  const { data: user } = await supabase
+    .from("users")
+    .select("id")
+    .eq("stripe_customer_id", pi.customer)
+    .single()
+  return user?.id || null
+}
+
+/**
+ * Handle a payment_intent.succeeded event.
+ *
+ * Token-pack purchases are one-off charges (Stripe
+ * ``mode: "payment"``). On success, insert a row into
+ * ``token_packs`` and bump ``users.bonus_tokens_remaining``
+ * by ``TOKEN_PACK_SIZE``. Idempotency is enforced by the
+ * ``stripe_charge_id UNIQUE`` constraint — a duplicate
+ * delivery hits the constraint and the bump is skipped.
+ *
+ * Non-token-pack PaymentIntents (e.g. subscription
+ * invoices) are ignored: those are settled through
+ * ``invoice.paid`` and ``customer.subscription.updated``.
+ *
+ * @param {object} pi - Stripe PaymentIntent.
+ */
+async function onPaymentIntentSucceeded(pi) {
+  const priceId = pi.metadata?.price_id
+  if (!priceId) return
+  if (planFromPriceId(priceId) !== "token_pack") return
+
+  const userId = await resolveUserFromPaymentIntent(pi)
+  if (!userId) {
+    logger.warn(
+      { pi: pi.id, customer: pi.customer },
+      "Token-pack PI without resolvable user",
+    )
+    return
+  }
+
+  const { error: insertErr } = await supabase
+    .from("token_packs")
+    .insert({
+      user_id: userId,
+      tokens: TOKEN_PACK_SIZE,
+      stripe_charge_id: pi.id,
+      stripe_price_id: priceId,
+    })
+
+  if (insertErr) {
+    // 23505 = unique_violation → already processed.
+    if (insertErr.code === "23505") {
+      logger.debug(
+        { pi: pi.id, user_id: userId },
+        "Token-pack already credited, skipping",
+      )
+      return
+    }
+    throw insertErr
+  }
+
+  const { data: row } = await supabase
+    .from("users")
+    .select("bonus_tokens_remaining")
+    .eq("id", userId)
+    .single()
+
+  const next =
+    (row?.bonus_tokens_remaining || 0) + TOKEN_PACK_SIZE
+
+  await supabase
+    .from("users")
+    .update({ bonus_tokens_remaining: next })
+    .eq("id", userId)
+
+  clearPlanCache(userId)
+
+  logger.info(
+    {
+      pi: pi.id,
+      user_id: userId,
+      tokens: TOKEN_PACK_SIZE,
+      bonus_total: next,
+    },
+    "Token pack credited",
+  )
+}
+
+/**
  * Dispatch a verified Stripe event to the appropriate
  * handler.
  *
@@ -250,6 +354,9 @@ async function handleStripeEvent(event) {
       break
     case "customer.deleted":
       await onCustomerDeleted(event.data.object.id)
+      break
+    case "payment_intent.succeeded":
+      await onPaymentIntentSucceeded(event.data.object)
       break
     default:
       logger.debug(
