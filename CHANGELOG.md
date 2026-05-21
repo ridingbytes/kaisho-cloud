@@ -4,6 +4,7 @@
 
 - Track AI plan rollout: rename tiers, add PLAN_QUOTAS, handle token-pack purchases [#22](https://github.com/ridingbytes/kaisho-cloud/pull/22)
 - Token-pack purchase email + Track AI tier copy refresh [#23](https://github.com/ridingbytes/kaisho-cloud/pull/23)
+- scripts: idempotent Stripe webhook endpoint syncer [#24](https://github.com/ridingbytes/kaisho-cloud/pull/24)
 
 ## 1.3.1
 
