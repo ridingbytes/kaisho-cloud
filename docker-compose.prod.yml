@@ -19,6 +19,24 @@ services:
     networks:
       - traefik-public
 
+  # Hosted cron worker (Companion+). Same image as the API,
+  # different entrypoint. The deploy step sed-rewrites
+  # :latest to the deployed git sha for both services, so
+  # api and cron always run the same build. No traefik
+  # labels — it only makes outbound calls (Supabase, AI
+  # backend), so it joins the network but receives no
+  # ingress routing.
+  cron:
+    image: ghcr.io/ridingbytes/kaisho-cloud:latest
+    container_name: kaisho-cron
+    restart: unless-stopped
+    env_file: .env
+    command: ["node", "api/workers/cron.js"]
+    depends_on:
+      - api
+    networks:
+      - traefik-public
+
 networks:
   traefik-public:
     external: true

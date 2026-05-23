@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.4.0
+
+- Track AI plan rollout: rename tiers, add PLAN_QUOTAS, handle token-pack purchases [#22](https://github.com/ridingbytes/kaisho-cloud/pull/22)
+- Token-pack purchase email + Track AI tier copy refresh [#23](https://github.com/ridingbytes/kaisho-cloud/pull/23)
+- scripts: idempotent Stripe webhook endpoint syncer [#24](https://github.com/ridingbytes/kaisho-cloud/pull/24)
+- scripts: read-only Stripe setup audit [#25](https://github.com/ridingbytes/kaisho-cloud/pull/25)
+- MCP gateway scaffold (Companion+, behind feature flag) [#26](https://github.com/ridingbytes/kaisho-cloud/pull/26)
+- MCP gateway read tools (Companion+) [#27](https://github.com/ridingbytes/kaisho-cloud/pull/27)
+- MCP gateway write tools (Companion+) [#28](https://github.com/ridingbytes/kaisho-cloud/pull/28)
+- Cloud cron jobs schema + CRUD API (Companion+) [#29](https://github.com/ridingbytes/kaisho-cloud/pull/29)
+- Extract AI gateway core into api/ai/engine.js [#30](https://github.com/ridingbytes/kaisho-cloud/pull/30)
+- Build Docker runtime stage with pnpm, drop stale package-lock.json [#31](https://github.com/ridingbytes/kaisho-cloud/pull/31)
+- Hosted cron worker (Companion+) [#32](https://github.com/ridingbytes/kaisho-cloud/pull/32)
+- Run the cron worker in production compose [#33](https://github.com/ridingbytes/kaisho-cloud/pull/33)
+
 ## 1.3.1
 
 PWA + API patch. Companion to ``kaisho`` 1.5.1.

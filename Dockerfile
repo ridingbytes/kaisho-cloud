@@ -12,8 +12,9 @@ RUN pnpm build
 # ── Stage 2: runtime ────────────────────────────────
 FROM node:22-alpine
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
+RUN corepack enable
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --prod
 COPY api/ ./api/
 COPY --from=mobile-builder /build/dist ./mobile/dist
 EXPOSE 3000

@@ -10,6 +10,9 @@ const { renderWelcome } = require("./welcome")
 const { renderPlanUpgrade } = require("./plan-upgrade")
 const { renderPlanCancelled } = require("./plan-cancelled")
 const { renderPasswordReset } = require("./password-reset")
+const {
+  renderTokenPackPurchased,
+} = require("./token-pack-purchased")
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM =
@@ -118,9 +121,40 @@ async function sendPasswordResetEmail({
   }
 }
 
+/**
+ * Send a Token Pack purchase confirmation.
+ *
+ * @param {object} params
+ * @param {string} params.email       - Recipient address.
+ * @param {number} params.tokens      - Tokens added.
+ * @param {number} params.bonusTotal  - New bonus balance.
+ */
+async function sendTokenPackPurchasedEmail({
+  email, tokens, bonusTotal,
+}) {
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: email,
+      subject:
+        `${tokens.toLocaleString("en-US")} ` +
+        "tokens added to your Kaisho account",
+      html: renderTokenPackPurchased({
+        tokens, bonusTotal,
+      }),
+    })
+  } catch (err) {
+    logger.error(
+      { err, email },
+      "sendTokenPackPurchasedEmail failed",
+    )
+  }
+}
+
 module.exports = {
   sendWelcomeEmail,
   sendPlanUpgradeEmail,
   sendPlanCancelledEmail,
   sendPasswordResetEmail,
+  sendTokenPackPurchasedEmail,
 }

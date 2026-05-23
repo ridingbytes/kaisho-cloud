@@ -6,21 +6,30 @@ const {
 
 function renderPlanUpgrade({ plan }) {
   const features = {
-    sync: [
-      "Bidirectional clock sync across devices",
-      "Mobile timer with offline support",
-      "Customer and task reference data",
-      "Dashboard with weekly and monthly stats",
+    companion: [
+      "Bidirectional clock and task sync across devices",
+      "Mobile PWA with offline timer",
+      "AI gateway: 500,000 tokens per month",
+      "Hosted MCP server — connect Claude, ChatGPT, " +
+        "Cursor, or any MCP client to your data",
+      "Hosted cron worker for recurring tasks",
     ],
-    sync_ai: [
-      "Everything in Cloud Sync",
-      "AI-powered time summaries",
-      "Natural language time booking",
-      "Smart customer suggestions",
+    pro: [
+      "Everything in Companion",
+      "AI gateway: 2,000,000 tokens per month",
+      "Premium integrations: Linear, GitHub Projects, " +
+        "Google Calendar, Slack",
+      "Priority queue on the AI gateway",
+    ],
+    team: [
+      "Everything in Pro for each seat",
+      "Shared workspace with role-based access",
+      "Centralised billing and seat management",
+      "Per-seat 2,000,000 token monthly quota",
     ],
   }
 
-  const items = features[plan] || features.sync
+  const items = features[plan] || features.companion
   const list = items
     .map(
       (item) =>
