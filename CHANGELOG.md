@@ -8,6 +8,7 @@
 - scripts: read-only Stripe setup audit [#25](https://github.com/ridingbytes/kaisho-cloud/pull/25)
 - MCP gateway scaffold (Companion+, behind feature flag) [#26](https://github.com/ridingbytes/kaisho-cloud/pull/26)
 - MCP gateway read tools (Companion+) [#27](https://github.com/ridingbytes/kaisho-cloud/pull/27)
+- MCP gateway write tools (Companion+) [#28](https://github.com/ridingbytes/kaisho-cloud/pull/28)
 
 ## 1.3.1
 
