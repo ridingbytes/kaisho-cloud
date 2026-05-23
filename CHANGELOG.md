@@ -11,6 +11,7 @@
 - MCP gateway write tools (Companion+) [#28](https://github.com/ridingbytes/kaisho-cloud/pull/28)
 - Cloud cron jobs schema + CRUD API (Companion+) [#29](https://github.com/ridingbytes/kaisho-cloud/pull/29)
 - Extract AI gateway core into api/ai/engine.js [#30](https://github.com/ridingbytes/kaisho-cloud/pull/30)
+- Build Docker runtime stage with pnpm, drop stale package-lock.json [#31](https://github.com/ridingbytes/kaisho-cloud/pull/31)
 
 ## 1.3.1
 
