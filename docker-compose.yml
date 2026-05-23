@@ -6,3 +6,16 @@ services:
     env_file: .env
     ports:
       - "3000:3000"
+
+  # Hosted cron worker (Companion+). Reuses the same image
+  # as the API but runs the worker entrypoint instead of
+  # the HTTP server. No ports — it only talks to Supabase
+  # and the AI backend outbound.
+  cron:
+    build: .
+    container_name: kaisho-cron
+    restart: unless-stopped
+    env_file: .env
+    command: ["node", "api/workers/cron.js"]
+    depends_on:
+      - api
