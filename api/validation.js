@@ -388,11 +388,58 @@ function validateQuery(schema) {
   }
 }
 
+// ── Cloud cron job schemas ──────────────────────────────
+
+// A standard 5-field cron expression. Loose validation
+// here (5 whitespace-separated fields); the worker's
+// node-cron parser is the authority and rejects malformed
+// fields at scheduling time.
+const cronScheduleSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^(\S+\s+){4}\S+$/,
+    "Schedule must be a 5-field cron expression",
+  )
+
+/**
+ * POST /cloud/jobs request body.
+ * @type {z.ZodObject}
+ */
+const cloudJobCreateSchema = z.object({
+  name: z.string().min(1).max(200),
+  schedule: cronScheduleSchema,
+  prompt: z.string().min(1).max(100_000),
+  model: z.string().max(200).optional(),
+  output: z.string().max(50).optional(),
+  timeout: z.number().int().positive().max(3600).optional(),
+  enabled: z.boolean().optional(),
+})
+
+/**
+ * PATCH /cloud/jobs/:id request body. All optional.
+ * @type {z.ZodObject}
+ */
+const cloudJobUpdateSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  schedule: cronScheduleSchema.optional(),
+  prompt: z.string().min(1).max(100_000).optional(),
+  model: z.string().max(200).optional(),
+  output: z.string().max(50).optional(),
+  timeout: z.number().int().positive().max(3600).optional(),
+  enabled: z.boolean().optional(),
+}).refine(
+  (data) => Object.keys(data).length > 0,
+  { message: "No fields to update" },
+)
+
 module.exports = {
   signupSchema,
   loginSchema,
   rotateKeySchema,
   refreshSchema,
+  cloudJobCreateSchema,
+  cloudJobUpdateSchema,
   checkoutSchema,
   clockStartSchema,
   quickBookSchema,
