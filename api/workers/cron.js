@@ -44,6 +44,13 @@ const RECONCILE_MS = 60_000
 // changed schedule and reschedule in place.
 const scheduled = new Map()
 
+// Job ids with a run currently in flight. node-cron does
+// not prevent a new fire from overlapping a still-running
+// one, so we guard here: a job that is still running when
+// its next tick arrives skips that tick rather than
+// stampeding itself (double-metering, double output).
+const inFlight = new Set()
+
 /**
  * Look up the plan for a user (the worker has no request
  * context, so it can't rely on middleware). Defaults to
@@ -156,11 +163,25 @@ async function runJob(job) {
     }
 
     const model = await resolveModel(job.user_id, "cron")
-    const result = await callModel({
-      model,
-      messages: [{ role: "user", content: job.prompt }],
-      maxTokens: 2048,
-    })
+    // Abort the model call if it outruns the job's timeout
+    // so a hung request can't pin the in-flight slot (and
+    // block every future tick) indefinitely.
+    const controller = new AbortController()
+    const timer = setTimeout(
+      () => controller.abort(),
+      (job.timeout || 600) * 1000,
+    )
+    let result
+    try {
+      result = await callModel({
+        model,
+        messages: [{ role: "user", content: job.prompt }],
+        maxTokens: 2048,
+        signal: controller.signal,
+      })
+    } finally {
+      clearTimeout(timer)
+    }
     const text = extractText(result)
     const { input, output } = extractUsage(result)
     await recordUsage(job.user_id, month, input, output)
@@ -194,6 +215,43 @@ async function runJob(job) {
 }
 
 /**
+ * Fire a scheduled tick for a job: skip if a previous run
+ * is still in flight (overlap guard), otherwise re-read
+ * the job fresh and run it.
+ *
+ * Re-reading is what makes a PATCHed prompt / output /
+ * timeout take effect without a worker restart — only the
+ * cron expression is fixed at schedule time (reconcile
+ * reschedules when that changes). It also drops the tick
+ * cleanly if the job was disabled or deleted between the
+ * tick firing and this read.
+ *
+ * @param {string} jobId
+ */
+async function fireJob(jobId) {
+  if (inFlight.has(jobId)) {
+    logger.warn(
+      { job: jobId },
+      "cron job still running, skipping this tick",
+    )
+    return
+  }
+  inFlight.add(jobId)
+  try {
+    const { data: job } = await supabase
+      .from("cloud_jobs")
+      .select("*")
+      .eq("id", jobId)
+      .eq("enabled", true)
+      .maybeSingle()
+    if (!job) return
+    await runJob(job)
+  } finally {
+    inFlight.delete(jobId)
+  }
+}
+
+/**
  * Tear down a scheduled task for a job id.
  *
  * @param {string} jobId
@@ -213,9 +271,11 @@ function unschedule(jobId) {
  * disabled or deleted.
  */
 async function reconcile() {
+  // Only id + schedule are needed here; fireJob re-reads
+  // the full row at fire time.
   const { data: jobs, error } = await supabase
     .from("cloud_jobs")
-    .select("id, user_id, name, schedule, prompt, output")
+    .select("id, schedule")
     .eq("enabled", true)
   if (error) {
     logger.error({ error }, "cron reconcile: load failed")
@@ -238,13 +298,12 @@ async function reconcile() {
       )
       continue
     }
-    // Capture the latest job row at fire time by closing
-    // over the id and re-reading would be safer, but the
-    // reconcile loop already refreshes prompt/output on
-    // change, so closing over the row is fine.
+    // Close over the id only; fireJob re-reads the row at
+    // fire time so prompt/output/timeout edits are picked
+    // up without a restart.
     const task = cron.schedule(
       job.schedule,
-      () => { void runJob(job) },
+      () => { void fireJob(job.id) },
       { timezone: "UTC" },
     )
     scheduled.set(job.id, { task, schedule: job.schedule })
