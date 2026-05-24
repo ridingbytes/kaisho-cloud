@@ -15,6 +15,7 @@
 - Hosted cron worker (Companion+) [#32](https://github.com/ridingbytes/kaisho-cloud/pull/32)
 - Run the cron worker in production compose [#33](https://github.com/ridingbytes/kaisho-cloud/pull/33)
 - Invalidate the auth cache on plan change, not just PLAN_CACHE [#34](https://github.com/ridingbytes/kaisho-cloud/pull/34)
+- Harden book_time date validation and cloud-job PATCH [#37](https://github.com/ridingbytes/kaisho-cloud/pull/37)
 
 ## 1.3.1
 
