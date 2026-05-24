@@ -204,6 +204,12 @@ function registerBookTime(server, userId) {
       let startAt
       if (args.date) {
         startAt = new Date(`${args.date}T12:00:00Z`)
+        if (Number.isNaN(startAt.getTime())) {
+          return errorResult(
+            `Invalid date: ${args.date} ` +
+            "(expected YYYY-MM-DD)",
+          )
+        }
       } else {
         startAt = new Date(Date.now() - minutes * 60000)
       }

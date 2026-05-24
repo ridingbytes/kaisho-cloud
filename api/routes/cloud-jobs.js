@@ -101,11 +101,25 @@ router.post(
  *
  * @route PATCH /cloud/jobs/:id
  */
+// Columns a PATCH may touch. Copying explicitly (rather
+// than spreading req.body) keeps writes confined to these
+// even if the validation schema ever widens — user_id,
+// last_run_at, etc. can never be reassigned via the body.
+const JOB_PATCH_FIELDS = [
+  "name", "schedule", "prompt", "model",
+  "output", "timeout", "enabled",
+]
+
 router.patch(
   "/jobs/:id",
   validate(cloudJobUpdateSchema),
   asyncHandler(async (req, res) => {
-    const updates = { ...req.body, updated_at: new Date().toISOString() }
+    const updates = { updated_at: new Date().toISOString() }
+    for (const field of JOB_PATCH_FIELDS) {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field]
+      }
+    }
     const { data, error } = await supabase
       .from("cloud_jobs")
       .update(updates)
