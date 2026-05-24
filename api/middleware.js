@@ -6,6 +6,7 @@ const {
   supabaseAuth,
   getCachedUser,
   cacheUser,
+  invalidateAuthCache,
 } = require("./db")
 
 // ── JWT auth (mobile users via Supabase Auth) ───────────
@@ -224,13 +225,24 @@ function requirePlan(...plans) {
 }
 
 /**
- * Remove a user from the plan cache so the next
- * ``requirePlan`` call fetches fresh data from Supabase.
+ * Invalidate every cached copy of a user's plan so a
+ * plan change takes effect on the next request.
+ *
+ * Two caches hold the plan with different lifetimes:
+ *   - PLAN_CACHE here (60s), read by requirePlan
+ *   - the auth cache in db.js (5min), which stores the
+ *     whole user row (incl. plan) keyed by API-key hash
+ *     and is read by requireApiKey to skip bcrypt
+ *
+ * Clearing only the first let a plan change lag up to 5
+ * minutes behind. Clear both so an upgrade / downgrade
+ * (Stripe webhook, billing) is effective immediately.
  *
  * @param {string} userId - User UUID.
  */
 function clearPlanCache(userId) {
   PLAN_CACHE.delete(userId)
+  invalidateAuthCache(userId)
 }
 
 module.exports = {
