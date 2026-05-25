@@ -269,7 +269,7 @@ export function DashboardView() {
         </button>
       </div>
 
-      {/* AI Summary — sync_ai plan only */}
+      {/* AI Summary — any paid plan */}
       {hasAI && (
         <section className="card dashboard-section">
           <header className="dashboard-section-header">
