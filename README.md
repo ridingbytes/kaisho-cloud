@@ -42,7 +42,7 @@ Two parts:
 - Password reset via HMAC-signed tokens + Resend emails
 - WebSocket push for real-time updates across devices
 - AI gateway proxying to OpenRouter with token metering
-- Subscription management (free, sync, sync_ai)
+- Subscription management (free, companion, pro, team)
 - Stripe billing with webhook idempotency
 
 ## Documentation

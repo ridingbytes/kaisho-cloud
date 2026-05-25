@@ -8,7 +8,8 @@
  * Usage is metered per user per month in the
  * ``ai_usage`` table.
  *
- * All endpoints require the ``sync_ai`` plan.
+ * All endpoints require a paid plan
+ * (companion / pro / team).
  */
 
 const { Router } = require("express")
@@ -140,6 +141,7 @@ router.post(
 
     const result = await callModel({
       backend: req.aiBackend,
+      plan: req.userPlan,
       model: chosen,
       system,
       messages,
@@ -218,6 +220,7 @@ router.post(
     // Use the fast/cheap model for structured
     // extraction — no need for a large LLM here.
     const result = await callModel({
+      plan: req.userPlan,
       model: MODEL_FAST,
       system: PARSE_SYSTEM,
       messages: [{ role: "user", content: input }],
@@ -306,6 +309,7 @@ router.post(
     }))
 
     const result = await callModel({
+      plan: req.userPlan,
       model: MODEL_DEFAULT,
       system: SUMMARY_SYSTEM,
       messages: [{
