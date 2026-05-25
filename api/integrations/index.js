@@ -15,6 +15,7 @@
 
 const linear = require("./linear")
 const github = require("./github")
+const slack = require("./slack")
 const {
   listIntegrations, getIntegration,
 } = require("./store")
@@ -24,6 +25,7 @@ const { logger } = require("../logger")
 const MODULES = {
   [linear.KIND]: linear,
   [github.KIND]: github,
+  [slack.KIND]: slack,
 }
 
 function jsonResult(payload) {

@@ -25,6 +25,11 @@ const {
   listIntegrations,
   deleteIntegration,
 } = require("../integrations/store")
+const {
+  signState, verifyState, getProvider, isConfigured,
+} = require("../integrations/oauth")
+const { logger } = require("../logger")
+const { BASE_URL } = require("../config")
 const linear = require("../integrations/linear")
 const github = require("../integrations/github")
 
@@ -37,10 +42,88 @@ const KEY_MODULES = {
   [github.KIND]: github,
 }
 
+// ── OAuth callback (UNAUTHENTICATED) ────────────────────
+//
+// The provider redirects the browser here without our auth
+// header; identity comes from the signed state. Defined
+// before the auth middleware so it isn't gated.
+
+/**
+ * @route GET /integrations/:kind/callback?code&state
+ */
+router.get(
+  "/:kind/callback",
+  asyncHandler(async (req, res) => {
+    const provider = getProvider(req.params.kind)
+    if (!provider) return res.status(404).send("Unknown")
+
+    const done = (status) =>
+      res.redirect(
+        `${BASE_URL}/m/?integration=${provider.kind}`
+        + `&status=${status}`,
+      )
+
+    let payload
+    try {
+      payload = verifyState(req.query.state)
+    } catch {
+      return done("error")
+    }
+    if (payload.kind !== provider.kind || req.query.error) {
+      return done("error")
+    }
+
+    try {
+      const { credentials, scopes } =
+        await provider.exchange(req.query.code)
+      await saveIntegration(
+        payload.userId, provider.kind, credentials,
+        { scopes },
+      )
+      return done("connected")
+    } catch (err) {
+      logger.error(
+        { err, kind: provider.kind },
+        "OAuth callback failed",
+      )
+      return done("error")
+    }
+  }),
+)
+
 router.use(requireAuth)
 router.use(apiLimiter)
 // Premium integrations are a Pro feature.
 router.use(requirePlan("pro", "team"))
+
+// ── GET /integrations/:kind/connect ─────────────────────
+
+/**
+ * Start an OAuth connect: returns the provider authorize
+ * URL (with a signed state) for the client to open.
+ *
+ * @route GET /integrations/:kind/connect
+ */
+router.get(
+  "/:kind/connect",
+  asyncHandler(async (req, res) => {
+    const provider = getProvider(req.params.kind)
+    if (!provider) {
+      return res
+        .status(404)
+        .json({ error: "Not an OAuth integration" })
+    }
+    if (!isConfigured(provider)) {
+      return res.status(503).json({
+        error: `${provider.kind} OAuth is not configured`,
+      })
+    }
+    const state = signState({
+      userId: req.userId, kind: provider.kind,
+    })
+    res.json({ url: provider.buildAuthUrl(state) })
+  }),
+)
 
 // ── GET /integrations ───────────────────────────────────
 
