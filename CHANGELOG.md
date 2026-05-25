@@ -26,6 +26,7 @@
 - Union premium integration tools into the MCP gateway (Pro) [#43](https://github.com/ridingbytes/kaisho-cloud/pull/43)
 - OAuth flow + Slack integration (Pro) [#44](https://github.com/ridingbytes/kaisho-cloud/pull/44)
 - Plan-priority queue on the AI gateway (Pro) [#45](https://github.com/ridingbytes/kaisho-cloud/pull/45)
+- Purge legacy sync/sync_ai plan references + refresh docs [#46](https://github.com/ridingbytes/kaisho-cloud/pull/46)
 
 ## 1.3.1
 
