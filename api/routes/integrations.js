@@ -26,6 +26,7 @@ const {
   deleteIntegration,
 } = require("../integrations/store")
 const linear = require("../integrations/linear")
+const github = require("../integrations/github")
 
 const router = Router()
 
@@ -33,6 +34,7 @@ const router = Router()
 // providers register through the OAuth flow instead.
 const KEY_MODULES = {
   [linear.KIND]: linear,
+  [github.KIND]: github,
 }
 
 router.use(requireAuth)
