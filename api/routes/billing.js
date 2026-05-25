@@ -172,6 +172,8 @@ router.post(
     }
 
     // Fresh Stripe checkout — no trial, charge immediately.
+    // automatic_tax + tax_id_collection apply EU VAT and
+    // B2B reverse-charge (products carry txcd_10103001).
     const params = {
       mode: "subscription",
       customer: user.stripe_customer_id || undefined,
@@ -180,7 +182,102 @@ router.post(
         : req.userEmail,
       line_items: [{ price: priceId, quantity: 1 }],
       metadata: { user_id: req.userId, plan },
+      automatic_tax: { enabled: true },
+      tax_id_collection: { enabled: true },
       success_url: `${BASE_URL}/m/?upgraded=true`,
+      cancel_url: `${BASE_URL}/m/`,
+    }
+
+    let session
+    try {
+      session =
+        await stripe.checkout.sessions.create(params)
+    } catch (err) {
+      if (
+        err.code !== "resource_missing" ||
+        err.param !== "customer"
+      ) {
+        return res.status(400).json({
+          error:
+            err.message ||
+            "Could not create checkout session",
+        })
+      }
+      await supabase
+        .from("users")
+        .update({ stripe_customer_id: null })
+        .eq("id", req.userId)
+      params.customer = undefined
+      params.customer_email = req.userEmail
+      session =
+        await stripe.checkout.sessions.create(params)
+    }
+
+    res.json({ url: session.url })
+  }),
+)
+
+// ── POST /billing/token-pack ────────────────────────────
+
+/**
+ * Create a one-off Stripe Checkout session for a Token
+ * Pack (500k bonus tokens). Sets the user_id + price_id on
+ * the PaymentIntent metadata so the payment_intent.succeeded
+ * webhook can credit the right account
+ * (see routes/stripe-webhook.js, migration 016).
+ *
+ * @route POST /billing/token-pack
+ */
+router.post(
+  "/token-pack",
+  requireJwt,
+  asyncHandler(async (req, res) => {
+    const priceId = PLAN_PRICES.token_pack
+    if (!priceId) {
+      return res
+        .status(400)
+        .json({ error: "Token packs not available" })
+    }
+
+    const { data: user } = await supabase
+      .from("users")
+      .select("id, plan, stripe_customer_id")
+      .eq("id", req.userId)
+      .single()
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ error: "User not found" })
+    }
+
+    // Token packs top up a paid plan's monthly quota; they
+    // are meaningless on free (cap 0).
+    if (!["companion", "pro", "team"].includes(user.plan)) {
+      return res.status(403).json({
+        error: "Token packs require a paid plan",
+        current_plan: user.plan,
+      })
+    }
+
+    const params = {
+      mode: "payment",
+      customer: user.stripe_customer_id || undefined,
+      customer_email: user.stripe_customer_id
+        ? undefined
+        : req.userEmail,
+      line_items: [{ price: priceId, quantity: 1 }],
+      // The webhook reads these off the PaymentIntent.
+      payment_intent_data: {
+        metadata: {
+          user_id: req.userId,
+          price_id: priceId,
+        },
+      },
+      metadata: { user_id: req.userId, price_id: priceId },
+      automatic_tax: { enabled: true },
+      tax_id_collection: { enabled: true },
+      success_url: `${BASE_URL}/m/?tokens=added`,
       cancel_url: `${BASE_URL}/m/`,
     }
 
