@@ -24,6 +24,7 @@
 - Linear integration + management API (Pro) [#41](https://github.com/ridingbytes/kaisho-cloud/pull/41)
 - GitHub Projects integration (Pro) [#42](https://github.com/ridingbytes/kaisho-cloud/pull/42)
 - Union premium integration tools into the MCP gateway (Pro) [#43](https://github.com/ridingbytes/kaisho-cloud/pull/43)
+- OAuth flow + Slack integration (Pro) [#44](https://github.com/ridingbytes/kaisho-cloud/pull/44)
 
 ## 1.3.1
 
