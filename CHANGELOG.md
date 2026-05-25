@@ -21,6 +21,7 @@
 - Surface Companion AI advisor + token balance in the PWA [#38](https://github.com/ridingbytes/kaisho-cloud/pull/38)
 - In-app purchase flow (subscribe + token pack) in the PWA [#39](https://github.com/ridingbytes/kaisho-cloud/pull/39)
 - Encrypted integration credential store (Pro foundation) [#40](https://github.com/ridingbytes/kaisho-cloud/pull/40)
+- Linear integration + management API (Pro) [#41](https://github.com/ridingbytes/kaisho-cloud/pull/41)
 
 ## 1.3.1
 
