@@ -433,6 +433,15 @@ const cloudJobUpdateSchema = z.object({
   { message: "No fields to update" },
 )
 
+/**
+ * POST /integrations/:kind request body. API-key / PAT
+ * based providers (Linear, GitHub) send their token here.
+ * @type {z.ZodObject}
+ */
+const integrationConnectSchema = z.object({
+  api_key: z.string().min(1, "api_key is required"),
+})
+
 module.exports = {
   signupSchema,
   loginSchema,
@@ -440,6 +449,7 @@ module.exports = {
   refreshSchema,
   cloudJobCreateSchema,
   cloudJobUpdateSchema,
+  integrationConnectSchema,
   checkoutSchema,
   clockStartSchema,
   quickBookSchema,
