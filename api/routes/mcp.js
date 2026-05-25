@@ -27,6 +27,9 @@ const {
 } = require("../middleware")
 const { registerReadTools } = require("../mcp/tools/read")
 const { registerWriteTools } = require("../mcp/tools/write")
+const {
+  registerIntegrationTools,
+} = require("../integrations")
 
 const router = Router()
 const requireCompanion =
@@ -62,9 +65,16 @@ async function handleMcpRequest(req, res) {
     capabilities: { tools: {} },
   })
 
-  // Tools scoped to the authenticated user.
+  // Core tools, scoped to the authenticated user.
   registerReadTools(server, req.userId)
   registerWriteTools(server, req.userId)
+
+  // Premium integration tools (Linear, GitHub, …) — Pro
+  // and Team only, and only for the integrations the user
+  // has actually connected.
+  if (["pro", "team"].includes(req.userPlan)) {
+    await registerIntegrationTools(server, req.userId)
+  }
 
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
