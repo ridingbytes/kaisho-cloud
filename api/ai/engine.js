@@ -376,6 +376,8 @@ async function recordUsage(
  * @param {number} [opts.maxTokens=1024]
  * @param {Array} [opts.tools]
  * @param {object} [opts.backend] - Pre-resolved backend.
+ * @param {AbortSignal} [opts.signal] - Abort the request
+ *   (e.g. on a caller-side timeout).
  * @returns {Promise<object>} OpenAI-format response.
  */
 async function callModel(opts) {
@@ -404,6 +406,7 @@ async function callModel(opts) {
       "X-Title": "Kaisho",
     },
     body: JSON.stringify(body),
+    signal: opts.signal,
   })
   if (!res.ok) {
     const errBody = await res.text()
