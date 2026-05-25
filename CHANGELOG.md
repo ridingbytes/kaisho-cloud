@@ -19,6 +19,7 @@
 - Atomic token-pack credit to close concurrent-purchase + retry races [#36](https://github.com/ridingbytes/kaisho-cloud/pull/36)
 - Harden book_time date validation and cloud-job PATCH [#37](https://github.com/ridingbytes/kaisho-cloud/pull/37)
 - Surface Companion AI advisor + token balance in the PWA [#38](https://github.com/ridingbytes/kaisho-cloud/pull/38)
+- In-app purchase flow (subscribe + token pack) in the PWA [#39](https://github.com/ridingbytes/kaisho-cloud/pull/39)
 
 ## 1.3.1
 
