@@ -90,6 +90,30 @@ async function freshCredentials(userId, kind, mod, integ) {
  * @param {import("@modelcontextprotocol/sdk/server/mcp.js").McpServer} server
  * @param {string} userId
  */
+/**
+ * Run one integration tool for a user: load + refresh
+ * credentials, then dispatch. Shared by the MCP gateway
+ * and the /integrations/dispatch route (used by the
+ * desktop advisor). Throws on unknown kind / not connected
+ * / provider error.
+ *
+ * @param {string} userId
+ * @param {string} kind
+ * @param {string} toolName
+ * @param {object} args
+ * @returns {Promise<*>} The tool's JSON-serialisable result.
+ */
+async function runIntegrationTool(userId, kind, toolName, args) {
+  const mod = MODULES[kind]
+  if (!mod) throw new Error(`Unknown integration: ${kind}`)
+  const integ = await getIntegration(userId, kind)
+  if (!integ) throw new Error(`${kind} not connected`)
+  const creds = await freshCredentials(
+    userId, kind, mod, integ,
+  )
+  return mod.dispatch(toolName, args, creds)
+}
+
 async function registerIntegrationTools(server, userId) {
   const connected = await listIntegrations(userId)
   for (const { kind } of connected) {
@@ -105,15 +129,8 @@ async function registerIntegrationTools(server, userId) {
         },
         async (args) => {
           try {
-            const integ = await getIntegration(userId, kind)
-            if (!integ) {
-              return errorResult(`${kind} not connected`)
-            }
-            const creds = await freshCredentials(
-              userId, kind, mod, integ,
-            )
-            const result = await mod.dispatch(
-              tool.name, args, creds,
+            const result = await runIntegrationTool(
+              userId, kind, tool.name, args,
             )
             return jsonResult(result)
           } catch (err) {
@@ -129,4 +146,8 @@ async function registerIntegrationTools(server, userId) {
   }
 }
 
-module.exports = { MODULES, registerIntegrationTools }
+module.exports = {
+  MODULES,
+  registerIntegrationTools,
+  runIntegrationTool,
+}
