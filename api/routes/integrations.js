@@ -74,11 +74,11 @@ router.get(
     }
 
     try {
-      const { credentials, scopes } =
+      const { credentials, scopes, expiresAt } =
         await provider.exchange(req.query.code)
       await saveIntegration(
         payload.userId, provider.kind, credentials,
-        { scopes },
+        { scopes, expiresAt },
       )
       return done("connected")
     } catch (err) {

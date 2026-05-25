@@ -136,6 +136,70 @@ const PROVIDERS = {
       }
     },
   },
+
+  google: {
+    kind: "google",
+    scope: [
+      "https://www.googleapis.com/auth/calendar.events",
+      "https://www.googleapis.com/auth/calendar.readonly",
+    ].join(" "),
+    clientId: () => process.env.GOOGLE_CLIENT_ID,
+    clientSecret: () => process.env.GOOGLE_CLIENT_SECRET,
+
+    buildAuthUrl(state) {
+      const p = new URLSearchParams({
+        client_id: this.clientId(),
+        redirect_uri: redirectUri(this.kind),
+        response_type: "code",
+        scope: this.scope,
+        // offline + consent so Google returns a
+        // refresh_token (access tokens expire ~1h).
+        access_type: "offline",
+        prompt: "consent",
+        state,
+      })
+      return (
+        "https://accounts.google.com/o/oauth2/v2/auth?"
+        + p
+      )
+    },
+
+    async exchange(code) {
+      const res = await fetch(
+        "https://oauth2.googleapis.com/token",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            client_id: this.clientId(),
+            client_secret: this.clientSecret(),
+            code,
+            redirect_uri: redirectUri(this.kind),
+            grant_type: "authorization_code",
+          }),
+        },
+      )
+      const json = await res.json()
+      if (!res.ok || !json.access_token) {
+        throw new Error(
+          `Google OAuth: ${json.error || res.status}`,
+        )
+      }
+      return {
+        credentials: {
+          access_token: json.access_token,
+          refresh_token: json.refresh_token,
+        },
+        scopes: (json.scope || "").split(" "),
+        expiresAt: new Date(
+          Date.now() + (json.expires_in || 3600) * 1000,
+        ).toISOString(),
+      }
+    },
+  },
 }
 
 /**
