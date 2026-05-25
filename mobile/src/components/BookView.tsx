@@ -9,6 +9,7 @@ import {
 } from "../api"
 import { useAuth } from "../auth"
 import { useToast } from "../toast"
+import { isPaidPlan } from "../utils/planLabel"
 import { ErrorBanner } from "./ErrorBanner"
 import { CustomerPicker } from "./CustomerPicker"
 import { UpgradeBanner } from "./UpgradeBanner"
@@ -33,7 +34,7 @@ export function BookView() {
   const [error, setError] = useState<string | null>(null)
   const [needsUpgrade, setNeedsUpgrade] = useState(false)
   const [loading, setLoading] = useState(false)
-  const hasAI = user?.plan === "sync_ai"
+  const hasAI = isPaidPlan(user?.plan)
 
   useEffect(() => {
     getCustomers()

@@ -15,7 +15,7 @@ import {
   ApiError,
 } from "../api"
 import { ErrorBanner } from "./ErrorBanner"
-import { planLabel } from "../utils/planLabel"
+import { planLabel, isPaidPlan } from "../utils/planLabel"
 
 const LANG_OPTIONS = [
   { id: "en", label: "English" },
@@ -58,6 +58,7 @@ export function ProfileView() {
     total_tokens: number
     request_count: number
     cap: number
+    bonus_tokens_remaining: number
   } | null>(null)
 
   function refreshSub() {
@@ -77,10 +78,10 @@ export function ProfileView() {
   }, [])
 
   const plan = sub?.plan || user?.plan || "free"
-  const isPaid = plan === "sync" || plan === "sync_ai"
+  const isPaid = isPaidPlan(plan)
 
   useEffect(() => {
-    if (plan !== "sync_ai") return
+    if (!isPaidPlan(plan)) return
     aiUsage()
       .then(setUsage)
       .catch((e) => console.warn("ai usage:", e))
@@ -247,7 +248,7 @@ export function ProfileView() {
       </div>
 
       {/* AI token usage */}
-      {plan === "sync_ai" && usage && (() => {
+      {isPaidPlan(plan) && usage && (() => {
         const pct = usage.cap > 0
           ? Math.min(
               100,
@@ -296,6 +297,18 @@ export function ProfileView() {
               {fmtK(usage.cap)}{" "}
               {t("profile.ai_usage.tokens")}
             </p>
+            {usage.bonus_tokens_remaining > 0 && (
+              <p
+                className="text-muted"
+                style={{ fontSize: 12, margin: "2px 0" }}
+              >
+                {t("profile.ai_usage.bonus", {
+                  amount: fmtK(
+                    usage.bonus_tokens_remaining,
+                  ),
+                })}
+              </p>
+            )}
             <p
               className="text-muted"
               style={{ fontSize: 12 }}

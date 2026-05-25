@@ -97,6 +97,7 @@
   "profile.ai_usage.requests_this_month": "{{count}} solicitud este mes",
   "profile.ai_usage.requests_this_month_plural": "{{count}} solicitudes este mes",
   "profile.ai_usage.tokens": "tokens",
+  "profile.ai_usage.bonus": "+{{amount}} tokens de bonificación restantes",
   "profile.connect": "Conectar app de escritorio",
   "profile.connect.description": "Genera una clave API para conectar tu instancia local de Kaisho. La clave anterior dejará de funcionar.",
   "profile.connect.generate": "Generar nueva clave",

@@ -97,6 +97,7 @@
   "profile.ai_usage.requests_this_month": "{{count}} Anfrage diesen Monat",
   "profile.ai_usage.requests_this_month_plural": "{{count}} Anfragen diesen Monat",
   "profile.ai_usage.tokens": "Tokens",
+  "profile.ai_usage.bonus": "+{{amount}} Bonus-Tokens verbleibend",
   "profile.connect": "Desktop-App verbinden",
   "profile.connect.description": "API-Schlüssel generieren, um die lokale Kaisho-Instanz zu verbinden. Der alte Schlüssel wird deaktiviert.",
   "profile.connect.generate": "Neuen Schlüssel generieren",

@@ -98,6 +98,7 @@
   "profile.ai_usage.requests_this_month": "{{count}} request this month",
   "profile.ai_usage.requests_this_month_plural": "{{count}} requests this month",
   "profile.ai_usage.tokens": "tokens",
+  "profile.ai_usage.bonus": "+{{amount}} bonus tokens remaining",
   "profile.connect": "Connect desktop app",
   "profile.connect.description": "Generate an API key to connect your local Kaisho instance. The old key will stop working.",
   "profile.connect.generate": "Generate new key",

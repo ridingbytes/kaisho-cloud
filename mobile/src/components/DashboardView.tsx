@@ -5,6 +5,7 @@ import { ApiError, aiSummarize, getEntries } from "../api"
 import { useAuth } from "../auth"
 import { ErrorBanner } from "./ErrorBanner"
 import { formatMins } from "../utils/time"
+import { isPaidPlan } from "../utils/planLabel"
 
 // ── Formatters ──────────────────────────────────────────
 
@@ -185,7 +186,7 @@ export function DashboardView() {
   const [summaryLoading, setSummaryLoading] = useState(
     false,
   )
-  const hasAI = user?.plan === "sync_ai"
+  const hasAI = isPaidPlan(user?.plan)
 
   const load = useCallback(async () => {
     setLoading(true)
