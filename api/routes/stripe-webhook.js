@@ -285,40 +285,33 @@ async function onPaymentIntentSucceeded(pi) {
     return
   }
 
-  const { error: insertErr } = await supabase
-    .from("token_packs")
-    .insert({
-      user_id: userId,
-      tokens: TOKEN_PACK_SIZE,
-      stripe_charge_id: pi.id,
-      stripe_price_id: priceId,
+  // Atomic ledger-insert + balance-bump (migration 016).
+  // Doing both in one RPC closes two races the prior
+  // insert-then-update had: concurrent purchases clobbering
+  // the balance, and a redelivery skipping the bump after
+  // a partial write. Returns the new balance, or null when
+  // this charge was already credited (idempotent).
+  const { data: next, error: creditErr } =
+    await supabase.rpc("credit_token_pack", {
+      p_user_id: userId,
+      p_charge_id: pi.id,
+      p_price_id: priceId,
+      p_tokens: TOKEN_PACK_SIZE,
     })
-
-  if (insertErr) {
-    // 23505 = unique_violation → already processed.
-    if (insertErr.code === "23505") {
-      logger.debug(
-        { pi: pi.id, user_id: userId },
-        "Token-pack already credited, skipping",
-      )
-      return
-    }
-    throw insertErr
+  if (creditErr) {
+    logger.error(
+      { err: creditErr, pi: pi.id, user_id: userId },
+      "Token-pack credit failed",
+    )
+    throw creditErr
   }
-
-  const { data: row } = await supabase
-    .from("users")
-    .select("bonus_tokens_remaining")
-    .eq("id", userId)
-    .single()
-
-  const next =
-    (row?.bonus_tokens_remaining || 0) + TOKEN_PACK_SIZE
-
-  await supabase
-    .from("users")
-    .update({ bonus_tokens_remaining: next })
-    .eq("id", userId)
+  if (next == null) {
+    logger.debug(
+      { pi: pi.id, user_id: userId },
+      "Token-pack already credited, skipping",
+    )
+    return
+  }
 
   clearPlanCache(userId)
 
