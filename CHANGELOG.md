@@ -22,6 +22,7 @@
 - In-app purchase flow (subscribe + token pack) in the PWA [#39](https://github.com/ridingbytes/kaisho-cloud/pull/39)
 - Encrypted integration credential store (Pro foundation) [#40](https://github.com/ridingbytes/kaisho-cloud/pull/40)
 - Linear integration + management API (Pro) [#41](https://github.com/ridingbytes/kaisho-cloud/pull/41)
+- GitHub Projects integration (Pro) [#42](https://github.com/ridingbytes/kaisho-cloud/pull/42)
 
 ## 1.3.1
 
