@@ -15,6 +15,7 @@
 - Hosted cron worker (Companion+) [#32](https://github.com/ridingbytes/kaisho-cloud/pull/32)
 - Run the cron worker in production compose [#33](https://github.com/ridingbytes/kaisho-cloud/pull/33)
 - Invalidate the auth cache on plan change, not just PLAN_CACHE [#34](https://github.com/ridingbytes/kaisho-cloud/pull/34)
+- Cron worker overlap guard, timeout, and fresh job re-read [#35](https://github.com/ridingbytes/kaisho-cloud/pull/35)
 - Atomic token-pack credit to close concurrent-purchase + retry races [#36](https://github.com/ridingbytes/kaisho-cloud/pull/36)
 
 ## 1.3.1
