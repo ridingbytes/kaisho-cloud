@@ -17,6 +17,7 @@
 - Invalidate the auth cache on plan change, not just PLAN_CACHE [#34](https://github.com/ridingbytes/kaisho-cloud/pull/34)
 - Cron worker overlap guard, timeout, and fresh job re-read [#35](https://github.com/ridingbytes/kaisho-cloud/pull/35)
 - Atomic token-pack credit to close concurrent-purchase + retry races [#36](https://github.com/ridingbytes/kaisho-cloud/pull/36)
+- Harden book_time date validation and cloud-job PATCH [#37](https://github.com/ridingbytes/kaisho-cloud/pull/37)
 
 ## 1.3.1
 
