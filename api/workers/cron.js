@@ -175,6 +175,7 @@ async function runJob(job) {
     try {
       result = await callModel({
         model,
+        plan,
         messages: [{ role: "user", content: job.prompt }],
         maxTokens: 2048,
         signal: controller.signal,
