@@ -352,7 +352,7 @@ export function getSubscription(): Promise<{
 }
 
 export function createCheckout(
-  plan: "sync" | "sync_ai",
+  plan: "companion" | "pro" | "team",
 ): Promise<{ url?: string; success?: boolean; plan?: string }> {
   return request("/billing/checkout", {
     method: "POST",
@@ -606,6 +606,7 @@ export function aiUsage(): Promise<{
   total_tokens: number
   request_count: number
   cap: number
+  bonus_tokens_remaining: number
 }> {
   return request("/ai/usage")
 }

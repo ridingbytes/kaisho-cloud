@@ -13,7 +13,7 @@ import { Logo } from "./Logo"
 import { useAuth } from "../auth"
 import { getAppConfig } from "../api"
 import type { AppConfig } from "../api"
-import { planLabel } from "../utils/planLabel"
+import { planLabel, isPaidPlan } from "../utils/planLabel"
 import { PixelAvatar } from "./PixelAvatar"
 import { PullToRefresh } from "./PullToRefresh"
 
@@ -179,8 +179,7 @@ function tabFromHash(): Tab | "profile" {
 export function AppShell() {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const isPaid = user?.plan === "sync"
-    || user?.plan === "sync_ai"
+  const isPaid = isPaidPlan(user?.plan)
   const [profileOpen, setProfileOpen] = useState(false)
   const [tab, setTab] = useState<Tab>(() => {
     const params = new URLSearchParams(

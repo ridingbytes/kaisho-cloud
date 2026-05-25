@@ -98,6 +98,7 @@
   "profile.ai_usage.requests_this_month": "{{count}} запрос в этом месяце",
   "profile.ai_usage.requests_this_month_plural": "{{count}} запросов в этом месяце",
   "profile.ai_usage.tokens": "токенов",
+  "profile.ai_usage.bonus": "+{{amount}} бонусных токенов осталось",
   "profile.connect": "Подключить десктоп-приложение",
   "profile.connect.description": "Сгенерируйте API-ключ для подключения локального Kaisho. Старый ключ перестанет работать.",
   "profile.connect.generate": "Создать новый ключ",
