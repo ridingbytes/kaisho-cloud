@@ -16,8 +16,9 @@
 const linear = require("./linear")
 const github = require("./github")
 const slack = require("./slack")
+const google = require("./google")
 const {
-  listIntegrations, getIntegration,
+  listIntegrations, getIntegration, saveIntegration,
 } = require("./store")
 
 const { logger } = require("../logger")
@@ -26,7 +27,12 @@ const MODULES = {
   [linear.KIND]: linear,
   [github.KIND]: github,
   [slack.KIND]: slack,
+  [google.KIND]: google,
 }
+
+// Refresh an OAuth token that is within this window of
+// expiry before using it.
+const REFRESH_SKEW_MS = 60_000
 
 function jsonResult(payload) {
   return {
@@ -42,6 +48,34 @@ function errorResult(message) {
     content: [{ type: "text", text: `Error: ${message}` }],
     isError: true,
   }
+}
+
+/**
+ * Return usable credentials for an integration, refreshing
+ * an expiring OAuth token first (and persisting the new
+ * one). Modules without ``refresh`` (Linear/GitHub/Slack)
+ * just return their stored credentials unchanged.
+ *
+ * @param {string} userId
+ * @param {string} kind
+ * @param {object} mod - Integration module.
+ * @param {object} integ - { credentials, scopes, expiresAt }.
+ * @returns {Promise<object>} Credentials to dispatch with.
+ */
+async function freshCredentials(userId, kind, mod, integ) {
+  if (!mod.refresh || !integ.expiresAt) {
+    return integ.credentials
+  }
+  const expMs = new Date(integ.expiresAt).getTime()
+  if (Date.now() < expMs - REFRESH_SKEW_MS) {
+    return integ.credentials
+  }
+  const r = await mod.refresh(integ.credentials)
+  await saveIntegration(userId, kind, r.credentials, {
+    scopes: integ.scopes,
+    expiresAt: r.expiresAt,
+  })
+  return r.credentials
 }
 
 /**
@@ -75,8 +109,11 @@ async function registerIntegrationTools(server, userId) {
             if (!integ) {
               return errorResult(`${kind} not connected`)
             }
+            const creds = await freshCredentials(
+              userId, kind, mod, integ,
+            )
             const result = await mod.dispatch(
-              tool.name, args, integ.credentials,
+              tool.name, args, creds,
             )
             return jsonResult(result)
           } catch (err) {
