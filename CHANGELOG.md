@@ -23,6 +23,7 @@
 - Encrypted integration credential store (Pro foundation) [#40](https://github.com/ridingbytes/kaisho-cloud/pull/40)
 - Linear integration + management API (Pro) [#41](https://github.com/ridingbytes/kaisho-cloud/pull/41)
 - GitHub Projects integration (Pro) [#42](https://github.com/ridingbytes/kaisho-cloud/pull/42)
+- Union premium integration tools into the MCP gateway (Pro) [#43](https://github.com/ridingbytes/kaisho-cloud/pull/43)
 
 ## 1.3.1
 
