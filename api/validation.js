@@ -442,6 +442,18 @@ const integrationConnectSchema = z.object({
   api_key: z.string().min(1, "api_key is required"),
 })
 
+/**
+ * POST /integrations/dispatch request body. Runs one
+ * integration tool for the user (used by the desktop
+ * advisor).
+ * @type {z.ZodObject}
+ */
+const integrationDispatchSchema = z.object({
+  kind: z.string().min(1),
+  tool: z.string().min(1),
+  args: z.record(z.unknown()).optional(),
+})
+
 module.exports = {
   signupSchema,
   loginSchema,
@@ -450,6 +462,7 @@ module.exports = {
   cloudJobCreateSchema,
   cloudJobUpdateSchema,
   integrationConnectSchema,
+  integrationDispatchSchema,
   checkoutSchema,
   clockStartSchema,
   quickBookSchema,

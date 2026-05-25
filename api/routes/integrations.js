@@ -17,8 +17,11 @@ const { Router } = require("express")
 const { requireAuth, requirePlan } = require("../middleware")
 const { apiLimiter } = require("../config")
 const {
-  validate, integrationConnectSchema,
+  validate,
+  integrationConnectSchema,
+  integrationDispatchSchema,
 } = require("../validation")
+const { runIntegrationTool } = require("../integrations")
 const { asyncHandler } = require("../utils/asyncHandler")
 const {
   saveIntegration,
@@ -137,6 +140,32 @@ router.get(
   "/",
   asyncHandler(async (req, res) => {
     res.json(await listIntegrations(req.userId))
+  }),
+)
+
+// ── POST /integrations/dispatch ─────────────────────────
+//
+// Defined before /:kind so "dispatch" isn't captured as a
+// :kind. Runs one integration tool for the user — used by
+// the desktop Advisor to call calendar/slack/linear/github
+// tools (whose credentials + dispatch live server-side).
+
+/**
+ * @route POST /integrations/dispatch  { kind, tool, args }
+ */
+router.post(
+  "/dispatch",
+  validate(integrationDispatchSchema),
+  asyncHandler(async (req, res) => {
+    const { kind, tool, args } = req.body
+    try {
+      const result = await runIntegrationTool(
+        req.userId, kind, tool, args || {},
+      )
+      res.json({ result })
+    } catch (err) {
+      res.status(400).json({ error: err.message })
+    }
   }),
 )
 
