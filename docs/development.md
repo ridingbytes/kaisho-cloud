@@ -133,7 +133,7 @@ curl -X POST http://localhost:3000/auth/reset-password \
   -d '{"token":"<token>","password":"newpass123"}'
 ```
 
-### AI endpoints (requires sync_ai plan)
+### AI endpoints (requires a paid plan)
 
 ```bash
 # Parse a natural-language booking
@@ -174,7 +174,8 @@ docker compose up --build
 The API is available at `http://localhost:3000`. The
 Dockerfile uses a two-stage build: stage 1 builds the
 mobile PWA with `pnpm`, stage 2 installs API dependencies
-with `npm ci` and copies the built PWA into `mobile/dist`.
+with `pnpm install --frozen-lockfile --prod` and copies
+the built PWA into `mobile/dist`.
 
 ## Environment variables
 
@@ -186,7 +187,19 @@ See `.env.example` for the full list. Required variables:
 | `SUPABASE_SERVICE_KEY` | Supabase service role key |
 | `STRIPE_SECRET_KEY` | Stripe API key |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
-| `STRIPE_PRICE_SYNC` | Stripe price ID for sync plan |
-| `STRIPE_PRICE_SYNC_AI` | Stripe price ID for sync_ai plan |
+| `STRIPE_PRICE_COMPANION_MONTHLY` / `_YEARLY` | Companion price IDs |
+| `STRIPE_PRICE_PRO_MONTHLY` / `_YEARLY` | Pro price IDs |
+| `STRIPE_PRICE_TEAM_MONTHLY` / `_YEARLY` | Team price IDs |
+| `STRIPE_PRICE_TOKEN_PACK_500K` | Token-pack price ID |
 | `RESEND_API_KEY` | Resend API key for emails |
-| `OPENROUTER_API_KEY` | OpenRouter key (sync_ai only) |
+| `OPENROUTER_API_KEY` | OpenRouter key (paid plans only) |
+
+Optional:
+
+| Variable | Purpose |
+|---|---|
+| `MCP_GATEWAY_ENABLED` | Mount the hosted MCP gateway at `POST /mcp` (Companion+) |
+| `INTEGRATION_KEY` | 32-byte hex AES key for Pro integration credentials (`openssl rand -hex 32`) |
+| `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` | Slack OAuth app (Pro Slack integration) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth app (Pro Calendar integration) |
+| `AI_MAX_CONCURRENCY` | Upstream AI concurrency limit (default 8) |

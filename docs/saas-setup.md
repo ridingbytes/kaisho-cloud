@@ -53,17 +53,26 @@ code.
 
 ### Create products and prices
 
-Go to **Product catalog -> Add product** and create two products:
+Rather than create these by hand, run the idempotent
+helper, which creates the four Track AI products and seven
+prices with the correct tax code and prints the env block:
 
-| Product        | Price    | Billing |
-|----------------|----------|---------|
-| Cloud Sync     | EUR 9.00  | Monthly |
-| Cloud Sync+AI  | EUR 19.00 | Monthly |
+```bash
+node scripts/create-stripe-products.js
+```
 
-After saving each product, copy the `price_xxx` ID:
+The tiers it creates:
 
-- Cloud Sync price ID -> `STRIPE_PRICE_SYNC` in `.env`
-- Cloud Sync+AI price ID -> `STRIPE_PRICE_SYNC_AI` in `.env`
+| Product        | Monthly | Yearly  |
+|----------------|---------|---------|
+| Companion      | EUR 29  | EUR 290 |
+| Pro            | EUR 59  | EUR 590 |
+| Team (per seat)| EUR 99  | EUR 990 |
+| Token Pack 500k| EUR 15 (one-time) | — |
+
+Copy the printed `STRIPE_PRICE_*` block into `.env`
+(`STRIPE_PRICE_COMPANION_MONTHLY`, `_YEARLY`, the Pro and
+Team equivalents, and `STRIPE_PRICE_TOKEN_PACK_500K`).
 
 Start in **test mode** to wire up the integration before going live.
 
@@ -134,8 +143,13 @@ SUPABASE_SERVICE_KEY=eyJhbGc...
 
 STRIPE_SECRET_KEY=sk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_PRICE_SYNC=price_...
-STRIPE_PRICE_SYNC_AI=price_...
+STRIPE_PRICE_COMPANION_MONTHLY=price_...
+STRIPE_PRICE_COMPANION_YEARLY=price_...
+STRIPE_PRICE_PRO_MONTHLY=price_...
+STRIPE_PRICE_PRO_YEARLY=price_...
+STRIPE_PRICE_TEAM_MONTHLY=price_...
+STRIPE_PRICE_TEAM_YEARLY=price_...
+STRIPE_PRICE_TOKEN_PACK_500K=price_...
 
 RESEND_API_KEY=re_...
 EMAIL_FROM=Kaisho <noreply@kaisho.dev>
@@ -221,7 +235,7 @@ psql "postgresql://postgres:<password>@<host>:5432/postgres" -c \
 
 ```sql
 UPDATE users
-SET plan = 'sync_ai'
+SET plan = 'pro'   -- or 'companion' / 'team'
 WHERE id = '<user-id>';
 ```
 

@@ -8,7 +8,8 @@
  * Usage is metered per user per month in the
  * ``ai_usage`` table.
  *
- * All endpoints require the ``sync_ai`` plan.
+ * All endpoints require a paid plan
+ * (companion / pro / team).
  */
 
 const { Router } = require("express")
