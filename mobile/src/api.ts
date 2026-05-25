@@ -368,6 +368,14 @@ export function createPortalSession(): Promise<{
   })
 }
 
+export function createTokenPackCheckout(): Promise<{
+  url?: string
+}> {
+  return request("/billing/token-pack", {
+    method: "POST",
+  })
+}
+
 // -- AI --
 
 const AI_TOOLS = [

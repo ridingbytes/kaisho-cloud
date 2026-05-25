@@ -6,7 +6,9 @@ import { useTheme } from "../theme"
 import type { Theme } from "../theme"
 import { setLanguage } from "../i18n"
 import {
+  createCheckout,
   createPortalSession,
+  createTokenPackCheckout,
   getAppConfig,
   getSubscription,
   regenerateApiKey,
@@ -126,6 +128,36 @@ export function ProfileView() {
     }
   }
 
+  async function handleSubscribe(
+    target: "companion" | "pro" | "team",
+  ) {
+    setError(null)
+    try {
+      const res = await createCheckout(target)
+      if (res.url) {
+        window.location.href = res.url
+      }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message)
+      }
+    }
+  }
+
+  async function handleBuyTokens() {
+    setError(null)
+    try {
+      const { url } = await createTokenPackCheckout()
+      if (url) {
+        window.location.href = url
+      }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message)
+      }
+    }
+  }
+
   const cloudUrl = window.location.origin
   const cliCmd = newKey
     ? `kai cloud connect ${cloudUrl} ${newKey}`
@@ -227,22 +259,51 @@ export function ProfileView() {
               >
                 {t("profile.upgrade.manage")}
               </button>
+              <button
+                type="button"
+                className="btn-secondary upgrade-btn"
+                onClick={handleBuyTokens}
+              >
+                {t("profile.buy_token_pack")}
+              </button>
             </div>
           </>
         ) : (
           <>
             <p className="text-muted">
-              <strong>{t("upgrade.coming_soon")}</strong>
-              {" — "}
-              {t("upgrade.coming_soon_detail")}{" "}
-              <a
-                href="https://kaisho.dev/#pricing"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {t("upgrade.coming_soon_link")}
-              </a>
+              {t("profile.subscription.choose_plan")}
             </p>
+            <div
+              className="upgrade-actions"
+              style={{
+                marginTop: 12,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <button
+                type="button"
+                className="btn-primary upgrade-btn"
+                onClick={() => handleSubscribe("companion")}
+              >
+                {t("profile.subscribe.companion")}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary upgrade-btn"
+                onClick={() => handleSubscribe("pro")}
+              >
+                {t("profile.subscribe.pro")}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary upgrade-btn"
+                onClick={() => handleSubscribe("team")}
+              >
+                {t("profile.subscribe.team")}
+              </button>
+            </div>
           </>
         )}
       </div>
