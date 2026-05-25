@@ -20,6 +20,7 @@
 - Harden book_time date validation and cloud-job PATCH [#37](https://github.com/ridingbytes/kaisho-cloud/pull/37)
 - Surface Companion AI advisor + token balance in the PWA [#38](https://github.com/ridingbytes/kaisho-cloud/pull/38)
 - In-app purchase flow (subscribe + token pack) in the PWA [#39](https://github.com/ridingbytes/kaisho-cloud/pull/39)
+- Encrypted integration credential store (Pro foundation) [#40](https://github.com/ridingbytes/kaisho-cloud/pull/40)
 
 ## 1.3.1
 
