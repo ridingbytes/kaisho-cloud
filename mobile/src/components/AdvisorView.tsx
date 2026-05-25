@@ -15,6 +15,7 @@ import { useAuth } from "../auth"
 import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
 import { useConfirm } from "./ConfirmDialog"
+import { isPaidPlan } from "../utils/planLabel"
 
 // ── Example prompts ────────────────────────────────────
 
@@ -143,7 +144,7 @@ export function AdvisorView() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const { toast } = useToast()
-  const hasAI = user?.plan === "sync_ai"
+  const hasAI = isPaidPlan(user?.plan)
   const [savedAt, setSavedAt] = useState<Set<number>>(
     () => new Set(),
   )
