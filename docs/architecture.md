@@ -302,6 +302,50 @@ The local app runs a multi-turn agentic loop:
 
 **Max turns**: 15 per request (prevents runaway loops).
 
+### Server-Side Advisor (`/ai/advisor`)
+
+Thin clients (the mobile PWA) cannot drive the agentic loop
+themselves the way the desktop app does. `POST /ai/advisor`
+runs the **entire loop on the server**: the client sends only
+the conversation, and the cloud calls the model, executes any
+tool calls, feeds the results back, and returns the final
+answer.
+
+```
+Thin client            Cloud Advisor (/ai/advisor)      OpenRouter
+     |                        |                              |
+     |-- messages ----------->|--- model call (w/ tools) --->|
+     |                        |<-- tool_calls ---------------|
+     |                        | run tool (Supabase /         |
+     |                        |   integration dispatch)      |
+     |                        |--- results + tools --------->|
+     |                        |<-- final answer -------------|
+     |<-- text + tools_used --|                              |
+```
+
+- **Toolset**: harvested from the same registrars the MCP
+  gateway uses, so there is one definition per tool. Read +
+  write kaisho tools for every paid plan; the user's
+  connected premium integrations (`google_*`, `slack_*`,
+  `linear_*`, `github_*`) only for `pro` / `team`, matching
+  the MCP gateway's plan gate.
+- **Args validation**: tool args from the model are validated
+  against each tool's Zod schema before the handler runs
+  (the MCP SDK does this on the wire; the internal loop does
+  it explicitly). Validation errors are returned to the model
+  so it can correct itself.
+- **Bounds**: at most `MAX_STEPS` (6) model rounds; the final
+  round is run without tools to force a prose answer. Per
+  round output is capped at 2048 tokens (4096 max).
+- **Metering**: usage is recorded per round, so tokens are
+  metered even if a later round fails. The loop stops
+  requesting tools once cumulative usage would reach the
+  monthly cap, then forces a final answer.
+
+The desktop app keeps its own local loop (it has tools that
+touch local org files); `/ai/advisor` is for clients that
+have no local toolset of their own.
+
 ### Available Tools
 
 | Category | Tools |
