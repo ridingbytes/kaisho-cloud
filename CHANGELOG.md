@@ -34,6 +34,7 @@
 - Accept date-only args in the Google Calendar tools [#51](https://github.com/ridingbytes/kaisho-cloud/pull/51)
 - Harden the advisor loop: validate tool args, gate integrations by plan, meter per round [#52](https://github.com/ridingbytes/kaisho-cloud/pull/52)
 - PWA advisor uses the server-side agentic loop (`/ai/advisor`) [#53](https://github.com/ridingbytes/kaisho-cloud/pull/53)
+- Rewrite the go-live test script around the Track AI tiers [#54](https://github.com/ridingbytes/kaisho-cloud/pull/54)
 
 ## 1.3.1
 
