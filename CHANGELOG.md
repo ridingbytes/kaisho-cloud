@@ -33,6 +33,7 @@
 - Fix advisor tool schemas to JSON Schema draft 2020-12 [#50](https://github.com/ridingbytes/kaisho-cloud/pull/50)
 - Accept date-only args in the Google Calendar tools [#51](https://github.com/ridingbytes/kaisho-cloud/pull/51)
 - Harden the advisor loop: validate tool args, gate integrations by plan, meter per round [#52](https://github.com/ridingbytes/kaisho-cloud/pull/52)
+- PWA advisor uses the server-side agentic loop (`/ai/advisor`) [#53](https://github.com/ridingbytes/kaisho-cloud/pull/53)
 
 ## 1.3.1
 

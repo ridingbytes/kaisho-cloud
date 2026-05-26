@@ -4,11 +4,8 @@ import {
 import { useTranslation } from "react-i18next"
 import { Markdown } from "./Markdown"
 import {
-  aiComplete,
+  aiAdvisor,
   addInboxItem,
-  getEntries,
-  getCustomers,
-  getTasks,
   ApiError,
 } from "../api"
 import { useAuth } from "../auth"
@@ -27,50 +24,18 @@ const EXAMPLES = [
   "Am I close to any budget limit?",
 ]
 
-// ── Context builder ────────────────────────────────────
+// ── Local context ──────────────────────────────────────
 
-async function buildContext(): Promise<string> {
-  const [entries, customers, tasks] = await Promise.all([
-    getEntries({ period: "month" }).catch(() => []),
-    getCustomers().catch(() => []),
-    getTasks().catch(() => []),
-  ])
-
-  const lines: string[] = []
-
-  if (entries.length > 0) {
-    lines.push("## Clock Entries (this month)")
-    for (const e of entries.slice(0, 30)) {
-      const dur = e.duration_minutes
-        ? `${Math.round(e.duration_minutes)}m`
-        : "running"
-      lines.push(
-        `- ${e.start?.slice(0, 10)} `
-        + `[${e.customer || "?"}] `
-        + `${e.description || ""} (${dur})`,
-      )
-    }
-    if (entries.length > 30) {
-      lines.push(`- ... ${entries.length - 30} more`)
-    }
-  }
-
-  if (customers.length > 0) {
-    lines.push("\n## Customers")
-    for (const c of customers) {
-      lines.push(`- ${c.name}`)
-    }
-  }
-
-  if (tasks.length > 0) {
-    lines.push("\n## Tasks")
-    for (const t of tasks) {
-      const cust = t.customer ? `[${t.customer}] ` : ""
-      lines.push(`- ${cust}${t.title}`)
-    }
-  }
-
-  return lines.join("\n")
+// The server-side advisor fetches data itself via tools, so
+// the client only supplies the user's local clock so
+// relative dates ("today", "tomorrow") resolve correctly.
+function localContext(): string {
+  const tz = Intl.DateTimeFormat()
+    .resolvedOptions().timeZone
+  return (
+    `User's local time: ${new Date().toString()}. `
+    + `Timezone: ${tz}.`
+  )
 }
 
 // ── Types ──────────────────────────────────────────────
@@ -202,32 +167,20 @@ export function AdvisorView() {
       abortRef.current = controller
 
       try {
-        const context = await buildContext()
-
-        // Send full prior conversation + the new turn.
-        // Context (clock entries, tasks, etc.) is
-        // injected only on the latest user message so
-        // the gateway sees a fresh snapshot each turn
-        // without re-paying for it on earlier turns.
+        // Send the full prior conversation + the new turn.
+        // The server-side advisor fetches data itself via
+        // tools, so we only attach the user's local clock
+        // (relative dates) to the latest message.
         const wireMessages = [
           ...priorMessages.map((m) => ({
             role: m.role,
             content: m.text,
           })),
-          {
-            role: "user",
-            content:
-              "## Context\n\n" + context
-              + "\n\n## Question\n\n" + question,
-          },
+          { role: "user", content: question },
         ]
 
-        const result = await aiComplete(
-          "You are the Kaisho AI advisor. Answer "
-          + "based on the context provided and any "
-          + "earlier turns in this conversation. Be "
-          + "concise and actionable.",
-          wireMessages,
+        const result = await aiAdvisor(
+          wireMessages, localContext(),
         )
         if (!controller.signal.aborted) {
           setMessages((prev) => [
