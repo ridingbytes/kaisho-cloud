@@ -328,6 +328,21 @@ const aiCompleteSchema = z.object({
 })
 
 /**
+ * Server-side agentic advisor request. The loop builds
+ * the toolset itself, so clients send only the
+ * conversation, an optional system override and an
+ * optional context block (e.g. the user's local time).
+ *
+ * @type {z.ZodObject}
+ */
+const aiAdvisorSchema = z.object({
+  messages: z.array(z.any()).min(1),
+  system: z.string().optional(),
+  context: z.string().optional(),
+  max_tokens: z.number().optional(),
+})
+
+/**
  * POST /ai/parse-booking request body.
  * @type {z.ZodObject}
  */
@@ -481,6 +496,7 @@ module.exports = {
   periodQuerySchema,
   syncChangesQuerySchema,
   aiCompleteSchema,
+  aiAdvisorSchema,
   aiParseBookingSchema,
   aiSummarizeSchema,
   validate,
