@@ -378,207 +378,32 @@ export function createTokenPackCheckout(): Promise<{
 
 // -- AI --
 
-const AI_TOOLS = [
-  {
-    type: "function",
-    function: {
-      name: "add_task",
-      description:
-        "Create a new task. Use when the user asks "
-        + "to add, create, or track a task.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: {
-            type: "string",
-            description: "Task title",
-          },
-          customer: {
-            type: "string",
-            description: "Customer name (optional)",
-          },
-          status: {
-            type: "string",
-            enum: [
-              "TODO", "NEXT", "IN-PROGRESS",
-              "WAIT", "DONE", "CANCELLED",
-            ],
-            description: "Initial status",
-          },
-        },
-        required: ["title"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "add_inbox_item",
-      description:
-        "Add an item to the inbox. Use for ideas, "
-        + "notes, leads, or anything to triage later.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: {
-            type: "string",
-            description: "Item title",
-          },
-          type: {
-            type: "string",
-            enum: [
-              "NOTE", "IDEA", "EMAIL", "LEAD",
-            ],
-            description: "Item type",
-          },
-          customer: {
-            type: "string",
-            description: "Customer name (optional)",
-          },
-          body: {
-            type: "string",
-            description: "Body text (optional)",
-          },
-        },
-        required: ["title"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "add_note",
-      description:
-        "Create a note. Use for meeting notes, "
-        + "documentation, or longer-form content.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: {
-            type: "string",
-            description: "Note title",
-          },
-          body: {
-            type: "string",
-            description: "Note body (markdown)",
-          },
-          customer: {
-            type: "string",
-            description: "Customer name (optional)",
-          },
-        },
-        required: ["title"],
-      },
-    },
-  },
-]
-
-interface AiToolCall {
-  id: string
-  function: { name: string; arguments: string }
-}
-
-interface AiResponse {
+interface AiAdvisorResponse {
   text: string
-  tool_calls: AiToolCall[] | null
-  finish_reason: string
+  tools_used: string[]
+  steps: number
 }
 
-async function executeAiTool(
-  name: string,
-  args: Record<string, string>,
-): Promise<Record<string, unknown>> {
-  switch (name) {
-    case "add_task":
-      await addSyncedTask({
-        title: args.title,
-        customer: args.customer,
-        status: args.status,
-      })
-      return { ok: true, created: "task" }
-    case "add_inbox_item":
-      await addInboxItem({
-        title: args.title,
-        type: args.type,
-        customer: args.customer,
-        body: args.body,
-      })
-      return { ok: true, created: "inbox_item" }
-    case "add_note":
-      await addSyncedNote({
-        title: args.title,
-        body: args.body,
-        customer: args.customer,
-      })
-      return { ok: true, created: "note" }
-    default:
-      return { error: `unknown tool: ${name}` }
-  }
-}
-
-const MAX_AI_TURNS = 5
-
-export async function aiComplete(
-  system: string,
+// The cloud runs the full agentic advisor loop server-side
+// (kaisho data tools + the user's connected premium
+// integrations), so the client just sends the conversation
+// and an optional context block and gets the final answer.
+export async function aiAdvisor(
   messages: { role: string; content: string }[],
-  mode: string = "advisor",
+  context?: string,
 ): Promise<string> {
-  const msgs = [...messages]
-
-  for (let i = 0; i < MAX_AI_TURNS; i++) {
-    const data = await request<AiResponse>(
-      "/ai/complete",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          system,
-          messages: msgs,
-          mode,
-          tools: AI_TOOLS,
-          max_tokens: 4096,
-        }),
-      },
-    )
-
-    const calls = data.tool_calls
-    if (!calls || calls.length === 0) {
-      return data.text || ""
-    }
-
-    // Append assistant message with tool calls
-    msgs.push({
-      role: "assistant",
-      content: data.text || "",
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      tool_calls: calls as any,
-    } as any) // eslint-disable-line
-
-    // Execute each tool and append results
-    for (const call of calls) {
-      let args: Record<string, string> = {}
-      try {
-        args = JSON.parse(
-          call.function.arguments || "{}",
-        )
-      } catch {
-        // ignore
-      }
-      const result = await executeAiTool(
-        call.function.name, args,
-      )
-      msgs.push({
-        role: "tool",
-        content: JSON.stringify(result),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        tool_call_id: call.id,
-      } as any) // eslint-disable-line
-    }
-  }
-
-  return msgs
-    .filter((m) => m.role === "assistant")
-    .map((m) => m.content)
-    .pop() || ""
+  const data = await request<AiAdvisorResponse>(
+    "/ai/advisor",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        messages,
+        context,
+        max_tokens: 2048,
+      }),
+    },
+  )
+  return data.text || ""
 }
 
 export function aiParseBooking(
