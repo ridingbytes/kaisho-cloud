@@ -130,22 +130,54 @@ function tools() {
 }
 
 const CLAMP_MAX = 100
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
 
 function clampLimit(n) {
   const v = Number.isFinite(n) ? Math.floor(n) : 25
   return Math.max(1, Math.min(v, CLAMP_MAX))
 }
 
+/**
+ * Expand a bare ``YYYY-MM-DD`` to a full RFC3339 instant.
+ * The Calendar API rejects date-only ``timeMin`` /
+ * ``timeMax``, but a model asked for "tomorrow" naturally
+ * emits a bare date. ``endOfDay`` picks 23:59:59 over
+ * 00:00:00. Values that already carry a time pass through
+ * unchanged.
+ *
+ * @param {string} value
+ * @param {boolean} [endOfDay=false]
+ * @returns {string}
+ */
+function toRfc3339(value, endOfDay = false) {
+  if (!value || !DATE_ONLY.test(value)) return value
+  return `${value}T${endOfDay ? "23:59:59" : "00:00:00"}Z`
+}
+
+/**
+ * Build a Calendar event start/end object. A bare
+ * ``YYYY-MM-DD`` becomes an all-day ``{ date }``; a full
+ * timestamp becomes a timed ``{ dateTime }``.
+ *
+ * @param {string} value
+ * @returns {{date: string}|{dateTime: string}}
+ */
+function eventTime(value) {
+  return DATE_ONLY.test(value)
+    ? { date: value }
+    : { dateTime: value }
+}
+
 async function dispatch(tool, args, credentials) {
   const token = credentials.access_token
   if (tool === "google_list_events") {
     const params = new URLSearchParams({
-      timeMin: args.from || new Date().toISOString(),
+      timeMin: toRfc3339(args.from) || new Date().toISOString(),
       maxResults: String(clampLimit(args.limit)),
       singleEvents: "true",
       orderBy: "startTime",
     })
-    if (args.to) params.set("timeMax", args.to)
+    if (args.to) params.set("timeMax", toRfc3339(args.to, true))
     const json = await api(
       token, `/calendars/primary/events?${params}`,
     )
@@ -161,8 +193,8 @@ async function dispatch(tool, args, credentials) {
     const json = await api(token, "/freeBusy", {
       method: "POST",
       body: JSON.stringify({
-        timeMin: args.from,
-        timeMax: args.to,
+        timeMin: toRfc3339(args.from),
+        timeMax: toRfc3339(args.to, true),
         items: [{ id: "primary" }],
       }),
     })
@@ -176,8 +208,8 @@ async function dispatch(tool, args, credentials) {
         body: JSON.stringify({
           summary: args.summary,
           description: args.description,
-          start: { dateTime: args.start },
-          end: { dateTime: args.end },
+          start: eventTime(args.start),
+          end: eventTime(args.end),
         }),
       },
     )
