@@ -31,6 +31,7 @@
 - Integration tool dispatch endpoint (for the desktop advisor) [#48](https://github.com/ridingbytes/kaisho-cloud/pull/48)
 - Server-side agentic advisor loop (`/ai/advisor`) [#49](https://github.com/ridingbytes/kaisho-cloud/pull/49)
 - Fix advisor tool schemas to JSON Schema draft 2020-12 [#50](https://github.com/ridingbytes/kaisho-cloud/pull/50)
+- Accept date-only args in the Google Calendar tools [#51](https://github.com/ridingbytes/kaisho-cloud/pull/51)
 
 ## 1.3.1
 
