@@ -25,7 +25,11 @@ const {
   aiParseBookingSchema,
   aiSummarizeSchema,
 } = require("../validation")
-const { runAdvisor } = require("../ai/advisor")
+const {
+  runAdvisor,
+  DEFAULT_MAX_TOKENS,
+  MAX_TOKENS_LIMIT,
+} = require("../ai/advisor")
 const {
   MODEL_FAST,
   MODEL_DEFAULT,
@@ -179,8 +183,11 @@ router.post(
  * premium integrations) and returns the final answer, so
  * thin clients like the PWA get desktop-level capability
  * without driving the loop themselves. Always routed
- * through the advisor model. Metered (summed across the
- * loop's model calls).
+ * through the advisor model.
+ *
+ * Usage is metered per round (so tokens are recorded even
+ * if a later round fails), and the loop stops early once
+ * cumulative usage would reach the cap.
  *
  * @route POST /ai/advisor
  */
@@ -193,6 +200,12 @@ router.post(
     const { messages, system, context, max_tokens } =
       req.body
     const model = await resolveModel(req.userId, "advisor")
+    const used =
+      req.aiUsage.input_tokens + req.aiUsage.output_tokens
+
+    const maxTokens = Math.min(
+      max_tokens || DEFAULT_MAX_TOKENS, MAX_TOKENS_LIMIT,
+    )
 
     const out = await runAdvisor({
       userId: req.userId,
@@ -202,15 +215,12 @@ router.post(
       system,
       context,
       messages,
-      maxTokens: Math.min(max_tokens || 2048, 4096),
+      maxTokens,
+      cap: req.aiCap,
+      used,
+      onUsage: (input, output) =>
+        recordUsage(req.userId, req.aiMonth, input, output),
     })
-
-    await recordUsage(
-      req.userId,
-      req.aiMonth,
-      out.usage.input,
-      out.usage.output,
-    )
 
     res.json({
       text: out.text,

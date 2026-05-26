@@ -20,6 +20,12 @@
  * ``McpServer.registerTool``. There is exactly one
  * definition of each tool; this module only changes the
  * transport (an internal loop instead of MCP wire).
+ *
+ * Unlike the MCP wire, the SDK's pre-handler Zod
+ * validation does not run for us, so the collector keeps
+ * each tool's schema and ``runToolCall`` validates args
+ * before invoking the handler — restoring the contract
+ * the handlers were written against.
  */
 
 const { z } = require("zod")
@@ -38,6 +44,15 @@ const { logger } = require("../logger")
 // to answer in prose rather than request yet another call.
 const MAX_STEPS = 6
 
+// Per-round output cap. Lower than /ai/complete's 8192
+// because the advisor multiplies it by up to MAX_STEPS.
+const DEFAULT_MAX_TOKENS = 2048
+const MAX_TOKENS_LIMIT = 4096
+
+// Premium integrations are gated to these plans, matching
+// the MCP gateway (see routes/mcp.js).
+const INTEGRATION_PLANS = ["pro", "team"]
+
 const ADVISOR_SYSTEM =
   "You are the Kaisho AI advisor. You help the user "
   + "manage their time tracking, tasks, customers, notes "
@@ -46,6 +61,10 @@ const ADVISOR_SYSTEM =
   + "before answering — never guess and never claim you "
   + "lack access when a tool can fetch it. Be concise and "
   + "actionable. Answer in the user's language."
+
+const STEP_LIMIT_REPLY =
+  "I wasn't able to finish that within my tool-use "
+  + "budget. Please narrow the question and try again."
 
 /**
  * Build the advisor system prompt: the base (or a
@@ -66,80 +85,117 @@ function buildSystem(custom, context) {
 }
 
 /**
+ * Convert a raw Zod shape to a JSON schema the model
+ * accepts. The default (draft-07) target emits the number
+ * form of exclusiveMinimum, valid under draft 2020-12
+ * (what Anthropic tool schemas require); the openApi3
+ * target's boolean form is rejected. The $schema marker
+ * is dropped — providers reject the extra key.
+ *
+ * @param {object} shape - Raw Zod shape.
+ * @returns {object} JSON schema for the tool parameters.
+ */
+function shapeToParameters(shape) {
+  const parameters = zodToJsonSchema(z.object(shape), {
+    $refStrategy: "none",
+  })
+  delete parameters.$schema
+  return parameters
+}
+
+/**
  * Collect the advisor toolset for a user: OpenAI-format
- * tool definitions plus a ``name -> handler`` map. Reuses
- * the MCP registrars by handing them a collector that
- * captures each ``registerTool`` call instead of wiring a
- * transport.
+ * tool definitions plus a ``name -> { schema, handler }``
+ * map. Reuses the MCP registrars by handing them a
+ * collector that captures each ``registerTool`` call
+ * instead of wiring a transport.
+ *
+ * Read + write tools are always included so the advisor
+ * can both look up and act (create events, add tasks).
+ * Integration tools are added only for Pro/Team plans,
+ * matching the MCP gateway's plan gate — never for
+ * companion users, even if integration rows linger from a
+ * prior Pro subscription.
  *
  * @param {string} userId
+ * @param {string} [plan] - Caller's plan.
  * @returns {Promise<{tools: Array, handlers: object}>}
  */
-async function collectTools(userId) {
+async function collectTools(userId, plan) {
   const tools = []
   const handlers = {}
   const collector = {
     registerTool(name, def, handler) {
-      const shape = def.inputSchema || {}
-      // Default (draft-07) target emits the number form of
-      // exclusiveMinimum, which validates under draft
-      // 2020-12 (what Anthropic tool schemas require). The
-      // openApi3 target's boolean form is rejected. Drop
-      // the $schema marker — providers reject the extra key.
-      const parameters = zodToJsonSchema(z.object(shape), {
-        $refStrategy: "none",
-      })
-      delete parameters.$schema
       tools.push({
         type: "function",
         function: {
           name,
           description: def.description || "",
-          parameters,
+          parameters: shapeToParameters(def.inputSchema || {}),
         },
       })
-      handlers[name] = handler
+      handlers[name] = {
+        schema: z.object(def.inputSchema || {}),
+        handler,
+      }
     },
   }
   registerReadTools(collector, userId)
   registerWriteTools(collector, userId)
-  // Pro premium integrations — a no-op when the user has
-  // none connected (companion users simply get the data
-  // tools, Pro users additionally get integration tools).
-  await registerIntegrationTools(collector, userId)
+  if (INTEGRATION_PLANS.includes(plan)) {
+    await registerIntegrationTools(collector, userId)
+  }
   return { tools, handlers }
 }
 
 /**
- * Run one tool call and return its result as a string for
- * the tool message. MCP handlers return
- * ``{ content: [{ type, text }], isError? }``; flatten the
- * text parts. Errors are returned (not thrown) so the
- * model can see the failure and recover on the next turn.
+ * Flatten an MCP handler result
+ * (``{ content: [{ type, text }], isError? }``) to a
+ * string for the tool message.
+ *
+ * @param {object} result
+ * @returns {string}
+ */
+function flattenResult(result) {
+  const parts = (result && result.content) || []
+  const text = parts
+    .map((c) => c.text)
+    .filter(Boolean)
+    .join("\n")
+  return text || "(no output)"
+}
+
+/**
+ * Validate args against the tool's Zod schema, then run
+ * the handler and return its result as a string. The MCP
+ * SDK normally validates before invoking the handler; on
+ * the internal loop we do it here. Errors (bad args,
+ * unknown tool, handler throw) are returned as text — not
+ * thrown — so the model can see the failure and recover.
  *
  * @param {object} call - OpenAI tool_call object.
- * @param {object} handlers - name -> handler map.
+ * @param {object} handlers - name -> { schema, handler }.
  * @returns {Promise<string>}
  */
 async function runToolCall(call, handlers) {
   const name = call.function && call.function.name
-  const handler = handlers[name]
-  if (!handler) return `Error: unknown tool ${name}`
+  const entry = handlers[name]
+  if (!entry) return `Error: unknown tool ${name}`
 
-  let args = {}
+  let rawArgs = {}
   try {
-    args = JSON.parse(call.function.arguments || "{}")
+    rawArgs = JSON.parse(call.function.arguments || "{}")
   } catch (err) {
     return "Error: malformed tool arguments"
   }
 
+  const parsed = entry.schema.safeParse(rawArgs)
+  if (!parsed.success) {
+    return `Error: invalid arguments: ${parsed.error.message}`
+  }
+
   try {
-    const result = await handler(args)
-    const text = (result && result.content || [])
-      .map((c) => c.text)
-      .filter(Boolean)
-      .join("\n")
-    return text || "(no output)"
+    return flattenResult(await entry.handler(parsed.data))
   } catch (err) {
     logger.error(
       { err, tool: name }, "advisor tool failed",
@@ -152,8 +208,8 @@ async function runToolCall(call, handlers) {
  * Append the assistant turn to the running conversation,
  * carrying tool_calls only when present.
  */
-function pushAssistant(convo, msg, calls) {
-  convo.push({
+function pushAssistant(conversation, msg, calls) {
+  conversation.push({
     role: "assistant",
     content: msg.content || "",
     ...(calls.length ? { tool_calls: calls } : {}),
@@ -161,77 +217,115 @@ function pushAssistant(convo, msg, calls) {
 }
 
 /**
+ * Run every tool call in a round, appending each result
+ * as a tool message and recording the names that actually
+ * ran. Calls are executed in order.
+ *
+ * @param {Array} calls
+ * @param {object} handlers
+ * @param {Array} conversation
+ * @param {Array} toolsUsed - Mutated with executed names.
+ */
+async function runRoundTools(calls, handlers, conversation, toolsUsed) {
+  for (const call of calls) {
+    const content = await runToolCall(call, handlers)
+    const name = call.function && call.function.name
+    if (name) toolsUsed.push(name)
+    conversation.push({
+      role: "tool",
+      tool_call_id: call.id,
+      content,
+    })
+  }
+}
+
+/**
  * Run the agentic advisor loop.
+ *
+ * Usage is reported per round through ``onUsage`` (so it
+ * is metered even if a later round throws) and the loop
+ * stops early once cumulative usage would reach the cap.
  *
  * @param {object} opts
  * @param {string} opts.userId
- * @param {string} [opts.plan] - Sets priority-queue order.
+ * @param {string} [opts.plan] - Gates integrations + queue.
  * @param {object} [opts.backend] - Pre-resolved backend.
  * @param {string} opts.model
  * @param {string} [opts.system] - Base prompt override.
  * @param {string} [opts.context] - Extra context block.
  * @param {Array}  opts.messages - OpenAI chat messages.
  * @param {number} [opts.maxTokens]
+ * @param {number} [opts.cap] - Monthly token cap.
+ * @param {number} [opts.used=0] - Tokens already used.
+ * @param {function} [opts.onUsage] - (input, output) per
+ *   round; may be async. Persists usage incrementally.
  * @returns {Promise<{text, steps, toolsUsed, usage}>}
  */
 async function runAdvisor(opts) {
-  const { tools, handlers } = await collectTools(opts.userId)
+  const { tools, handlers } =
+    await collectTools(opts.userId, opts.plan)
   const system = buildSystem(opts.system, opts.context)
-  const convo = [...opts.messages]
+  const conversation = [...opts.messages]
   const toolsUsed = []
   const usage = { input: 0, output: 0 }
+  const cap = Number.isFinite(opts.cap) ? opts.cap : Infinity
+  const used = opts.used || 0
+
+  const finish = (text, step) => ({
+    text, steps: step + 1, toolsUsed, usage,
+  })
 
   for (let step = 0; step < MAX_STEPS; step++) {
-    // Drop tools on the final round to force a prose
-    // answer instead of another tool request.
-    const lastStep = step === MAX_STEPS - 1
+    const capReached =
+      used + usage.input + usage.output >= cap
+    // Drop tools on the final round, or once the cap is
+    // reached, to force a prose answer with what we have.
+    const noTools = step === MAX_STEPS - 1 || capReached
+
     const result = await callModel({
       backend: opts.backend,
       plan: opts.plan,
       model: opts.model,
       system,
-      messages: convo,
-      tools: lastStep ? undefined : tools,
-      maxTokens: opts.maxTokens,
+      messages: conversation,
+      tools: noTools ? undefined : tools,
+      maxTokens: opts.maxTokens || DEFAULT_MAX_TOKENS,
     })
 
-    const u = extractUsage(result)
-    usage.input += u.input
-    usage.output += u.output
+    const roundUsage = extractUsage(result)
+    usage.input += roundUsage.input
+    usage.output += roundUsage.output
+    if (opts.onUsage) {
+      await opts.onUsage(roundUsage.input, roundUsage.output)
+    }
 
     const choice = result.choices && result.choices[0]
     const msg = (choice && choice.message) || {}
     const calls = msg.tool_calls || []
-    pushAssistant(convo, msg, calls)
+    pushAssistant(conversation, msg, calls)
 
-    if (!calls.length) {
-      return {
-        text: msg.content || "",
-        steps: step + 1,
-        toolsUsed,
-        usage,
-      }
+    if (!calls.length || noTools) {
+      // A forced tool-less round with empty content means
+      // the model gave up mid-task — surface a fallback so
+      // the client never renders a blank answer.
+      const text =
+        msg.content || (noTools ? STEP_LIMIT_REPLY : "")
+      return finish(text, step)
     }
-
-    for (const call of calls) {
-      toolsUsed.push(call.function && call.function.name)
-      const content = await runToolCall(call, handlers)
-      convo.push({
-        role: "tool",
-        tool_call_id: call.id,
-        content,
-      })
-    }
+    await runRoundTools(
+      calls, handlers, conversation, toolsUsed,
+    )
   }
 
-  // Reached only if the model kept emitting tool_calls
-  // through the penultimate round; the last round has no
-  // tools, so in practice it returns above.
-  return { text: "", steps: MAX_STEPS, toolsUsed, usage }
+  // Should not be reached: the final round runs tool-less
+  // and returns above. Guard with a clear fallback.
+  return finish(STEP_LIMIT_REPLY, MAX_STEPS - 1)
 }
 
 module.exports = {
   MAX_STEPS,
+  DEFAULT_MAX_TOKENS,
+  MAX_TOKENS_LIMIT,
   ADVISOR_SYSTEM,
   buildSystem,
   collectTools,
