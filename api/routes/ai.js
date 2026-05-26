@@ -21,9 +21,11 @@ const { asyncHandler } = require("../utils/asyncHandler")
 const {
   validate,
   aiCompleteSchema,
+  aiAdvisorSchema,
   aiParseBookingSchema,
   aiSummarizeSchema,
 } = require("../validation")
+const { runAdvisor } = require("../ai/advisor")
 const {
   MODEL_FAST,
   MODEL_DEFAULT,
@@ -166,6 +168,59 @@ router.post(
       },
     }
     res.json(response)
+  }),
+)
+
+// ── POST /ai/advisor ────────────────────────────────────
+
+/**
+ * Server-side agentic advisor. Runs a tool-using loop on
+ * the server (kaisho data tools + the user's connected
+ * premium integrations) and returns the final answer, so
+ * thin clients like the PWA get desktop-level capability
+ * without driving the loop themselves. Always routed
+ * through the advisor model. Metered (summed across the
+ * loop's model calls).
+ *
+ * @route POST /ai/advisor
+ */
+router.post(
+  "/advisor",
+  validate(aiAdvisorSchema),
+  asyncHandler(requireBackendKey),
+  asyncHandler(requireTokenQuota),
+  asyncHandler(async (req, res) => {
+    const { messages, system, context, max_tokens } =
+      req.body
+    const model = await resolveModel(req.userId, "advisor")
+
+    const out = await runAdvisor({
+      userId: req.userId,
+      plan: req.userPlan,
+      backend: req.aiBackend,
+      model,
+      system,
+      context,
+      messages,
+      maxTokens: Math.min(max_tokens || 2048, 4096),
+    })
+
+    await recordUsage(
+      req.userId,
+      req.aiMonth,
+      out.usage.input,
+      out.usage.output,
+    )
+
+    res.json({
+      text: out.text,
+      tools_used: out.toolsUsed,
+      steps: out.steps,
+      usage: {
+        input_tokens: out.usage.input,
+        output_tokens: out.usage.output,
+      },
+    })
   }),
 )
 
