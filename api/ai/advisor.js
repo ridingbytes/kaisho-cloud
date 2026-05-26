@@ -81,10 +81,15 @@ async function collectTools(userId) {
   const collector = {
     registerTool(name, def, handler) {
       const shape = def.inputSchema || {}
+      // Default (draft-07) target emits the number form of
+      // exclusiveMinimum, which validates under draft
+      // 2020-12 (what Anthropic tool schemas require). The
+      // openApi3 target's boolean form is rejected. Drop
+      // the $schema marker — providers reject the extra key.
       const parameters = zodToJsonSchema(z.object(shape), {
-        target: "openApi3",
         $refStrategy: "none",
       })
+      delete parameters.$schema
       tools.push({
         type: "function",
         function: {
