@@ -30,6 +30,7 @@
 - Google Calendar integration (Pro) — completes the Pro tier [#47](https://github.com/ridingbytes/kaisho-cloud/pull/47)
 - Integration tool dispatch endpoint (for the desktop advisor) [#48](https://github.com/ridingbytes/kaisho-cloud/pull/48)
 - Server-side agentic advisor loop (`/ai/advisor`) [#49](https://github.com/ridingbytes/kaisho-cloud/pull/49)
+- Fix advisor tool schemas to JSON Schema draft 2020-12 [#50](https://github.com/ridingbytes/kaisho-cloud/pull/50)
 
 ## 1.3.1
 
