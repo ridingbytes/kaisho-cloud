@@ -37,6 +37,7 @@
 - Rewrite the go-live test script around the Track AI tiers [#54](https://github.com/ridingbytes/kaisho-cloud/pull/54)
 - Fix yearly checkout charging the monthly price [#55](https://github.com/ridingbytes/kaisho-cloud/pull/55)
 - Make the Stripe webhook idempotency lock atomic (insert-first) [#56](https://github.com/ridingbytes/kaisho-cloud/pull/56)
+- Fail the AI token-quota check closed on a usage-read error [#57](https://github.com/ridingbytes/kaisho-cloud/pull/57)
 
 ## 1.3.1
 

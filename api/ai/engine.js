@@ -316,12 +316,19 @@ function currentMonth() {
  * @returns {Promise<object>}
  */
 async function getUsage(userId, month) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("ai_usage")
     .select("*")
     .eq("user_id", userId)
     .eq("month", month)
     .maybeSingle()
+  // Distinguish "no row yet" (data null, no error) from a
+  // real read failure. Throwing lets the quota gate fail
+  // CLOSED instead of silently treating the user as having
+  // used 0 tokens (which would disable metering).
+  if (error) {
+    throw new Error(`getUsage failed: ${error.message}`)
+  }
   return data || {
     user_id: userId,
     month,
