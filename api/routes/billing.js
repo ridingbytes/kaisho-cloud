@@ -91,8 +91,12 @@ router.post(
   requireJwt,
   validate(checkoutSchema),
   asyncHandler(async (req, res) => {
-    const { plan } = req.body
-    const priceId = PLAN_PRICES[plan]
+    const { plan, yearly } = req.body
+    // Honor the yearly toggle — pick the "*_yearly" price.
+    // planFromPriceId collapses it back to the base plan on
+    // the webhook side, so the rest of the flow is unchanged.
+    const priceKey = yearly ? `${plan}_yearly` : plan
+    const priceId = PLAN_PRICES[priceKey]
 
     if (!priceId) {
       return res
