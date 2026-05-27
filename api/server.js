@@ -142,23 +142,40 @@ app.post(
         .json({ error: `Webhook Error: ${err.message}` })
     }
 
-    const { data: existing } = await supabase
+    // Claim the event by inserting its row first; the
+    // primary key makes this the atomic idempotency lock. A
+    // duplicate-key error (23505) means a concurrent
+    // redelivery already claimed it, so skip processing.
+    // (Check-then-insert let two redeliveries both pass an
+    // existence check and double-run.)
+    const { error: claimErr } = await supabase
       .from("stripe_events")
-      .select("id")
-      .eq("id", event.id)
-      .single()
+      .insert({ id: event.id, type: event.type })
 
-    if (existing) {
-      return res.json({
-        received: true, duplicate: true,
-      })
+    if (claimErr) {
+      if (claimErr.code === "23505") {
+        return res.json({ received: true, duplicate: true })
+      }
+      logger.error(
+        { err: claimErr, eventId: event.id },
+        "Failed to record stripe event",
+      )
+      return res
+        .status(500)
+        .json({ error: "Could not record event" })
     }
 
-    await handleStripeEvent(event)
-    await supabase.from("stripe_events").insert({
-      id: event.id,
-      type: event.type,
-    })
+    try {
+      await handleStripeEvent(event)
+    } catch (err) {
+      // Release the claim so Stripe's redelivery reprocesses
+      // instead of seeing the row and skipping forever.
+      await supabase
+        .from("stripe_events")
+        .delete()
+        .eq("id", event.id)
+      throw err
+    }
     res.json({ received: true })
   }),
 )
