@@ -36,6 +36,7 @@
 - PWA advisor uses the server-side agentic loop (`/ai/advisor`) [#53](https://github.com/ridingbytes/kaisho-cloud/pull/53)
 - Rewrite the go-live test script around the Track AI tiers [#54](https://github.com/ridingbytes/kaisho-cloud/pull/54)
 - Fix yearly checkout charging the monthly price [#55](https://github.com/ridingbytes/kaisho-cloud/pull/55)
+- Make the Stripe webhook idempotency lock atomic (insert-first) [#56](https://github.com/ridingbytes/kaisho-cloud/pull/56)
 
 ## 1.3.1
 
