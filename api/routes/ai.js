@@ -18,6 +18,7 @@ const {
 } = require("../middleware")
 const { apiLimiter } = require("../config")
 const { asyncHandler } = require("../utils/asyncHandler")
+const { logger } = require("../logger")
 const {
   validate,
   aiCompleteSchema,
@@ -86,10 +87,23 @@ async function requireBackendKey(req, res, next) {
  */
 async function requireTokenQuota(req, res, next) {
   const month = currentMonth()
-  const [usage, cap] = await Promise.all([
-    getUsage(req.userId, month),
-    resolveCap(req.userId, req.userPlan),
-  ])
+  let usage, cap
+  try {
+    [usage, cap] = await Promise.all([
+      getUsage(req.userId, month),
+      resolveCap(req.userId, req.userPlan),
+    ])
+  } catch (err) {
+    // Fail closed: if we can't read usage, reject rather
+    // than grant unmetered access.
+    logger.error(
+      { err, userId: req.userId },
+      "Token quota check failed",
+    )
+    return res.status(503).json({
+      error: "AI quota check unavailable",
+    })
+  }
   const total =
     usage.input_tokens + usage.output_tokens
   if (total >= cap) {
