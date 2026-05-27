@@ -37,7 +37,7 @@ const requireCompanion =
 
 const SERVER_INFO = {
   name: "kaisho-cloud",
-  version: "1.4.0",
+  version: "2.0.0",
 }
 
 /**
