@@ -122,6 +122,25 @@ const rotateKeyLimiter = rateLimit({
   },
 })
 
+// Dedicated bucket for /sync/* routes. A desktop with
+// >60k clock entries pushes >120 batches of 500 during
+// initial sync (clocks + inbox + tasks + notes pulls and
+// pushes) and saturates the 120/min apiLimiter, surfacing
+// to the user as a stuck progress bar. 600/min lets a
+// fresh sync complete without throttling while still
+// limiting a hostile loop.
+/** @type {Function} 600 req/min per-user sync limiter. */
+const syncLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 600,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: (req) => req.userId || req.ip,
+  message: {
+    error: "Too many sync requests. Please slow down.",
+  },
+})
+
 /** @type {Function} 120 req/min per-user API limiter. */
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -149,6 +168,7 @@ module.exports = {
   authLimiter,
   rotateKeyLimiter,
   apiLimiter,
+  syncLimiter,
   PORT,
   BASE_URL,
 }

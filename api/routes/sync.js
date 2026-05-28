@@ -25,7 +25,7 @@
 
 const { Router } = require("express")
 const { supabase } = require("../db")
-const { apiLimiter } = require("../config")
+const { syncLimiter } = require("../config")
 const {
   requireAuth, requirePlan,
 } = require("../middleware")
@@ -48,7 +48,7 @@ const { asyncHandler } = require("../utils/asyncHandler")
 
 const router = Router()
 
-router.use(apiLimiter)
+router.use(syncLimiter)
 
 // ── Helpers ─────────────────────────────────────────────
 
