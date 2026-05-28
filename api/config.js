@@ -90,7 +90,6 @@ const signupLimiter = rateLimit({
   max: 5,
   standardHeaders: "draft-7",
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
   message: {
     error:
       "Too many signup attempts. Try again in an hour.",
@@ -103,7 +102,6 @@ const authLimiter = rateLimit({
   max: 30,
   standardHeaders: "draft-7",
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
   message: {
     error:
       "Too many auth attempts. " +
@@ -117,7 +115,6 @@ const rotateKeyLimiter = rateLimit({
   max: 5,
   standardHeaders: "draft-7",
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
   message: {
     error:
       "Too many key rotation attempts. " +
@@ -131,7 +128,6 @@ const apiLimiter = rateLimit({
   max: 120,
   standardHeaders: "draft-7",
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
   keyGenerator: (req) => req.userId || "unknown",
   message: {
     error: "Too many requests. Please slow down.",
