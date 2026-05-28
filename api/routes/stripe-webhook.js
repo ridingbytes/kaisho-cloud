@@ -24,6 +24,26 @@ const {
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 /**
+ * Look up the internal user id by Stripe customer id.
+ *
+ * Extracted helper — four event handlers in this file
+ * (subscription updated/deleted, invoice paid, customer
+ * deleted) all need to clear the plan cache and need the
+ * users.id to do it.
+ *
+ * @param {string} customerId - Stripe customer id.
+ * @returns {Promise<string|null>} User id or null.
+ */
+async function findUserIdByCustomer(customerId) {
+  const { data } = await supabase
+    .from("users")
+    .select("id")
+    .eq("stripe_customer_id", customerId)
+    .single()
+  return data?.id || null
+}
+
+/**
  * Handle a checkout.session.completed event.
  *
  * Links the Stripe customer and subscription to the
@@ -95,11 +115,7 @@ async function onSubscriptionUpdated(sub) {
     }
   }
 
-  const { data: subUser } = await supabase
-    .from("users")
-    .select("id")
-    .eq("stripe_customer_id", sub.customer)
-    .single()
+  const subUserId = await findUserIdByCustomer(sub.customer)
 
   await supabase
     .from("users")
@@ -109,7 +125,7 @@ async function onSubscriptionUpdated(sub) {
     })
     .eq("stripe_customer_id", sub.customer)
 
-  if (subUser) clearPlanCache(subUser.id)
+  if (subUserId) clearPlanCache(subUserId)
 
   logger.info(
     { customer: sub.customer, plan: newPlan },
@@ -144,18 +160,15 @@ async function onInvoicePaid(invoice) {
   const paidPlan = planFromPriceId(paidPriceId)
   if (!paidPlan || paidPlan === "token_pack") return
 
-  const { data: invUser } = await supabase
-    .from("users")
-    .select("id")
-    .eq("stripe_customer_id", invoice.customer)
-    .single()
+  const invUserId =
+    await findUserIdByCustomer(invoice.customer)
 
   await supabase
     .from("users")
     .update({ plan: paidPlan })
     .eq("stripe_customer_id", invoice.customer)
 
-  if (invUser) clearPlanCache(invUser.id)
+  if (invUserId) clearPlanCache(invUserId)
 
   logger.info(
     { invoice: invoice.id, plan: paidPlan },
@@ -172,11 +185,7 @@ async function onInvoicePaid(invoice) {
  * @param {object} sub - Stripe subscription object.
  */
 async function onSubscriptionDeleted(sub) {
-  const { data: user } = await supabase
-    .from("users")
-    .select("id")
-    .eq("stripe_customer_id", sub.customer)
-    .single()
+  const userId = await findUserIdByCustomer(sub.customer)
 
   await supabase
     .from("users")
@@ -186,10 +195,10 @@ async function onSubscriptionDeleted(sub) {
     })
     .eq("stripe_customer_id", sub.customer)
 
-  if (user) {
-    clearPlanCache(user.id)
+  if (userId) {
+    clearPlanCache(userId)
     const { data: authData } =
-      await supabase.auth.admin.getUserById(user.id)
+      await supabase.auth.admin.getUserById(userId)
     if (authData?.user?.email) {
       sendPlanCancelledEmail({
         email: authData.user.email,
@@ -211,11 +220,7 @@ async function onSubscriptionDeleted(sub) {
  * @param {string} customerId - Stripe customer ID.
  */
 async function onCustomerDeleted(customerId) {
-  const { data: delUser } = await supabase
-    .from("users")
-    .select("id")
-    .eq("stripe_customer_id", customerId)
-    .single()
+  const delUserId = await findUserIdByCustomer(customerId)
 
   await supabase
     .from("users")
@@ -226,7 +231,7 @@ async function onCustomerDeleted(customerId) {
     })
     .eq("stripe_customer_id", customerId)
 
-  if (delUser) clearPlanCache(delUser.id)
+  if (delUserId) clearPlanCache(delUserId)
 
   logger.info(
     { customer: customerId },
