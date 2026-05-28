@@ -275,7 +275,18 @@ async function resolveUserFromPaymentIntent(pi) {
  */
 async function onPaymentIntentSucceeded(pi) {
   const priceId = pi.metadata?.price_id
-  if (!priceId) return
+  if (!priceId) {
+    // A PaymentIntent reaching this handler without a
+    // price_id is almost always a manual charge from the
+    // Stripe dashboard (where nobody sets the metadata).
+    // Log it so an operator can decide whether to back-fill
+    // tokens for that user by hand.
+    logger.warn(
+      { pi: pi.id, customer: pi.customer },
+      "PaymentIntent without price_id metadata, skipping",
+    )
+    return
+  }
   if (planFromPriceId(priceId) !== "token_pack") return
 
   const userId = await resolveUserFromPaymentIntent(pi)
