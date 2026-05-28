@@ -163,7 +163,12 @@ const apiLimiter = rateLimit({
   max: 120,
   standardHeaders: "draft-7",
   legacyHeaders: false,
-  keyGenerator: (req) => req.userId || "unknown",
+  // Fail closed when something mounts apiLimiter without
+  // a preceding requireAuth: fall back to req.ip (real
+  // client IP, since `app.set("trust proxy", 1)`) so the
+  // bucket is per-attacker, not a shared "unknown" pool
+  // that a single bad actor could exhaust for everyone.
+  keyGenerator: (req) => req.userId || req.ip,
   message: {
     error: "Too many requests. Please slow down.",
   },
