@@ -86,7 +86,13 @@ async function requireApiKey(req, res, next) {
   }
 
   // Fallback: scan users without a prefix (pre-migration
-  // accounts). Backfill the prefix on successful match.
+  // accounts from before migration 010). Backfills the
+  // prefix on successful match.
+  //
+  // TODO(#64): once api_key_prefix is confirmed backfilled
+  // on every user on the live deployment, drop this
+  // fallback. It's an unindexed scan in an auth path that
+  // serves a population that should now be empty.
   const { data: legacy } = await supabase
     .from("users")
     .select("id, plan, api_key_hash")
