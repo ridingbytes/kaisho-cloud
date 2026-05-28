@@ -197,11 +197,51 @@ async function runToolCall(call, handlers) {
   try {
     return flattenResult(await entry.handler(parsed.data))
   } catch (err) {
+    // Full error (with body / headers / token) goes to
+    // logs only. The model receives a sanitised summary
+    // so any credentials the integration backend echoed
+    // in its error body (Slack and Google occasionally do)
+    // don't end up in the model context window — and from
+    // there, potentially in the user's transcript.
     logger.error(
       { err, tool: name }, "advisor tool failed",
     )
-    return `Error: ${err.message}`
+    return sanitisedToolError(name, err)
   }
+}
+
+// Whitelist of error-message prefixes that are safe to
+// pass back to the model verbatim. These come from the
+// integration adapters themselves (we wrote them), not
+// from raw upstream response bodies. Everything outside
+// the whitelist collapses to a "tool failed (code)"
+// summary so we never echo an upstream body containing a
+// token or API key.
+const SAFE_ERROR_PREFIXES = [
+  "Slack OAuth:",
+  "Google OAuth:",
+  "Integration not configured",
+  "Invalid arguments",
+  "Not connected",
+]
+
+/**
+ * Build a model-safe error string for a failed tool call.
+ * Strips any raw upstream body that might contain OAuth
+ * tokens, API keys, or other secrets the integration
+ * backend echoed back in its error.
+ *
+ * @param {string} toolName
+ * @param {Error} err
+ * @returns {string}
+ */
+function sanitisedToolError(toolName, err) {
+  const msg = String(err.message || err)
+  for (const prefix of SAFE_ERROR_PREFIXES) {
+    if (msg.startsWith(prefix)) return `Error: ${msg}`
+  }
+  const code = err.code || err.status || "unknown"
+  return `Error: ${toolName} failed (${code})`
 }
 
 /**
