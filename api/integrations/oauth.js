@@ -11,9 +11,15 @@
  * The callback is unauthenticated (the provider redirects
  * the browser back without our auth header), so the
  * caller's identity is carried in a signed, time-limited
- * ``state`` token (HMAC over INTEGRATION_KEY). Verifying
- * the signature on callback both authenticates the user
- * and provides CSRF protection.
+ * ``state`` token. The HMAC uses INTEGRATION_STATE_SECRET
+ * — a dedicated key, separate from the AES key in
+ * INTEGRATION_KEY, so rotating one does not invalidate
+ * the other and a compromise of one does not weaken the
+ * other. We fall back to INTEGRATION_KEY when the
+ * dedicated secret is unset (transition support; existing
+ * deployments keep working until the operator sets the
+ * new var). Verifying the signature on callback both
+ * authenticates the user and provides CSRF protection.
  */
 
 const crypto = require("crypto")
@@ -22,8 +28,15 @@ const { BASE_URL } = require("../config")
 const STATE_TTL_MS = 10 * 60 * 1000
 
 function stateSecret() {
-  const k = process.env.INTEGRATION_KEY
-  if (!k) throw new Error("INTEGRATION_KEY is not set")
+  const k =
+    process.env.INTEGRATION_STATE_SECRET
+    || process.env.INTEGRATION_KEY
+  if (!k) {
+    throw new Error(
+      "INTEGRATION_STATE_SECRET (or INTEGRATION_KEY "
+      + "fallback) is not set",
+    )
+  }
   return k
 }
 
