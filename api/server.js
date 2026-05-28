@@ -75,6 +75,13 @@ app.use("/integrations", integrationRoutes)
 if (process.env.MCP_GATEWAY_ENABLED === "true") {
   app.use("/mcp", require("./routes/mcp"))
   logger.info("MCP gateway enabled at /mcp")
+} else {
+  // Surface the disabled state on startup so an operator
+  // tracing a 404 on /mcp sees the flag is off instead
+  // of chasing a routing bug.
+  logger.info(
+    "MCP gateway disabled (MCP_GATEWAY_ENABLED != \"true\")",
+  )
 }
 
 // ── Mobile SPA ──────────────────────────────────────────
