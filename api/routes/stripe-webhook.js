@@ -12,6 +12,7 @@ const { supabase } = require("../db")
 const { logger } = require("../logger")
 const {
   planFromPriceId,
+  TOKEN_PACK_PLAN,
   TOKEN_PACK_SIZE,
 } = require("../config")
 const { clearPlanCache } = require("../middleware")
@@ -22,6 +23,26 @@ const {
 } = require("../emails/mailer")
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+
+/**
+ * Look up the internal user id by Stripe customer id.
+ *
+ * Extracted helper — four event handlers in this file
+ * (subscription updated/deleted, invoice paid, customer
+ * deleted) all need to clear the plan cache and need the
+ * users.id to do it.
+ *
+ * @param {string} customerId - Stripe customer id.
+ * @returns {Promise<string|null>} User id or null.
+ */
+async function findUserIdByCustomer(customerId) {
+  const { data } = await supabase
+    .from("users")
+    .select("id")
+    .eq("stripe_customer_id", customerId)
+    .single()
+  return data?.id || null
+}
 
 /**
  * Handle a checkout.session.completed event.
@@ -82,7 +103,7 @@ async function onSubscriptionUpdated(sub) {
   const newPlan = planFromPriceId(priceId)
   // token_pack is a one-off price; it should never
   // appear on a subscription, but guard anyway.
-  if (!newPlan || newPlan === "token_pack") return
+  if (!newPlan || newPlan === TOKEN_PACK_PLAN) return
 
   if (sub.latest_invoice) {
     const invId =
@@ -95,11 +116,7 @@ async function onSubscriptionUpdated(sub) {
     }
   }
 
-  const { data: subUser } = await supabase
-    .from("users")
-    .select("id")
-    .eq("stripe_customer_id", sub.customer)
-    .single()
+  const subUserId = await findUserIdByCustomer(sub.customer)
 
   await supabase
     .from("users")
@@ -109,7 +126,7 @@ async function onSubscriptionUpdated(sub) {
     })
     .eq("stripe_customer_id", sub.customer)
 
-  if (subUser) clearPlanCache(subUser.id)
+  if (subUserId) clearPlanCache(subUserId)
 
   logger.info(
     { customer: sub.customer, plan: newPlan },
@@ -128,34 +145,28 @@ async function onSubscriptionUpdated(sub) {
 async function onInvoicePaid(invoice) {
   if (!invoice.subscription) return
 
-  const paidSub =
-    await stripe.subscriptions.retrieve(
-      invoice.subscription,
-    )
-  if (
-    paidSub.status !== "active" &&
-    paidSub.status !== "trialing"
-  ) {
-    return
-  }
+  // Pull price and status directly from the invoice — the
+  // subscriptions.retrieve round-trip the previous version
+  // did was a network hop for data Stripe already includes
+  // in the event payload. We're inside invoice.paid so
+  // invoice.status is "paid" by definition; guard anyway
+  // for defence-in-depth against unexpected event shapes.
+  if (invoice.status !== "paid") return
 
   const paidPriceId =
-    paidSub.items?.data?.[0]?.price?.id
+    invoice.lines?.data?.[0]?.price?.id
   const paidPlan = planFromPriceId(paidPriceId)
-  if (!paidPlan || paidPlan === "token_pack") return
+  if (!paidPlan || paidPlan === TOKEN_PACK_PLAN) return
 
-  const { data: invUser } = await supabase
-    .from("users")
-    .select("id")
-    .eq("stripe_customer_id", invoice.customer)
-    .single()
+  const invUserId =
+    await findUserIdByCustomer(invoice.customer)
 
   await supabase
     .from("users")
     .update({ plan: paidPlan })
     .eq("stripe_customer_id", invoice.customer)
 
-  if (invUser) clearPlanCache(invUser.id)
+  if (invUserId) clearPlanCache(invUserId)
 
   logger.info(
     { invoice: invoice.id, plan: paidPlan },
@@ -172,11 +183,7 @@ async function onInvoicePaid(invoice) {
  * @param {object} sub - Stripe subscription object.
  */
 async function onSubscriptionDeleted(sub) {
-  const { data: user } = await supabase
-    .from("users")
-    .select("id")
-    .eq("stripe_customer_id", sub.customer)
-    .single()
+  const userId = await findUserIdByCustomer(sub.customer)
 
   await supabase
     .from("users")
@@ -186,10 +193,10 @@ async function onSubscriptionDeleted(sub) {
     })
     .eq("stripe_customer_id", sub.customer)
 
-  if (user) {
-    clearPlanCache(user.id)
+  if (userId) {
+    clearPlanCache(userId)
     const { data: authData } =
-      await supabase.auth.admin.getUserById(user.id)
+      await supabase.auth.admin.getUserById(userId)
     if (authData?.user?.email) {
       sendPlanCancelledEmail({
         email: authData.user.email,
@@ -211,11 +218,7 @@ async function onSubscriptionDeleted(sub) {
  * @param {string} customerId - Stripe customer ID.
  */
 async function onCustomerDeleted(customerId) {
-  const { data: delUser } = await supabase
-    .from("users")
-    .select("id")
-    .eq("stripe_customer_id", customerId)
-    .single()
+  const delUserId = await findUserIdByCustomer(customerId)
 
   await supabase
     .from("users")
@@ -226,7 +229,7 @@ async function onCustomerDeleted(customerId) {
     })
     .eq("stripe_customer_id", customerId)
 
-  if (delUser) clearPlanCache(delUser.id)
+  if (delUserId) clearPlanCache(delUserId)
 
   logger.info(
     { customer: customerId },
@@ -273,8 +276,19 @@ async function resolveUserFromPaymentIntent(pi) {
  */
 async function onPaymentIntentSucceeded(pi) {
   const priceId = pi.metadata?.price_id
-  if (!priceId) return
-  if (planFromPriceId(priceId) !== "token_pack") return
+  if (!priceId) {
+    // A PaymentIntent reaching this handler without a
+    // price_id is almost always a manual charge from the
+    // Stripe dashboard (where nobody sets the metadata).
+    // Log it so an operator can decide whether to back-fill
+    // tokens for that user by hand.
+    logger.warn(
+      { pi: pi.id, customer: pi.customer },
+      "PaymentIntent without price_id metadata, skipping",
+    )
+    return
+  }
+  if (planFromPriceId(priceId) !== TOKEN_PACK_PLAN) return
 
   const userId = await resolveUserFromPaymentIntent(pi)
   if (!userId) {

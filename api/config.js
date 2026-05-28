@@ -55,6 +55,12 @@ const PLAN_PRICES = {
     process.env.STRIPE_PRICE_TOKEN_PACK_500K,
 }
 
+// Sentinel "plan" returned by planFromPriceId for the
+// one-off token-pack price. Not a real subscription plan;
+// the stripe webhook handler uses it to route to the
+// credit-tokens branch instead of the plan-upgrade branch.
+const TOKEN_PACK_PLAN = "token_pack"
+
 // How many bonus tokens each one-time pack grants. Today
 // only one pack size; if more land later, key by price ID.
 const TOKEN_PACK_SIZE = 500_000
@@ -183,6 +189,7 @@ const BASE_URL =
 module.exports = {
   PLAN_PRICES,
   PLAN_QUOTAS,
+  TOKEN_PACK_PLAN,
   TOKEN_PACK_SIZE,
   planFromPriceId,
   signupLimiter,

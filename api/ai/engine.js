@@ -51,16 +51,22 @@ const FALLBACK_MODEL_BY_MODE = {
     || "anthropic/claude-haiku-4.5",
 }
 
+const DEFAULT_ALLOWED_MODELS = [
+  MODEL_FAST,
+  MODEL_DEFAULT,
+  "google/gemini-2.0-flash-lite-001",
+  "google/gemini-2.5-flash",
+  "google/gemma-4-31b-it",
+  "anthropic/claude-haiku-4.5",
+  "anthropic/claude-sonnet-4.6",
+]
+
 const ALLOWED_MODELS = new Set(
-  (process.env.AI_ALLOWED_MODELS || [
-    MODEL_FAST,
-    MODEL_DEFAULT,
-    "google/gemini-2.0-flash-lite-001",
-    "google/gemini-2.5-flash",
-    "google/gemma-4-31b-it",
-    "anthropic/claude-haiku-4.5",
-    "anthropic/claude-sonnet-4.6",
-  ].join(",")).split(",").map((s) => s.trim()),
+  process.env.AI_ALLOWED_MODELS
+    ? process.env.AI_ALLOWED_MODELS
+        .split(",")
+        .map((s) => s.trim())
+    : DEFAULT_ALLOWED_MODELS,
 )
 
 const FALLBACK_MONTHLY_TOKEN_CAP = 250_000

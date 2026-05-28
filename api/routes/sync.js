@@ -656,34 +656,26 @@ router.delete(
   requireAuth,
   requireSync,
   asyncHandler(async (req, res) => {
-    // Wipe all user data: clock entries + reference
-    // snapshots. The local org file is the single
-    // source of truth — everything gets rebuilt from
-    // a full push on the next connect.
-    const tables = [
-      "clock_entries", "inbox_entries", "tasks",
-      "notes", "ref_customers", "ref_tasks",
-    ]
-    let totalDeleted = 0
-
-    for (const table of tables) {
-      const { error, count } = await supabase
-        .from(table)
-        .delete()
-        .eq("user_id", req.userId)
-      if (error) {
-        req.log.error(
-          { err: error, table },
-          "Failed to wipe entries",
-        )
-        return res.status(500).json({
-          error: `Failed to delete from ${table}`,
-        })
-      }
-      totalDeleted += count || 0
+    // Atomic single-transaction wipe via the
+    // wipe_user_sync_state RPC (migration 018). The
+    // previous per-table loop would leave the user
+    // half-wiped if any DELETE failed midway through the
+    // six tables, and the next reconnect would mix fresh
+    // pushed rows with stale leftovers.
+    const { data: deleted, error } = await supabase.rpc(
+      "wipe_user_sync_state",
+      { p_user_id: req.userId },
+    )
+    if (error) {
+      req.log.error(
+        { err: error },
+        "wipe_user_sync_state RPC failed",
+      )
+      return res.status(500).json({
+        error: "Failed to wipe user sync state",
+      })
     }
-
-    res.json({ deleted: totalDeleted })
+    res.json({ deleted: deleted || 0 })
   }),
 )
 
