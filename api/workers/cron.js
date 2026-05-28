@@ -271,6 +271,29 @@ function unschedule(jobId) {
  * jobs whose cron expression changed, drop jobs that were
  * disabled or deleted.
  */
+/**
+ * Bump the cron_health heartbeat row so an operator can
+ * detect a stuck or crashed worker by looking at
+ * last_reconcile_at. Best-effort: a write failure logs
+ * but does not abort the reconcile (a transient DB blip
+ * should not knock the worker out of its loop).
+ */
+async function bumpHeartbeat() {
+  const { error } = await supabase
+    .from("cron_health")
+    .update({
+      last_reconcile_at: new Date().toISOString(),
+      reconcile_count: scheduled.size,
+    })
+    .eq("id", 1)
+  if (error) {
+    logger.warn(
+      { err: error.message },
+      "cron heartbeat update failed",
+    )
+  }
+}
+
 async function reconcile() {
   // Only id + schedule are needed here; fireJob re-reads
   // the full row at fire time.
@@ -319,6 +342,7 @@ async function reconcile() {
     { active: scheduled.size },
     "cron reconcile complete",
   )
+  await bumpHeartbeat()
 }
 
 function shutdown() {
