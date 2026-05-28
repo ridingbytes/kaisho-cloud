@@ -149,19 +149,98 @@ curl http://localhost:3000/ai/usage \
 
 ## Stripe webhook testing
 
-Use the Stripe CLI to forward webhook events locally:
+The webhook handler verifies every event against
+`STRIPE_WEBHOOK_SECRET` (`api/server.js`). The Stripe CLI's
+`stripe listen` mints its own signing secret for the forwarding
+session, different from the dashboard one, so the secret in
+`.env` must match what the CLI prints or every event fails
+verification with a 400.
+
+### One-time setup
+
+In a dedicated terminal, start the forwarder and copy the
+secret it prints:
 
 ```bash
 stripe listen --forward-to localhost:3000/billing/webhook/stripe
+# -> webhook signing secret is whsec_xxx
 ```
 
-Copy the signing secret and set `STRIPE_WEBHOOK_SECRET` in `.env`.
+Set `STRIPE_WEBHOOK_SECRET=whsec_xxx` in `.env` and restart the
+API. The CLI reuses the same secret across restarts, so this is
+a one-time step per machine.
 
-In another terminal, trigger test events:
+### Track A: synthetic events (no browser, no card)
+
+The handlers key off `session.metadata.user_id` and `plan`
+(`api/routes/stripe-webhook.js`). A bare `stripe trigger` ships
+fixture events without that metadata, so the plan never
+updates. Inject it with `--add`:
 
 ```bash
-stripe trigger checkout.session.completed
+stripe trigger checkout.session.completed \
+  --add checkout_session:metadata.user_id=<your-user-uuid> \
+  --add checkout_session:metadata.plan=companion
 ```
+
+`onCheckoutCompleted` writes `session.customer` and
+`session.subscription` straight to the user row without
+re-fetching, so this actually flips `users.plan` to `companion`
+in Supabase and clears the plan cache. Swap `companion` for
+`pro` to test upgrades. For token packs:
+
+```bash
+stripe trigger payment_intent.succeeded \
+  --add payment_intent:metadata.user_id=<uuid> \
+  --add payment_intent:metadata.price_id=$STRIPE_PRICE_TOKEN_PACK_500K
+```
+
+Idempotency: re-running the same trigger lands on the
+`stripe_events` primary key and the second delivery returns
+`{ received: true, duplicate: true }`.
+
+### Track B: real Checkout with a test card
+
+Mint a JWT for your account from `~/.config/ridingbytes/kaisho.env`:
+
+```bash
+JWT=$(scripts/dev-login.sh)
+```
+
+Create a checkout session and open the hosted page:
+
+```bash
+curl -sS -X POST http://localhost:3000/billing/checkout \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"plan":"companion","yearly":false}' \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["url"])' \
+  | xargs open
+```
+
+Pay with `4242 4242 4242 4242`, any future expiry, any CVC.
+Other useful cards: `4000 0000 0000 9995` (declined),
+`4000 0025 0000 3155` (3-D Secure prompt). Stripe fires
+`checkout.session.completed` -> the CLI forwards it -> the
+webhook updates the plan.
+
+### Two likely blockers for Track B
+
+- **`automatic_tax: { enabled: true }`** in
+  `api/routes/billing.js`: if Stripe Tax is not activated with
+  an origin address in the test account, the checkout session
+  fails to create. Activate Tax in the test dashboard, or flip
+  it off locally to isolate.
+- **`success_url` / `cancel_url`** use `BASE_URL`, default
+  `https://cloud.kaisho.dev`. For local testing set
+  `BASE_URL=http://localhost:3000` (or your PWA origin) so the
+  post-payment redirect lands somewhere real.
+
+### Sanity check
+
+`node scripts/audit-stripe.js` confirms the price IDs in `.env`
+resolve to the right products and the active webhook endpoint
+points where you expect.
 
 ## Docker
 
