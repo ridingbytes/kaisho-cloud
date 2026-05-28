@@ -284,11 +284,13 @@ router.post(
     }
     const { email } = req.body
 
-    // TODO: listUsers() fetches all users and filters
-    // client-side. Supabase Admin API does not support
-    // filtering by email. Consider using a direct
-    // query against auth.users if scaling becomes an
-    // issue.
+    // TODO(#63): listUsers() fetches all users and
+    // filters client-side. Supabase Admin API does not
+    // support filtering by email. Replace with a direct
+    // query against auth.users (or an email->user_id
+    // lookup table) once user count makes the linear
+    // scan expensive. Tracked at:
+    //   https://github.com/ridingbytes/kaisho-cloud/issues/63
     const { data: authUsers } =
       await supabase.auth.admin.listUsers()
     const authUser = authUsers?.users?.find(
