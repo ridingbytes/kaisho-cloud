@@ -144,19 +144,16 @@ async function onSubscriptionUpdated(sub) {
 async function onInvoicePaid(invoice) {
   if (!invoice.subscription) return
 
-  const paidSub =
-    await stripe.subscriptions.retrieve(
-      invoice.subscription,
-    )
-  if (
-    paidSub.status !== "active" &&
-    paidSub.status !== "trialing"
-  ) {
-    return
-  }
+  // Pull price and status directly from the invoice — the
+  // subscriptions.retrieve round-trip the previous version
+  // did was a network hop for data Stripe already includes
+  // in the event payload. We're inside invoice.paid so
+  // invoice.status is "paid" by definition; guard anyway
+  // for defence-in-depth against unexpected event shapes.
+  if (invoice.status !== "paid") return
 
   const paidPriceId =
-    paidSub.items?.data?.[0]?.price?.id
+    invoice.lines?.data?.[0]?.price?.id
   const paidPlan = planFromPriceId(paidPriceId)
   if (!paidPlan || paidPlan === "token_pack") return
 
