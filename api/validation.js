@@ -259,6 +259,13 @@ const taskApplySchema = z.object({
 })
 
 // ── Note sync schemas ──────────────────────────────
+//
+// Note on id types across the sync schemas: clock_entries
+// and inbox_entries use UUID primary keys (z.string().uuid()
+// in syncEntrySchema / activeStartSchema). Tasks and notes
+// use org-mode-style TEXT ids (e.g. "task-202401-001") so
+// taskEntrySchema and noteEntrySchema use plain z.string().
+// See migrations 007_tasks.sql and 008_notes.sql.
 
 /**
  * One entry in a POST /sync/notes/apply batch.
@@ -270,7 +277,10 @@ const noteEntrySchema = z.object({
   title: z.string(),
   body: z.string(),
   tags: z.array(z.string()),
-  task_id: z.string().nullable(),
+  // .nullable().optional() to match task_id everywhere
+  // else in this file — a missing key and an explicit
+  // null both mean "note not linked to a task".
+  task_id: z.string().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
   deleted_at: z.string().nullable().optional(),
