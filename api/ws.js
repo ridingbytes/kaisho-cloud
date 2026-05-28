@@ -9,12 +9,14 @@
  * started/stopped, entries changed, etc.) so clients
  * don't need to poll.
  *
- * Connection: wss://cloud.kaisho.dev/ws?token=<jwt>
- *         or: wss://cloud.kaisho.dev/ws?api_key=<key>
+ * Connection: open wss://cloud.kaisho.dev/ws and send
+ *   ``{"type":"auth","token":"<jwt>"}`` (or ``api_key``)
+ *   as the first message. Query-string auth was removed
+ *   because access logs / Traefik captured the token in
+ *   the URL.
  */
 
 const WebSocket = require("ws")
-const url = require("url")
 const bcrypt = require("bcryptjs")
 const { logger } = require("./logger")
 const {
@@ -138,61 +140,44 @@ function setupWebSocket(server) {
 
   wss.on("close", () => clearInterval(heartbeat))
 
-  wss.on("connection", async (ws, req) => {
+  wss.on("connection", async (ws) => {
     ws.isAlive = true
     ws.on("pong", () => { ws.isAlive = true })
 
-    // Auth via query string (legacy) or first message
-    const params = new url.URL(
-      req.url, "http://localhost",
-    ).searchParams
-    const qToken = params.get("token") || ""
-    const qKey = params.get("api_key") || ""
+    // Auth via first message only:
+    //   {"type":"auth","token":"<jwt>"} or
+    //   {"type":"auth","api_key":"<key>"}
+    // Query-string auth was removed (H7) because access
+    // logs and Traefik captured the secret in req.url.
+    const authTimeout = setTimeout(() => {
+      if (!ws.userId) ws.close(4001, "Auth timeout")
+    }, 5000)
 
-    if (qToken || qKey) {
-      // Legacy: auth from query string
-      const userId = await authenticate(qToken, qKey)
-      if (!userId) {
-        ws.close(4001, "Unauthorized")
-        return
-      }
-      ws.userId = userId
-      registerSocket(ws, userId)
-    } else {
-      // Auth via first message: {"type":"auth",
-      //   "token":"..."}
-      const authTimeout = setTimeout(() => {
-        if (!ws.userId) ws.close(4001, "Auth timeout")
-      }, 5000)
-
-      ws.once("message", async (raw) => {
-        clearTimeout(authTimeout)
-        try {
-          const msg = JSON.parse(String(raw))
-          if (
-            msg.type !== "auth"
-            || (!msg.token && !msg.api_key)
-          ) {
-            ws.close(4001, "Invalid auth message")
-            return
-          }
-          const userId = await authenticate(
-            msg.token || "",
-            msg.api_key || "",
-          )
-          if (!userId) {
-            ws.close(4001, "Unauthorized")
-            return
-          }
-          ws.userId = userId
-          registerSocket(ws, userId)
-        } catch {
+    ws.once("message", async (raw) => {
+      clearTimeout(authTimeout)
+      try {
+        const msg = JSON.parse(String(raw))
+        if (
+          msg.type !== "auth"
+          || (!msg.token && !msg.api_key)
+        ) {
           ws.close(4001, "Invalid auth message")
+          return
         }
-      })
-      return
-    }
-
+        const userId = await authenticate(
+          msg.token || "",
+          msg.api_key || "",
+        )
+        if (!userId) {
+          ws.close(4001, "Unauthorized")
+          return
+        }
+        ws.userId = userId
+        registerSocket(ws, userId)
+      } catch {
+        ws.close(4001, "Invalid auth message")
+      }
+    })
   })
 
   logger.info("WebSocket server attached to /ws")
