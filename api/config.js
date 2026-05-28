@@ -90,7 +90,6 @@ const signupLimiter = rateLimit({
   max: 5,
   standardHeaders: "draft-7",
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
   message: {
     error:
       "Too many signup attempts. Try again in an hour.",
@@ -103,11 +102,26 @@ const authLimiter = rateLimit({
   max: 30,
   standardHeaders: "draft-7",
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
   message: {
     error:
       "Too many auth attempts. " +
       "Try again in 15 minutes.",
+  },
+})
+
+// Unauthenticated OAuth callback. The state-token HMAC
+// blocks identity forgery, but doesn't stop CPU/state
+// verification spam from an open endpoint. 60/min/IP is
+// generous for a real user (1-3 callbacks per connect)
+// while keeping a hostile loop bounded.
+/** @type {Function} 60 req/min IP-keyed OAuth limiter. */
+const oauthCallbackLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: {
+    error: "Too many OAuth callbacks. Slow down.",
   },
 })
 
@@ -117,11 +131,29 @@ const rotateKeyLimiter = rateLimit({
   max: 5,
   standardHeaders: "draft-7",
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
   message: {
     error:
       "Too many key rotation attempts. " +
       "Try again in an hour.",
+  },
+})
+
+// Dedicated bucket for /sync/* routes. A desktop with
+// >60k clock entries pushes >120 batches of 500 during
+// initial sync (clocks + inbox + tasks + notes pulls and
+// pushes) and saturates the 120/min apiLimiter, surfacing
+// to the user as a stuck progress bar. 600/min lets a
+// fresh sync complete without throttling while still
+// limiting a hostile loop.
+/** @type {Function} 600 req/min per-user sync limiter. */
+const syncLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 600,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: (req) => req.userId || req.ip,
+  message: {
+    error: "Too many sync requests. Please slow down.",
   },
 })
 
@@ -131,8 +163,12 @@ const apiLimiter = rateLimit({
   max: 120,
   standardHeaders: "draft-7",
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
-  keyGenerator: (req) => req.userId || "unknown",
+  // Fail closed when something mounts apiLimiter without
+  // a preceding requireAuth: fall back to req.ip (real
+  // client IP, since `app.set("trust proxy", 1)`) so the
+  // bucket is per-attacker, not a shared "unknown" pool
+  // that a single bad actor could exhaust for everyone.
+  keyGenerator: (req) => req.userId || req.ip,
   message: {
     error: "Too many requests. Please slow down.",
   },
@@ -153,6 +189,8 @@ module.exports = {
   authLimiter,
   rotateKeyLimiter,
   apiLimiter,
+  syncLimiter,
+  oauthCallbackLimiter,
   PORT,
   BASE_URL,
 }

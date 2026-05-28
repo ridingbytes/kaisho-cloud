@@ -15,7 +15,9 @@
 
 const { Router } = require("express")
 const { requireAuth, requirePlan } = require("../middleware")
-const { apiLimiter } = require("../config")
+const { apiLimiter, oauthCallbackLimiter } = require(
+  "../config",
+)
 const {
   validate,
   integrationConnectSchema,
@@ -56,6 +58,7 @@ const KEY_MODULES = {
  */
 router.get(
   "/:kind/callback",
+  oauthCallbackLimiter,
   asyncHandler(async (req, res) => {
     const provider = getProvider(req.params.kind)
     if (!provider) return res.status(404).send("Unknown")

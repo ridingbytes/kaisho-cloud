@@ -25,7 +25,7 @@
 
 const { Router } = require("express")
 const { supabase } = require("../db")
-const { apiLimiter } = require("../config")
+const { syncLimiter } = require("../config")
 const {
   requireAuth, requirePlan,
 } = require("../middleware")
@@ -48,9 +48,41 @@ const { asyncHandler } = require("../utils/asyncHandler")
 
 const router = Router()
 
-router.use(apiLimiter)
+router.use(syncLimiter)
 
 // ── Helpers ─────────────────────────────────────────────
+
+/**
+ * Insert rows with per-row retry on batch failure.
+ *
+ * Supabase rejects the WHOLE batch if any row violates a
+ * constraint (e.g. one bad task_id FK in 500 rows). The
+ * previous "attribute the failure to every id in the
+ * batch" behaviour made the client retry every row of
+ * every batch forever, hiding the one bad row.
+ *
+ * Strategy: try the bulk insert first (the fast path).
+ * If it fails, fall back to inserting each row on its
+ * own so the bad rows are isolated to their own id.
+ *
+ * @param {string} table - Supabase table name.
+ * @param {object[]} rows - Rows to insert.
+ * @returns {Promise<string[]>} IDs that failed to insert.
+ */
+async function insertWithRowRetry(table, rows) {
+  if (rows.length === 0) return []
+  const { error } = await supabase.from(table).insert(rows)
+  if (!error) return []
+  const failedIds = []
+  for (const row of rows) {
+    const { error: rowErr } = await supabase
+      .from(table)
+      .insert(row)
+    if (rowErr) failedIds.push(row.id)
+  }
+  return failedIds
+}
+
 
 /**
  * Shape a DB row into the wire format for /sync endpoints.
@@ -341,16 +373,15 @@ router.post(
       }
     }
 
-    // Batch insert
-    if (toInsert.length > 0) {
-      const { error } = await supabase
-        .from("clock_entries")
-        .insert(toInsert)
-      if (error) {
-        counts.errors += toInsert.length
-        counts.inserted -= toInsert.length
-        toInsert.forEach((r) => errorIds.push(r.id))
-      }
+    // Batch insert with per-row retry on failure so a
+    // single bad row doesn't blame the whole batch.
+    const insertFails = await insertWithRowRetry(
+      "clock_entries", toInsert,
+    )
+    if (insertFails.length > 0) {
+      counts.errors += insertFails.length
+      counts.inserted -= insertFails.length
+      errorIds.push(...insertFails)
     }
 
     // Update existing entries individually (each row
@@ -890,15 +921,13 @@ router.post(
       }
     }
 
-    if (toInsert.length > 0) {
-      const { error } = await supabase
-        .from("inbox_entries")
-        .insert(toInsert)
-      if (error) {
-        counts.errors += toInsert.length
-        counts.inserted -= toInsert.length
-        toInsert.forEach((r) => errorIds.push(r.id))
-      }
+    const inboxInsertFails = await insertWithRowRetry(
+      "inbox_entries", toInsert,
+    )
+    if (inboxInsertFails.length > 0) {
+      counts.errors += inboxInsertFails.length
+      counts.inserted -= inboxInsertFails.length
+      errorIds.push(...inboxInsertFails)
     }
 
     if (toUpdate.length > 0) {
@@ -1085,15 +1114,13 @@ router.post(
         counts.updated++
       }
     }
-    if (toInsert.length > 0) {
-      const { error } = await supabase
-        .from("tasks")
-        .insert(toInsert)
-      if (error) {
-        counts.errors += toInsert.length
-        counts.inserted -= toInsert.length
-        toInsert.forEach((r) => errorIds.push(r.id))
-      }
+    const taskInsertFails = await insertWithRowRetry(
+      "tasks", toInsert,
+    )
+    if (taskInsertFails.length > 0) {
+      counts.errors += taskInsertFails.length
+      counts.inserted -= taskInsertFails.length
+      errorIds.push(...taskInsertFails)
     }
     if (toUpdate.length > 0) {
       for (const row of toUpdate) {
@@ -1270,15 +1297,13 @@ router.post(
         counts.updated++
       }
     }
-    if (toInsert.length > 0) {
-      const { error } = await supabase
-        .from("notes")
-        .insert(toInsert)
-      if (error) {
-        counts.errors += toInsert.length
-        counts.inserted -= toInsert.length
-        toInsert.forEach((r) => errorIds.push(r.id))
-      }
+    const noteInsertFails = await insertWithRowRetry(
+      "notes", toInsert,
+    )
+    if (noteInsertFails.length > 0) {
+      counts.errors += noteInsertFails.length
+      counts.inserted -= noteInsertFails.length
+      errorIds.push(...noteInsertFails)
     }
     if (toUpdate.length > 0) {
       for (const row of toUpdate) {

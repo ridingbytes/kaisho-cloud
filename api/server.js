@@ -32,6 +32,14 @@ const integrationRoutes = require("./routes/integrations")
 
 const app = express()
 
+// Trust the single immediate proxy (Traefik) so req.ip,
+// req.protocol, and rate-limiter keys reflect the real
+// client IP from X-Forwarded-For instead of the proxy's
+// loopback address. Keep this tight (1, not true) so a
+// client-supplied X-Forwarded-For chain can't spoof its
+// IP past Traefik.
+app.set("trust proxy", 1)
+
 // ── Middleware ───────────────────────────────────────────
 
 // Stripe webhook needs raw body for signature
