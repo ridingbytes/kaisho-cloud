@@ -12,6 +12,7 @@ const { supabase } = require("../db")
 const { logger } = require("../logger")
 const {
   planFromPriceId,
+  TOKEN_PACK_PLAN,
   TOKEN_PACK_SIZE,
 } = require("../config")
 const { clearPlanCache } = require("../middleware")
@@ -102,7 +103,7 @@ async function onSubscriptionUpdated(sub) {
   const newPlan = planFromPriceId(priceId)
   // token_pack is a one-off price; it should never
   // appear on a subscription, but guard anyway.
-  if (!newPlan || newPlan === "token_pack") return
+  if (!newPlan || newPlan === TOKEN_PACK_PLAN) return
 
   if (sub.latest_invoice) {
     const invId =
@@ -155,7 +156,7 @@ async function onInvoicePaid(invoice) {
   const paidPriceId =
     invoice.lines?.data?.[0]?.price?.id
   const paidPlan = planFromPriceId(paidPriceId)
-  if (!paidPlan || paidPlan === "token_pack") return
+  if (!paidPlan || paidPlan === TOKEN_PACK_PLAN) return
 
   const invUserId =
     await findUserIdByCustomer(invoice.customer)
@@ -287,7 +288,7 @@ async function onPaymentIntentSucceeded(pi) {
     )
     return
   }
-  if (planFromPriceId(priceId) !== "token_pack") return
+  if (planFromPriceId(priceId) !== TOKEN_PACK_PLAN) return
 
   const userId = await resolveUserFromPaymentIntent(pi)
   if (!userId) {
