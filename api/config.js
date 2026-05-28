@@ -109,6 +109,22 @@ const authLimiter = rateLimit({
   },
 })
 
+// Unauthenticated OAuth callback. The state-token HMAC
+// blocks identity forgery, but doesn't stop CPU/state
+// verification spam from an open endpoint. 60/min/IP is
+// generous for a real user (1-3 callbacks per connect)
+// while keeping a hostile loop bounded.
+/** @type {Function} 60 req/min IP-keyed OAuth limiter. */
+const oauthCallbackLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: {
+    error: "Too many OAuth callbacks. Slow down.",
+  },
+})
+
 /** @type {Function} 5 req/hour key rotation limiter. */
 const rotateKeyLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -169,6 +185,7 @@ module.exports = {
   rotateKeyLimiter,
   apiLimiter,
   syncLimiter,
+  oauthCallbackLimiter,
   PORT,
   BASE_URL,
 }
