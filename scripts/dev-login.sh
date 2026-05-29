@@ -12,7 +12,7 @@
 set -euo pipefail
 
 CREDS="${KAISHO_CREDS:-$HOME/.config/ridingbytes/kaisho.env}"
-HOST="${HOST:-http://localhost:3000}"
+HOST="${HOST:-http://localhost:3030}"
 
 if [ ! -f "$CREDS" ]; then
   echo "Credentials file not found: $CREDS" >&2
