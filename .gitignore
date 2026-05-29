@@ -4,3 +4,4 @@ node_modules/
 *.log
 mobile/dist/
 mobile/node_modules/
+.claude/
