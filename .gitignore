@@ -5,3 +5,6 @@ node_modules/
 mobile/dist/
 mobile/node_modules/
 .claude/
+
+# Supabase CLI local cache
+supabase/.temp/
