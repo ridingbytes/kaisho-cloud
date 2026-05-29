@@ -134,7 +134,7 @@ Cross-cutting facts:
 - Plan names align across all repos: `free | companion | pro |
   team`. Inactive-customer statuses align via the shared
   `INACTIVE_STATUSES` constant in `kaisho/services/customers.py`.
-- Public marketing surface today: Hobby + Companion + Pro.
+- Public marketing surface today: Local + Companion + Pro.
   Team exists in code but is a mailto on the pricing page.
 
 ## GitHub issue policy
