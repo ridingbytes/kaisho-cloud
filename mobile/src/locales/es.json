@@ -89,7 +89,6 @@
   "profile.subscription.choose_plan": "Elige un plan para activar la sincronización en la nube, el asesor de IA y el acceso móvil.",
   "profile.subscribe.companion": "Suscribirse a Companion — 29 €/mes",
   "profile.subscribe.pro": "Suscribirse a Pro — 59 €/mes",
-  "profile.subscribe.team": "Suscribirse a Team — 99 €/puesto/mes",
   "profile.buy_token_pack": "Comprar 500k tokens — 15 €",
   "profile.upgrade.manage": "Gestionar suscripción",
   "profile.ai_usage": "Uso de IA",
@@ -206,5 +205,6 @@
   "detail.addTag": "Agregar etiqueta...",
   "detail.all": "Todos",
   "detail.task": "Tarea",
-  "detail.direction": "Dirección"
+  "detail.direction": "Dirección",
+  "profile.contact.team": "Contactar sobre planes Team"
 }

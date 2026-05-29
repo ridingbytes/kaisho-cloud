@@ -296,13 +296,25 @@ export function ProfileView() {
               >
                 {t("profile.subscribe.pro")}
               </button>
-              <button
-                type="button"
+              {/*
+                Team is not self-serve yet -- matches the
+                kaisho.dev pricing page where it's a
+                mailto: contact CTA, not a checkout button.
+                Re-enable by swapping back to a Subscribe
+                button + handleSubscribe("team") when the
+                team flow is ready.
+              */}
+              <a
+                href="mailto:hello@kaisho.dev?subject=Kaisho for Teams"
                 className="btn-secondary upgrade-btn"
-                onClick={() => handleSubscribe("team")}
+                style={{
+                  textAlign: "center",
+                  textDecoration: "none",
+                  display: "block",
+                }}
               >
-                {t("profile.subscribe.team")}
-              </button>
+                {t("profile.contact.team")}
+              </a>
             </div>
           </>
         )}
