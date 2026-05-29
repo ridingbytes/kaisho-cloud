@@ -165,6 +165,22 @@ in a PR about to land — the PR body is the record.
   criteria), **Out of scope** when relevant.
 - When a PR closes an issue, put `Closes #N` in the PR body.
 
+## PR workflow
+
+- **One PR per feature or isolated fix.** Don't bundle unrelated
+  work — keeps history bisectable, eases review, and makes the
+  CHANGELOG mechanically derivable.
+- **CHANGELOG entry matches the PR title verbatim** and includes
+  the PR number in brackets: `- Add token-pack webhook handler
+  [#42]`. The PR body explains the *why*; the CHANGELOG line is
+  the *what*.
+- Ask before pushing branches or opening / editing PRs on the
+  remote — direct commits to master are reserved for trivially
+  reversible changes (typo fixes, `.gitignore` additions) and
+  even those default to a PR if uncertain.
+- No "Generated with Claude Code" / "Co-Authored-By" footer in
+  commits, PR bodies, issue bodies, or release notes.
+
 ## Session continuity
 
 At the start of any session in a kaisho repo, run these three
