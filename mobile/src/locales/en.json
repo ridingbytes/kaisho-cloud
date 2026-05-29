@@ -90,7 +90,6 @@
   "profile.subscription.choose_plan": "Choose a plan to unlock cloud sync, the AI advisor and mobile access.",
   "profile.subscribe.companion": "Subscribe to Companion — €29/mo",
   "profile.subscribe.pro": "Subscribe to Pro — €59/mo",
-  "profile.subscribe.team": "Subscribe to Team — €99/seat/mo",
   "profile.buy_token_pack": "Buy 500k tokens — €15",
   "profile.upgrade.manage": "Manage Subscription",
   "profile.ai_usage": "AI Usage",
@@ -207,5 +206,6 @@
   "detail.addTag": "Add tag...",
   "detail.all": "All",
   "detail.task": "Task",
-  "detail.direction": "Direction"
+  "detail.direction": "Direction",
+  "profile.contact.team": "Contact us about Team plans"
 }

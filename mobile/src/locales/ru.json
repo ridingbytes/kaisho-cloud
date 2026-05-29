@@ -90,7 +90,6 @@
   "profile.subscription.choose_plan": "Выберите план, чтобы включить облачную синхронизацию, ИИ-советника и мобильный доступ.",
   "profile.subscribe.companion": "Подписаться на Companion — 29 €/мес",
   "profile.subscribe.pro": "Подписаться на Pro — 59 €/мес",
-  "profile.subscribe.team": "Подписаться на Team — 99 €/место/мес",
   "profile.buy_token_pack": "Купить 500k токенов — 15 €",
   "profile.upgrade.manage": "Управление подпиской",
   "profile.ai_usage": "Использование AI",
@@ -207,5 +206,6 @@
   "detail.addTag": "Добавить тег...",
   "detail.all": "Все",
   "detail.task": "Задача",
-  "detail.direction": "Направление"
+  "detail.direction": "Направление",
+  "profile.contact.team": "Узнать о тарифах Team"
 }

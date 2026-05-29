@@ -89,7 +89,6 @@
   "profile.subscription.choose_plan": "Wähle einen Plan für Cloud-Sync, den KI-Berater und mobilen Zugriff.",
   "profile.subscribe.companion": "Companion abonnieren — 29 €/Mon.",
   "profile.subscribe.pro": "Pro abonnieren — 59 €/Mon.",
-  "profile.subscribe.team": "Team abonnieren — 99 €/Platz/Mon.",
   "profile.buy_token_pack": "500k Tokens kaufen — 15 €",
   "profile.upgrade.manage": "Abonnement verwalten",
   "profile.ai_usage": "KI-Nutzung",
@@ -206,5 +205,6 @@
   "detail.addTag": "Tag hinzufügen...",
   "detail.all": "Alle",
   "detail.task": "Aufgabe",
-  "detail.direction": "Richtung"
+  "detail.direction": "Richtung",
+  "profile.contact.team": "Team-Pläne anfragen"
 }
