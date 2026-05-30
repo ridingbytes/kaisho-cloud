@@ -7,7 +7,7 @@
  * writes to. The desktop sync engine picks the rows up on
  * its next cycle and merges them into the local org files,
  * so no WebSocket relay is needed (see
- * TRACK-AI-IMPLEMENTATION.md §4.1). Conflict model is
+ * docs/strategy/TRACK-AI-IMPLEMENTATION.md §4.1). Conflict model is
  * last-write-wins on ``updated_at``, matching the PWA.
  *
  * Every write broadcasts the matching WS event so a live

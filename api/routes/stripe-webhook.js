@@ -327,7 +327,10 @@ async function onPaymentIntentSucceeded(pi) {
     return
   }
 
-  clearPlanCache(userId)
+  // No cache to clear: bonus_tokens_remaining is read
+  // fresh from users by resolveCap() on every AI request.
+  // clearPlanCache() only touches PLAN_CACHE and the auth
+  // cache, neither of which stores bonus tokens.
 
   logger.info(
     {
