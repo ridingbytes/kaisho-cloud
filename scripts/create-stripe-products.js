@@ -178,7 +178,17 @@ const CATALOG = [
       "month's allowance.",
     prices: [
       {
-        lookupKey: "token_pack_500k",
+        // Bumped from "token_pack_500k" -> "_v2" so the
+        // script creates a fresh price with the explicit
+        // tax_behavior. The original token_pack_500k
+        // price was created with implicit "unspecified",
+        // and Stripe prices are immutable. Archive the
+        // v1 price in the dashboard after migration.
+        lookupKey: "token_pack_500k_v2",
+        // Keep the env var name stable so the backend
+        // doesn't need to change when lookup_keys are
+        // bumped to recreate a price.
+        envName: "STRIPE_PRICE_TOKEN_PACK_500K",
         nickname: "Token Pack 500k (one-time)",
         unitAmount: 1500,
         currency: "eur",
@@ -261,6 +271,14 @@ async function upsertPrice(productId, priceSpec) {
     currency: priceSpec.currency,
     recurring: priceSpec.recurring,
     lookup_key: priceSpec.lookupKey,
+    // Required for one-off prices so Stripe Tax shows
+    // USt/VAT on the Checkout page. With "unspecified",
+    // mode: payment renders the total tax-free even
+    // when automatic_tax is enabled. Subscriptions
+    // tolerate "unspecified" via the invoice flow, but
+    // setting it on every price keeps both code paths
+    // consistent for any fresh account.
+    tax_behavior: priceSpec.taxBehavior || "exclusive",
   })
   console.log(
     `  price    ${priceSpec.lookupKey.padEnd(30)} ` +
@@ -285,9 +303,15 @@ async function main() {
       const price = await upsertPrice(
         product.id, priceSpec,
       )
+      // Allow priceSpec.envName to override the
+      // lookup-key-derived default. Needed when the
+      // lookup_key has to be bumped (e.g. _v2 to force
+      // a price recreation for a config change) but the
+      // env var the backend reads should stay stable.
       const envName =
+        priceSpec.envName ||
         "STRIPE_PRICE_" +
-        priceSpec.lookupKey.toUpperCase()
+          priceSpec.lookupKey.toUpperCase()
       envLines.push(`${envName}=${price.id}`)
     }
   }
