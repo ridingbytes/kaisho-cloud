@@ -8,7 +8,8 @@
 #   curl -H "Authorization: Bearer $JWT" ...
 #
 # The creds file must define EMAIL and PASSWORD. Defaults
-# to the local API on :3000; override with HOST=...
+# to the local API on :3030 (the bin/dev port); override
+# with HOST=...
 set -euo pipefail
 
 CREDS="${KAISHO_CREDS:-$HOME/.config/ridingbytes/kaisho.env}"
