@@ -266,12 +266,6 @@ function unschedule(jobId) {
 }
 
 /**
- * Load enabled jobs and reconcile the in-memory node-cron
- * task set against them: schedule new jobs, reschedule
- * jobs whose cron expression changed, drop jobs that were
- * disabled or deleted.
- */
-/**
  * Bump the cron_health heartbeat row so an operator can
  * detect a stuck or crashed worker by looking at
  * last_reconcile_at. Best-effort: a write failure logs
@@ -294,6 +288,12 @@ async function bumpHeartbeat() {
   }
 }
 
+/**
+ * Load enabled jobs and reconcile the in-memory node-cron
+ * task set against them: schedule new jobs, reschedule
+ * jobs whose cron expression changed, drop jobs that were
+ * disabled or deleted.
+ */
 async function reconcile() {
   // Only id + schedule are needed here; fireJob re-reads
   // the full row at fire time.

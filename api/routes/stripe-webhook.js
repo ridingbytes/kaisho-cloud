@@ -7,7 +7,6 @@
  * invoice payments, cancellations, and customer deletions.
  */
 
-const Stripe = require("stripe")
 const { supabase } = require("../db")
 const { logger } = require("../logger")
 const {
@@ -16,13 +15,12 @@ const {
   TOKEN_PACK_SIZE,
 } = require("../config")
 const { clearPlanCache } = require("../middleware")
+const { stripe } = require("../stripe")
 const {
   sendPlanUpgradeEmail,
   sendPlanCancelledEmail,
   sendTokenPackPurchasedEmail,
 } = require("../emails/mailer")
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 /**
  * Look up the internal user id by Stripe customer id.
@@ -116,7 +114,7 @@ async function onSubscriptionUpdated(sub) {
     }
   }
 
-  const subUserId = await findUserIdByCustomer(sub.customer)
+  const userId = await findUserIdByCustomer(sub.customer)
 
   await supabase
     .from("users")
@@ -126,7 +124,7 @@ async function onSubscriptionUpdated(sub) {
     })
     .eq("stripe_customer_id", sub.customer)
 
-  if (subUserId) clearPlanCache(subUserId)
+  if (userId) clearPlanCache(userId)
 
   logger.info(
     { customer: sub.customer, plan: newPlan },
@@ -158,7 +156,7 @@ async function onInvoicePaid(invoice) {
   const paidPlan = planFromPriceId(paidPriceId)
   if (!paidPlan || paidPlan === TOKEN_PACK_PLAN) return
 
-  const invUserId =
+  const userId =
     await findUserIdByCustomer(invoice.customer)
 
   await supabase
@@ -166,7 +164,7 @@ async function onInvoicePaid(invoice) {
     .update({ plan: paidPlan })
     .eq("stripe_customer_id", invoice.customer)
 
-  if (invUserId) clearPlanCache(invUserId)
+  if (userId) clearPlanCache(userId)
 
   logger.info(
     { invoice: invoice.id, plan: paidPlan },
@@ -218,7 +216,7 @@ async function onSubscriptionDeleted(sub) {
  * @param {string} customerId - Stripe customer ID.
  */
 async function onCustomerDeleted(customerId) {
-  const delUserId = await findUserIdByCustomer(customerId)
+  const userId = await findUserIdByCustomer(customerId)
 
   await supabase
     .from("users")
@@ -229,7 +227,7 @@ async function onCustomerDeleted(customerId) {
     })
     .eq("stripe_customer_id", customerId)
 
-  if (delUserId) clearPlanCache(delUserId)
+  if (userId) clearPlanCache(userId)
 
   logger.info(
     { customer: customerId },

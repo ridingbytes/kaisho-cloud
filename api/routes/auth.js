@@ -14,6 +14,7 @@ const {
 const {
   supabase, supabaseAuth, invalidateAuthCache,
 } = require("../db")
+const { logger } = require("../logger")
 const { requireJwt } = require("../middleware")
 const {
   validate,
@@ -207,8 +208,8 @@ router.post(
 const RESET_SECRET = process.env.RESET_TOKEN_SECRET
 
 if (!RESET_SECRET) {
-  console.warn(
-    "WARNING: RESET_TOKEN_SECRET is not set. "
+  logger.warn(
+    "RESET_TOKEN_SECRET is not set. "
     + "Password reset endpoints will return 503.",
   )
 }
