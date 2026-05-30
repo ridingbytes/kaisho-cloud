@@ -6,7 +6,12 @@
 #   bin/dev --mobile     Also start Vite dev server on :5174
 #                        (hot reload for mobile PWA)
 #   bin/dev --rebuild    Rebuild mobile PWA before starting
+#   bin/dev --kill       Kill any stale Kaisho server on the
+#                        port without prompting first
 #   PORT=4000 bin/dev    Override API port
+#
+# Env:
+#   BIN_DEV_KILL=1       Same as --kill, useful in scripts.
 #
 # Default port is 3030 (not 3000) to avoid colliding with
 # the kaisho-website dev server.
@@ -25,10 +30,12 @@ cd "$DIR"
 
 WITH_MOBILE=0
 REBUILD=0
+KILL_STALE="${BIN_DEV_KILL:-0}"
 for arg in "$@"; do
   case "$arg" in
     --mobile)  WITH_MOBILE=1 ;;
     --rebuild) REBUILD=1 ;;
+    --kill)    KILL_STALE=1 ;;
     -h|--help)
       awk '/^#!/ {next} /^#/ {sub(/^# ?/, ""); print; next}
            {exit}' "$0"
@@ -89,6 +96,75 @@ fi
 
 PORT="${PORT:-3030}"
 export PORT
+
+# Detect a stale Kaisho server on $PORT (typical when a
+# previous bin/dev was backgrounded, lost its parent, or
+# crashed without releasing the port). Auto-kill only when
+# we recognize the holder as one of our own
+# (node api/server.js) -- never kill an unknown process.
+preflight_port() {
+  local pids
+  pids=$(lsof -ti :"$PORT" 2>/dev/null || true)
+  [ -z "$pids" ] && return 0
+
+  local own=""
+  for pid in $pids; do
+    local cmd
+    cmd=$(ps -p "$pid" -o command= 2>/dev/null || true)
+    if echo "$cmd" | grep -qE "node.*api/server\.js"; then
+      own="$own $pid"
+    fi
+  done
+  own=$(echo "$own" | xargs)
+
+  if [ -z "$own" ]; then
+    echo "Port $PORT is in use by an unknown process:" >&2
+    lsof -i :"$PORT" 2>/dev/null | head -3 >&2
+    echo "Refusing to touch it. Free the port manually, " \
+         "or run with a different PORT=" >&2
+    exit 1
+  fi
+
+  echo "Port $PORT is held by a stale Kaisho server " \
+       "(PID(s): $own)." >&2
+
+  if [ "$KILL_STALE" = "1" ]; then
+    echo "  --kill / BIN_DEV_KILL set, killing..." >&2
+  elif [ -t 0 ]; then
+    printf "  Kill it and continue? [Y/n] " >&2
+    local reply
+    read -r reply
+    case "$reply" in
+      ""|y|Y|yes|YES) ;;
+      *) echo "Aborted." >&2; exit 1 ;;
+    esac
+  else
+    echo "  Non-interactive shell, refusing to kill." >&2
+    echo "  Re-run with --kill or set BIN_DEV_KILL=1." >&2
+    exit 1
+  fi
+
+  # shellcheck disable=SC2086
+  kill $own 2>/dev/null || true
+  sleep 1
+
+  # Force-kill any survivors that ignored SIGTERM.
+  local survivors
+  survivors=$(lsof -ti :"$PORT" 2>/dev/null || true)
+  if [ -n "$survivors" ]; then
+    echo "  Force-killing $survivors..." >&2
+    # shellcheck disable=SC2086
+    kill -9 $survivors 2>/dev/null || true
+    sleep 1
+  fi
+
+  if [ -n "$(lsof -ti :"$PORT" 2>/dev/null || true)" ]; then
+    echo "Port $PORT still busy after kill attempts." >&2
+    exit 1
+  fi
+}
+
+preflight_port
 
 echo
 echo "Kaisho Cloud (local)"
