@@ -85,40 +85,6 @@ async function requireApiKey(req, res, next) {
     }
   }
 
-  // Fallback: scan users without a prefix (pre-migration
-  // accounts from before migration 010). Backfills the
-  // prefix on successful match.
-  //
-  // TODO(#64): once api_key_prefix is confirmed backfilled
-  // on every user on the live deployment, drop this
-  // fallback. It's an unindexed scan in an auth path that
-  // serves a population that should now be empty.
-  const { data: legacy } = await supabase
-    .from("users")
-    .select("id, plan, api_key_hash")
-    .is("api_key_prefix", null)
-    .not("api_key_hash", "is", null)
-    .limit(200)
-
-  if (legacy) {
-    for (const user of legacy) {
-      const match = await bcrypt.compare(
-        apiKey, user.api_key_hash,
-      )
-      if (match) {
-        // Backfill prefix for future fast lookups
-        await supabase
-          .from("users")
-          .update({ api_key_prefix: prefix })
-          .eq("id", user.id)
-        cacheUser(user.id, apiKey, user)
-        req.userId = user.id
-        req.userPlan = user.plan
-        return next()
-      }
-    }
-  }
-
   return res.status(401).json({ error: "Invalid API key" })
 }
 
