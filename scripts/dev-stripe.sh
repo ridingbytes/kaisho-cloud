@@ -44,4 +44,32 @@ print(os.path.realpath(os.path.expanduser('~/.config')))
 STRIPE_CONFIG="${STRIPE_CLI_CONFIG:-$CONFIG_REAL/stripe/config.toml}"
 mkdir -p "$(dirname "$STRIPE_CONFIG")"
 
-exec stripe --config "$STRIPE_CONFIG" "$@"
+# Run as a child (instead of exec) so we can intercept
+# Ctrl+C and force-quit on a second press. The Stripe
+# CLI's graceful shutdown for `stripe listen` waits for
+# in-flight webhook forwards to complete, which can hang
+# the terminal for tens of seconds. A second SIGINT
+# bypasses that wait and SIGKILLs the child.
+stripe --config "$STRIPE_CONFIG" "$@" &
+CHILD_PID=$!
+
+FORCED=
+handle_sigint() {
+  if [ -n "$FORCED" ]; then
+    echo "" >&2
+    echo "[dev-stripe] force-killing PID $CHILD_PID" >&2
+    kill -KILL "$CHILD_PID" 2>/dev/null || true
+    exit 130
+  fi
+  FORCED=1
+  echo "" >&2
+  echo "[dev-stripe] sending SIGINT to PID $CHILD_PID -- press Ctrl+C again to force-quit" >&2
+  kill -INT "$CHILD_PID" 2>/dev/null || true
+}
+trap handle_sigint INT
+trap 'kill -TERM "$CHILD_PID" 2>/dev/null || true' TERM
+
+# wait returns 128+signum if interrupted by signal;
+# preserve the child's real exit code on clean shutdown.
+wait "$CHILD_PID"
+exit $?
