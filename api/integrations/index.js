@@ -79,18 +79,6 @@ async function freshCredentials(userId, kind, mod, integ) {
 }
 
 /**
- * Register the tools of every integration the user has
- * connected onto the given MCP server. Each tool's handler
- * decrypts the stored credentials at call time and routes
- * to the owning module's ``dispatch``.
- *
- * Intended for Pro / Team users only — the caller gates on
- * plan before invoking this.
- *
- * @param {import("@modelcontextprotocol/sdk/server/mcp.js").McpServer} server
- * @param {string} userId
- */
-/**
  * Run one integration tool for a user: load + refresh
  * credentials, then dispatch. Shared by the MCP gateway
  * and the /integrations/dispatch route (used by the
@@ -114,6 +102,18 @@ async function runIntegrationTool(userId, kind, toolName, args) {
   return mod.dispatch(toolName, args, creds)
 }
 
+/**
+ * Register the tools of every integration the user has
+ * connected onto the given MCP server. Each tool's handler
+ * decrypts the stored credentials at call time and routes
+ * to the owning module's ``dispatch``.
+ *
+ * Intended for Pro / Team users only — the caller gates on
+ * plan before invoking this.
+ *
+ * @param {import("@modelcontextprotocol/sdk/server/mcp.js").McpServer} server
+ * @param {string} userId
+ */
 async function registerIntegrationTools(server, userId) {
   const connected = await listIntegrations(userId)
   for (const { kind } of connected) {

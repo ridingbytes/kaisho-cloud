@@ -185,7 +185,7 @@ async function runToolCall(call, handlers) {
   let rawArgs = {}
   try {
     rawArgs = JSON.parse(call.function.arguments || "{}")
-  } catch (err) {
+  } catch {
     return "Error: malformed tool arguments"
   }
 

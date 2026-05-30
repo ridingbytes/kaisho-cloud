@@ -8,20 +8,22 @@
  */
 
 const { Router } = require("express")
-const Stripe = require("stripe")
 const { requireJwt } = require("../middleware")
 const {
   BASE_URL, PLAN_PRICES,
 } = require("../config")
 const { supabase } = require("../db")
 const { logger } = require("../logger")
+const {
+  stripe,
+  createCheckoutSessionWithCustomerRetry,
+} = require("../stripe")
 const { validate, checkoutSchema } = require("../validation")
 const {
   sendPlanUpgradeEmail,
 } = require("../emails/mailer")
 const { asyncHandler } = require("../utils/asyncHandler")
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 const router = Router()
 
 // ── GET /billing/subscription ───────────────────────────
@@ -194,27 +196,15 @@ router.post(
 
     let session
     try {
-      session =
-        await stripe.checkout.sessions.create(params)
+      session = await createCheckoutSessionWithCustomerRetry(
+        params, req.userId, req.userEmail,
+      )
     } catch (err) {
-      if (
-        err.code !== "resource_missing" ||
-        err.param !== "customer"
-      ) {
-        return res.status(400).json({
-          error:
-            err.message ||
-            "Could not create checkout session",
-        })
-      }
-      await supabase
-        .from("users")
-        .update({ stripe_customer_id: null })
-        .eq("id", req.userId)
-      params.customer = undefined
-      params.customer_email = req.userEmail
-      session =
-        await stripe.checkout.sessions.create(params)
+      return res.status(400).json({
+        error:
+          err.message ||
+          "Could not create checkout session",
+      })
     }
 
     res.json({ url: session.url })
@@ -287,27 +277,15 @@ router.post(
 
     let session
     try {
-      session =
-        await stripe.checkout.sessions.create(params)
+      session = await createCheckoutSessionWithCustomerRetry(
+        params, req.userId, req.userEmail,
+      )
     } catch (err) {
-      if (
-        err.code !== "resource_missing" ||
-        err.param !== "customer"
-      ) {
-        return res.status(400).json({
-          error:
-            err.message ||
-            "Could not create checkout session",
-        })
-      }
-      await supabase
-        .from("users")
-        .update({ stripe_customer_id: null })
-        .eq("id", req.userId)
-      params.customer = undefined
-      params.customer_email = req.userEmail
-      session =
-        await stripe.checkout.sessions.create(params)
+      return res.status(400).json({
+        error:
+          err.message ||
+          "Could not create checkout session",
+      })
     }
 
     res.json({ url: session.url })
