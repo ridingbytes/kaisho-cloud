@@ -47,6 +47,7 @@ const {
   syncChangesQuerySchema,
 } = require("../validation")
 const { asyncHandler } = require("../utils/asyncHandler")
+const { mountSyncResource } = require("./syncResource")
 
 const router = Router()
 
@@ -203,50 +204,6 @@ router.post(
  *
  * @route GET /sync/changes?since=<iso>&limit=<int>
  */
-router.get(
-  "/changes",
-  requireAuth,
-  requireSync,
-  validateQuery(syncChangesQuerySchema),
-  asyncHandler(async (req, res) => {
-    const since =
-      req.query.since || "1970-01-01T00:00:00Z"
-    const limit = Math.min(
-      parseInt(req.query.limit) || 200, 500,
-    )
-
-    const { data: rows, error } = await supabase
-      .from("clock_entries")
-      .select("*")
-      .eq("user_id", req.userId)
-      .gt("updated_at", since)
-      .order("updated_at", { ascending: true })
-      .limit(limit)
-
-    if (error) {
-      req.log.error(
-        { err: error, since, limit },
-        "sync/changes query failed",
-      )
-      return res
-        .status(500)
-        .json({ error: "Failed to fetch changes" })
-    }
-
-    const cursor =
-      rows.length > 0
-        ? rows[rows.length - 1].updated_at
-        : since
-
-    res.json({
-      now: new Date().toISOString(),
-      cursor,
-      entries: rows.map(rowToWire),
-      has_more: rows.length === limit,
-    })
-  }),
-)
-
 // ── POST /sync/apply ────────────────────────────────────
 
 /**
@@ -324,105 +281,21 @@ function decideMerge(existing, incoming) {
   return { action: "update" }
 }
 
-/**
- * Apply a batch of incoming entries. Idempotent.
- *
- * @route POST /sync/apply
- */
-router.post(
-  "/apply",
-  requireAuth,
-  requireSync,
-  validate(syncApplySchema),
-  asyncHandler(async (req, res) => {
-    const { entries } = req.body
-    const counts = {
-      inserted: 0, updated: 0, skipped: 0, errors: 0,
-    }
-    const errorIds = []
+mountSyncResource(router, {
+  table: "clock_entries",
+  pathPrefix: "",
+  applyFields: APPLY_FIELDS,
+  applySchema: syncApplySchema,
+  rowToWire,
+  wireToRow,
+  broadcastEvent: "entries:changed",
+}, {
+  supabase, broadcast,
+  decideMerge, insertWithRowRetry,
+  validate, validateQuery, syncChangesQuerySchema,
+  requireAuth, requireSync, asyncHandler,
+})
 
-    // Batch: fetch all existing entries in ONE query
-    const ids = entries.map((e) => e.id)
-    const { data: existingRows } = await supabase
-      .from("clock_entries")
-      .select("id, updated_at, deleted_at")
-      .eq("user_id", req.userId)
-      .in("id", ids)
-    const existingMap = new Map(
-      (existingRows || []).map((r) => [r.id, r]),
-    )
-
-    // Classify entries by merge decision
-    const toInsert = []
-    const toUpdate = []
-    for (const entry of entries) {
-      const existing = existingMap.get(entry.id) || null
-      const decision = decideMerge(existing, entry)
-      if (decision.action === "skip") {
-        counts.skipped++
-      } else if (decision.action === "insert") {
-        toInsert.push(wireToRow(entry, req.userId))
-        counts.inserted++
-      } else {
-        const row = wireToRow(entry, req.userId)
-        const updates = {}
-        for (const k of APPLY_FIELDS) updates[k] = row[k]
-        updates.deleted_at = row.deleted_at
-        updates.updated_at = row.updated_at
-        updates.id = entry.id
-        toUpdate.push(updates)
-        counts.updated++
-      }
-    }
-
-    // Batch insert with per-row retry on failure so a
-    // single bad row doesn't blame the whole batch.
-    const insertFails = await insertWithRowRetry(
-      "clock_entries", toInsert,
-    )
-    if (insertFails.length > 0) {
-      counts.errors += insertFails.length
-      counts.inserted -= insertFails.length
-      errorIds.push(...insertFails)
-    }
-
-    // Update existing entries individually (each row
-    // needs its own WHERE clause for user_id safety).
-    if (toUpdate.length > 0) {
-      for (const row of toUpdate) {
-        const { error } = await supabase
-          .from("clock_entries")
-          .update(row)
-          .eq("id", row.id)
-          .eq("user_id", req.userId)
-        if (error) {
-          counts.errors++
-          counts.updated--
-          errorIds.push(row.id)
-        }
-      }
-    }
-
-    // Respond first, broadcast after — so the desktop
-    // sync caller gets its response without waiting for
-    // all WS clients to be notified.
-    const applied = counts.inserted + counts.updated
-    // Note: counts.errors (number) is spread then
-    // overridden by errorIds (array of UUIDs).
-    res.json({
-      ...counts,
-      errors: errorIds,
-      applied_at: new Date().toISOString(),
-    })
-    if (applied > 0) {
-      process.nextTick(() => {
-        broadcast(req.userId, "entries:changed", {
-          count: applied,
-        })
-      })
-    }
-  }),
-)
 
 // ── GET /sync/active ────────────────────────────────────
 
@@ -593,49 +466,6 @@ router.post(
     process.nextTick(() =>
       broadcast(req.userId, "timer:stopped", wire),
     )
-  }),
-)
-
-// ── POST /sync/ack ──────────────────────────────────────
-
-/**
- * Mark entries as synced (pulled by the local app).
- * Stamps ``synced_at`` so the mobile UI can show whether
- * the local app has seen each entry.
- *
- * @route POST /sync/ack
- */
-router.post(
-  "/ack",
-  requireAuth,
-  requireSync,
-  asyncHandler(async (req, res) => {
-    const { ids } = req.body
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({
-        error: "ids must be a non-empty array",
-      })
-    }
-    if (!ids.every((id) => typeof id === "string")) {
-      return res.status(400).json({
-        error: "ids must contain only strings",
-      })
-    }
-    const now = new Date().toISOString()
-    const { error, count } = await supabase
-      .from("clock_entries")
-      .update({ synced_at: now })
-      .eq("user_id", req.userId)
-      .in("id", ids.slice(0, 500))
-      .is("synced_at", null)
-
-    if (error) {
-      return res
-        .status(500)
-        .json({ error: "Failed to ack" })
-    }
-
-    res.json({ acked: count ?? ids.length })
   }),
 )
 
@@ -814,179 +644,20 @@ const INBOX_APPLY_FIELDS = [
   "channel", "direction", "created_at",
 ]
 
-/**
- * Pull inbox items changed after the cursor.
- *
- * @route GET /sync/inbox/changes?since=<iso>&limit=<int>
- */
-router.get(
-  "/inbox/changes",
-  requireAuth,
-  requireSync,
-  validateQuery(syncChangesQuerySchema),
-  asyncHandler(async (req, res) => {
-    const since =
-      req.query.since || "1970-01-01T00:00:00Z"
-    const limit = Math.min(
-      parseInt(req.query.limit) || 200, 500,
-    )
-
-    const { data: rows, error } = await supabase
-      .from("inbox_entries")
-      .select("*")
-      .eq("user_id", req.userId)
-      .gt("updated_at", since)
-      .order("updated_at", { ascending: true })
-      .limit(limit)
-
-    if (error) {
-      req.log.error(
-        { err: error, since, limit },
-        "sync/inbox/changes query failed",
-      )
-      return res
-        .status(500)
-        .json({ error: "Failed to fetch inbox changes" })
-    }
-
-    const cursor =
-      rows.length > 0
-        ? rows[rows.length - 1].updated_at
-        : since
-
-    res.json({
-      now: new Date().toISOString(),
-      cursor,
-      entries: rows.map(inboxRowToWire),
-      has_more: rows.length === limit,
-    })
-  }),
-)
-
-/**
- * Apply a batch of inbox items (LWW upsert).
- *
- * @route POST /sync/inbox/apply
- */
-router.post(
-  "/inbox/apply",
-  requireAuth,
-  requireSync,
-  validate(inboxApplySchema),
-  asyncHandler(async (req, res) => {
-    const { entries } = req.body
-
-    const counts = {
-      inserted: 0, updated: 0, skipped: 0, errors: 0,
-    }
-    const errorIds = []
-
-    const ids = entries.map((e) => e.id)
-    const { data: existingRows } = await supabase
-      .from("inbox_entries")
-      .select("id, updated_at")
-      .eq("user_id", req.userId)
-      .in("id", ids)
-    const existingMap = new Map(
-      (existingRows || []).map((r) => [r.id, r]),
-    )
-
-    const toInsert = []
-    const toUpdate = []
-    for (const entry of entries) {
-      const existing = existingMap.get(entry.id) || null
-      const decision = decideMerge(existing, entry)
-      if (decision.action === "skip") {
-        counts.skipped++
-      } else if (decision.action === "insert") {
-        toInsert.push(inboxWireToRow(entry, req.userId))
-        counts.inserted++
-      } else {
-        const row = inboxWireToRow(entry, req.userId)
-        const updates = {}
-        for (const k of INBOX_APPLY_FIELDS) {
-          updates[k] = row[k]
-        }
-        updates.deleted_at = row.deleted_at
-        updates.updated_at = row.updated_at
-        updates.id = entry.id
-        toUpdate.push(updates)
-        counts.updated++
-      }
-    }
-
-    const inboxInsertFails = await insertWithRowRetry(
-      "inbox_entries", toInsert,
-    )
-    if (inboxInsertFails.length > 0) {
-      counts.errors += inboxInsertFails.length
-      counts.inserted -= inboxInsertFails.length
-      errorIds.push(...inboxInsertFails)
-    }
-
-    if (toUpdate.length > 0) {
-      for (const row of toUpdate) {
-        const { error } = await supabase
-          .from("inbox_entries")
-          .update(row)
-          .eq("id", row.id)
-          .eq("user_id", req.userId)
-        if (error) {
-          counts.errors++
-          counts.updated--
-          errorIds.push(row.id)
-        }
-      }
-    }
-
-    const applied = counts.inserted + counts.updated
-    res.json({
-      ...counts,
-      errors: errorIds,
-      applied_at: new Date().toISOString(),
-    })
-    if (applied > 0) {
-      process.nextTick(() => {
-        broadcast(req.userId, "inbox:changed", {
-          count: applied,
-        })
-      })
-    }
-  }),
-)
-
-/**
- * Acknowledge synced inbox items.
- *
- * @route POST /sync/inbox/ack
- */
-router.post(
-  "/inbox/ack",
-  requireAuth,
-  requireSync,
-  asyncHandler(async (req, res) => {
-    const { ids } = req.body
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({
-        error: "ids must be a non-empty array",
-      })
-    }
-    if (!ids.every((id) => typeof id === "string")) {
-      return res.status(400).json({
-        error: "ids must contain only strings",
-      })
-    }
-    const now = new Date().toISOString()
-    const { count } = await supabase
-      .from("inbox_entries")
-      .update({ synced_at: now })
-      .eq("user_id", req.userId)
-      .in("id", ids.slice(0, 500))
-      .is("synced_at", null)
-
-    res.json({ acked: count ?? ids.length })
-  }),
-)
+mountSyncResource(router, {
+  table: "inbox_entries",
+  pathPrefix: "/inbox",
+  applyFields: INBOX_APPLY_FIELDS,
+  applySchema: inboxApplySchema,
+  rowToWire: inboxRowToWire,
+  wireToRow: inboxWireToRow,
+  broadcastEvent: "inbox:changed",
+}, {
+  supabase, broadcast,
+  decideMerge, insertWithRowRetry,
+  validate, validateQuery, syncChangesQuerySchema,
+  requireAuth, requireSync, asyncHandler,
+})
 
 // ── Task sync ─────────────────────────────────────────────
 
@@ -1030,148 +701,20 @@ const TASK_APPLY_FIELDS = [
   "body", "github_url", "created_at",
 ]
 
-router.get(
-  "/tasks/changes",
-  requireAuth,
-  requireSync,
-  validateQuery(syncChangesQuerySchema),
-  asyncHandler(async (req, res) => {
-    const since =
-      req.query.since || "1970-01-01T00:00:00Z"
-    const limit = Math.min(
-      parseInt(req.query.limit) || 200, 500,
-    )
-    const { data: rows, error } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("user_id", req.userId)
-      .gt("updated_at", since)
-      .order("updated_at", { ascending: true })
-      .limit(limit)
-    if (error) {
-      return res
-        .status(500)
-        .json({ error: "Failed to fetch task changes" })
-    }
-    const cursor = rows.length > 0
-      ? rows[rows.length - 1].updated_at
-      : since
-    res.json({
-      now: new Date().toISOString(),
-      cursor,
-      entries: rows.map(taskRowToWire),
-      has_more: rows.length === limit,
-    })
-  }),
-)
-
-router.post(
-  "/tasks/apply",
-  requireAuth,
-  requireSync,
-  validate(taskApplySchema),
-  asyncHandler(async (req, res) => {
-    const { entries } = req.body
-    const counts = {
-      inserted: 0, updated: 0, skipped: 0, errors: 0,
-    }
-    const errorIds = []
-    const ids = entries.map((e) => e.id)
-    const { data: existingRows } = await supabase
-      .from("tasks")
-      .select("id, updated_at")
-      .eq("user_id", req.userId)
-      .in("id", ids)
-    const existingMap = new Map(
-      (existingRows || []).map((r) => [r.id, r]),
-    )
-    const toInsert = []
-    const toUpdate = []
-    for (const entry of entries) {
-      const existing = existingMap.get(entry.id) || null
-      const decision = decideMerge(existing, entry)
-      if (decision.action === "skip") {
-        counts.skipped++
-      } else if (decision.action === "insert") {
-        toInsert.push(taskWireToRow(entry, req.userId))
-        counts.inserted++
-      } else {
-        const row = taskWireToRow(entry, req.userId)
-        const updates = {}
-        for (const k of TASK_APPLY_FIELDS) {
-          updates[k] = row[k]
-        }
-        updates.deleted_at = row.deleted_at
-        updates.updated_at = row.updated_at
-        updates.id = entry.id
-        toUpdate.push(updates)
-        counts.updated++
-      }
-    }
-    const taskInsertFails = await insertWithRowRetry(
-      "tasks", toInsert,
-    )
-    if (taskInsertFails.length > 0) {
-      counts.errors += taskInsertFails.length
-      counts.inserted -= taskInsertFails.length
-      errorIds.push(...taskInsertFails)
-    }
-    if (toUpdate.length > 0) {
-      for (const row of toUpdate) {
-        const { error } = await supabase
-          .from("tasks")
-          .update(row)
-          .eq("id", row.id)
-          .eq("user_id", req.userId)
-        if (error) {
-          counts.errors++
-          counts.updated--
-          errorIds.push(row.id)
-        }
-      }
-    }
-    const applied = counts.inserted + counts.updated
-    res.json({
-      ...counts,
-      errors: errorIds,
-      applied_at: new Date().toISOString(),
-    })
-    if (applied > 0) {
-      process.nextTick(() => {
-        broadcast(req.userId, "tasks:changed", {
-          count: applied,
-        })
-      })
-    }
-  }),
-)
-
-router.post(
-  "/tasks/ack",
-  requireAuth,
-  requireSync,
-  asyncHandler(async (req, res) => {
-    const { ids } = req.body
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({
-        error: "ids must be a non-empty array",
-      })
-    }
-    if (!ids.every((id) => typeof id === "string")) {
-      return res.status(400).json({
-        error: "ids must contain only strings",
-      })
-    }
-    const now = new Date().toISOString()
-    const { count } = await supabase
-      .from("tasks")
-      .update({ synced_at: now })
-      .eq("user_id", req.userId)
-      .in("id", ids.slice(0, 500))
-      .is("synced_at", null)
-    res.json({ acked: count ?? ids.length })
-  }),
-)
+mountSyncResource(router, {
+  table: "tasks",
+  pathPrefix: "/tasks",
+  applyFields: TASK_APPLY_FIELDS,
+  applySchema: taskApplySchema,
+  rowToWire: taskRowToWire,
+  wireToRow: taskWireToRow,
+  broadcastEvent: "tasks:changed",
+}, {
+  supabase, broadcast,
+  decideMerge, insertWithRowRetry,
+  validate, validateQuery, syncChangesQuerySchema,
+  requireAuth, requireSync, asyncHandler,
+})
 
 // ── Notes sync ────────────────────────────────────────────
 
@@ -1213,147 +756,20 @@ const NOTE_APPLY_FIELDS = [
   "task_id", "created_at",
 ]
 
-router.get(
-  "/notes/changes",
-  requireAuth,
-  requireSync,
-  validateQuery(syncChangesQuerySchema),
-  asyncHandler(async (req, res) => {
-    const since =
-      req.query.since || "1970-01-01T00:00:00Z"
-    const limit = Math.min(
-      parseInt(req.query.limit) || 200, 500,
-    )
-    const { data: rows, error } = await supabase
-      .from("notes")
-      .select("*")
-      .eq("user_id", req.userId)
-      .gt("updated_at", since)
-      .order("updated_at", { ascending: true })
-      .limit(limit)
-    if (error) {
-      return res
-        .status(500)
-        .json({ error: "Failed to fetch note changes" })
-    }
-    const cursor = rows.length > 0
-      ? rows[rows.length - 1].updated_at
-      : since
-    res.json({
-      now: new Date().toISOString(),
-      cursor,
-      entries: rows.map(noteRowToWire),
-      has_more: rows.length === limit,
-    })
-  }),
-)
+mountSyncResource(router, {
+  table: "notes",
+  pathPrefix: "/notes",
+  applyFields: NOTE_APPLY_FIELDS,
+  applySchema: noteApplySchema,
+  rowToWire: noteRowToWire,
+  wireToRow: noteWireToRow,
+  broadcastEvent: "notes:changed",
+}, {
+  supabase, broadcast,
+  decideMerge, insertWithRowRetry,
+  validate, validateQuery, syncChangesQuerySchema,
+  requireAuth, requireSync, asyncHandler,
+})
 
-router.post(
-  "/notes/apply",
-  requireAuth,
-  requireSync,
-  validate(noteApplySchema),
-  asyncHandler(async (req, res) => {
-    const { entries } = req.body
-    const counts = {
-      inserted: 0, updated: 0, skipped: 0, errors: 0,
-    }
-    const errorIds = []
-    const ids = entries.map((e) => e.id)
-    const { data: existingRows } = await supabase
-      .from("notes")
-      .select("id, updated_at")
-      .eq("user_id", req.userId)
-      .in("id", ids)
-    const existingMap = new Map(
-      (existingRows || []).map((r) => [r.id, r]),
-    )
-    const toInsert = []
-    const toUpdate = []
-    for (const entry of entries) {
-      const existing = existingMap.get(entry.id) || null
-      const decision = decideMerge(existing, entry)
-      if (decision.action === "skip") {
-        counts.skipped++
-      } else if (decision.action === "insert") {
-        toInsert.push(noteWireToRow(entry, req.userId))
-        counts.inserted++
-      } else {
-        const row = noteWireToRow(entry, req.userId)
-        const updates = {}
-        for (const k of NOTE_APPLY_FIELDS) {
-          updates[k] = row[k]
-        }
-        updates.deleted_at = row.deleted_at
-        updates.updated_at = row.updated_at
-        updates.id = entry.id
-        toUpdate.push(updates)
-        counts.updated++
-      }
-    }
-    const noteInsertFails = await insertWithRowRetry(
-      "notes", toInsert,
-    )
-    if (noteInsertFails.length > 0) {
-      counts.errors += noteInsertFails.length
-      counts.inserted -= noteInsertFails.length
-      errorIds.push(...noteInsertFails)
-    }
-    if (toUpdate.length > 0) {
-      for (const row of toUpdate) {
-        const { error } = await supabase
-          .from("notes")
-          .update(row)
-          .eq("id", row.id)
-          .eq("user_id", req.userId)
-        if (error) {
-          counts.errors++
-          counts.updated--
-          errorIds.push(row.id)
-        }
-      }
-    }
-    const applied = counts.inserted + counts.updated
-    res.json({
-      ...counts,
-      errors: errorIds,
-      applied_at: new Date().toISOString(),
-    })
-    if (applied > 0) {
-      process.nextTick(() => {
-        broadcast(req.userId, "notes:changed", {
-          count: applied,
-        })
-      })
-    }
-  }),
-)
-
-router.post(
-  "/notes/ack",
-  requireAuth,
-  requireSync,
-  asyncHandler(async (req, res) => {
-    const { ids } = req.body
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({
-        error: "ids must be a non-empty array",
-      })
-    }
-    if (!ids.every((id) => typeof id === "string")) {
-      return res.status(400).json({
-        error: "ids must contain only strings",
-      })
-    }
-    const now = new Date().toISOString()
-    const { count } = await supabase
-      .from("notes")
-      .update({ synced_at: now })
-      .eq("user_id", req.userId)
-      .in("id", ids.slice(0, 500))
-      .is("synced_at", null)
-    res.json({ acked: count ?? ids.length })
-  }),
-)
 
 module.exports = router
