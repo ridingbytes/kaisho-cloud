@@ -19,6 +19,7 @@
 
 const { randomUUID } = require("crypto")
 const { z } = require("zod")
+const { DEFAULT_TASK_STATUS } = require("../../config")
 const { supabase } = require("../../db")
 const { broadcast } = require("../../ws")
 const { parseDuration } = require("../../utils/clocks")
@@ -79,7 +80,7 @@ function registerAddTask(server, userId) {
         user_id: userId,
         customer: args.customer ?? "",
         title: args.title,
-        status: args.status ?? "TODO",
+        status: args.status ?? DEFAULT_TASK_STATUS,
         tags: args.tags ?? [],
         body: args.body ?? "",
         github_url: args.github_url ?? "",

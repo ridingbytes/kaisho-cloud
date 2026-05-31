@@ -262,6 +262,37 @@ const PARSE_SYSTEM =
   "empty string. Do not explain."
 
 /**
+ * Regex fallback for simple booking strings.
+ *
+ * Patterns: "2h acme", "30m maintenance", "1h30m acme
+ * fix login". First word after duration is customer,
+ * rest is description.
+ *
+ * Hoisted above the route handler that uses it for
+ * top-down readability -- JS would hoist the function
+ * declaration anyway but the visual order matched the
+ * runtime order.
+ *
+ * @param {string} text - Raw user input.
+ * @returns {object|null} Parsed booking or null.
+ */
+function parseSimpleBooking(text) {
+  const pattern =
+    /^(\d+(?:\.\d+)?h(?:\d+m)?|\d+m)\s+(.+)$/i
+  const m = text.trim().match(pattern)
+  if (!m) return null
+  const duration = m[1]
+  const parts = m[2].trim().split(/\s+/)
+  return {
+    duration,
+    customer: parts[0] || null,
+    description: parts.slice(1).join(" ") || "",
+    date: null,
+  }
+}
+
+
+/**
  * Parse a natural-language booking into structured
  * fields. Uses a regex fallback for simple patterns
  * like "2h acme" to save an API call.
@@ -320,31 +351,6 @@ router.post(
     res.json({ parsed, source: "ai" })
   }),
 )
-
-/**
- * Regex fallback for simple booking strings.
- *
- * Patterns: "2h acme", "30m maintenance", "1h30m acme
- * fix login". First word after duration is customer,
- * rest is description.
- *
- * @param {string} text - Raw user input.
- * @returns {object|null} Parsed booking or null.
- */
-function parseSimpleBooking(text) {
-  const pattern =
-    /^(\d+(?:\.\d+)?h(?:\d+m)?|\d+m)\s+(.+)$/i
-  const m = text.trim().match(pattern)
-  if (!m) return null
-  const duration = m[1]
-  const parts = m[2].trim().split(/\s+/)
-  return {
-    duration,
-    customer: parts[0] || null,
-    description: parts.slice(1).join(" ") || "",
-    date: null,
-  }
-}
 
 // ── POST /ai/summarize ──────────────────────────────────
 

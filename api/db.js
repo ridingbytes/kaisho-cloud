@@ -34,68 +34,43 @@ const supabaseAuth = createClient(
 )
 
 // ── Auth cache ───────────────────────────────────────────
-// Bcrypt comparison takes ~100 ms. Cache positive auth
-// results for 5 minutes so sync requests don't pay that
-// cost. A fast SHA-256 key cache provides O(1) lookups
-// that skip bcrypt entirely for recently-seen API keys.
+// Bcrypt comparison takes ~100 ms. The fast key-hash
+// cache lets recently-seen API keys skip bcrypt entirely
+// for ``AUTH_CACHE_TTL`` (5 minutes).
+//
+// History: this used to be a two-cache structure (the
+// userId-keyed AUTH_CACHE alongside the fast key cache).
+// The userId cache was unreachable -- every caller passed
+// userId=null -- so it served zero traffic on the read
+// path and silently leaked entries on the write path.
+// Removed per #78.
 
-const AUTH_CACHE = new Map()
+const API_KEY_CACHE = new Map()
 const AUTH_CACHE_TTL = 300_000  // 5 minutes
 
-function authCacheKey(userId, apiKey) {
-  return crypto
-    .createHash("sha256")
-    .update(`${userId}:${apiKey}`)
-    .digest("hex")
-}
-
-// Fast lookup: hash(apiKey) -> user (skips bcrypt)
-const API_KEY_CACHE = new Map()
-
-function getCachedUser(userId, apiKey) {
-  // Try fast key-only cache first
+function getCachedUser(apiKey) {
   const keyHash = crypto
     .createHash("sha256")
     .update(apiKey)
     .digest("hex")
-  const fast = API_KEY_CACHE.get(keyHash)
-  if (fast && Date.now() - fast.ts < AUTH_CACHE_TTL) {
-    return fast.user
-  }
-
-  const key = authCacheKey(userId, apiKey)
-  const entry = AUTH_CACHE.get(key)
+  const entry = API_KEY_CACHE.get(keyHash)
   if (!entry) return null
   if (Date.now() - entry.ts > AUTH_CACHE_TTL) {
-    AUTH_CACHE.delete(key)
+    API_KEY_CACHE.delete(keyHash)
     return null
   }
   return entry.user
 }
 
-function cacheUser(userId, apiKey, user) {
-  const now = Date.now()
-  AUTH_CACHE.set(
-    authCacheKey(userId, apiKey),
-    { user, ts: now },
-  )
-  // Also cache by API key hash for fast O(1) lookup
-  // that skips the bcrypt comparison entirely.
+function cacheUser(apiKey, user) {
   const keyHash = crypto
     .createHash("sha256")
     .update(apiKey)
     .digest("hex")
-  API_KEY_CACHE.set(keyHash, { user, ts: now })
+  API_KEY_CACHE.set(keyHash, { user, ts: Date.now() })
 }
 
 function invalidateAuthCache(userId) {
-  for (const [key, entry] of AUTH_CACHE.entries()) {
-    if (entry.user.id === userId) {
-      AUTH_CACHE.delete(key)
-    }
-  }
-  // Also clear the fast SHA-256 cache so a rotated
-  // key stops working immediately.
   for (const [key, entry] of API_KEY_CACHE.entries()) {
     if (entry.user.id === userId) {
       API_KEY_CACHE.delete(key)

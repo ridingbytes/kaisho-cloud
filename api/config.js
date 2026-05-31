@@ -65,6 +65,12 @@ const TOKEN_PACK_PLAN = "token_pack"
 // only one pack size; if more land later, key by price ID.
 const TOKEN_PACK_SIZE = 500_000
 
+// Single source of truth for the default task status used
+// when an API caller (CLI, MCP, mobile) creates a task
+// without specifying one. Five call sites used to inline
+// this literal which silently drifted between them.
+const DEFAULT_TASK_STATUS = "TODO"
+
 /**
  * Look up a plan name by its Stripe price ID.
  *
@@ -191,6 +197,7 @@ module.exports = {
   PLAN_QUOTAS,
   TOKEN_PACK_PLAN,
   TOKEN_PACK_SIZE,
+  DEFAULT_TASK_STATUS,
   planFromPriceId,
   signupLimiter,
   authLimiter,

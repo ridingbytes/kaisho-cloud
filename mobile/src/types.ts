@@ -1,3 +1,9 @@
+/** Default task status when none is supplied on create.
+ *  Mirrors ``DEFAULT_TASK_STATUS`` in ``api/config.js`` so
+ *  the mobile client and the server agree without a
+ *  round-trip. */
+export const DEFAULT_TASK_STATUS = "TODO"
+
 export interface User {
   email: string
   plan: string
