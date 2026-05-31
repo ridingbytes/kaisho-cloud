@@ -132,6 +132,12 @@ function safeOverrideModel(overrides, mode) {
 
 // ── Runtime config (gateway_config table) ──────────────
 
+// gateway_config is a singleton row -- there is exactly
+// one configuration document per deployment, addressed by
+// the synthetic id 1. Named so callers do not have to
+// guess the magic-number contract.
+const GATEWAY_CONFIG_ID = 1
+
 const CONFIG_TTL_MS = 60_000
 
 /** @type {{ data: object, fetchedAt: number } | null} */
@@ -147,7 +153,7 @@ async function getGatewayConfig() {
     const { data, error } = await supabase
       .from("gateway_config")
       .select("*")
-      .eq("id", 1)
+      .eq("id", GATEWAY_CONFIG_ID)
       .maybeSingle()
     if (error) throw error
     if (!data) throw new Error("gateway_config row missing")

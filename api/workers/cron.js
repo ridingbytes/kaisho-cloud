@@ -40,6 +40,11 @@ const {
 
 const RECONCILE_MS = 60_000
 
+// cron_health is a singleton row -- one heartbeat record
+// per worker process, addressed by the synthetic id 1.
+// See migration 019_cron_health.sql.
+const CRON_HEALTH_ID = 1
+
 // jobId → { task, schedule } so reconcile() can detect a
 // changed schedule and reschedule in place.
 const scheduled = new Map()
@@ -271,15 +276,19 @@ function unschedule(jobId) {
  * last_reconcile_at. Best-effort: a write failure logs
  * but does not abort the reconcile (a transient DB blip
  * should not knock the worker out of its loop).
+ *
+ * Uses upsert so a fresh database (or a missing health
+ * row from manual cleanup) self-heals on the first tick
+ * instead of silently no-op-ing forever.
  */
 async function bumpHeartbeat() {
   const { error } = await supabase
     .from("cron_health")
-    .update({
+    .upsert({
+      id: CRON_HEALTH_ID,
       last_reconcile_at: new Date().toISOString(),
       reconcile_count: scheduled.size,
     })
-    .eq("id", 1)
   if (error) {
     logger.warn(
       { err: error.message },

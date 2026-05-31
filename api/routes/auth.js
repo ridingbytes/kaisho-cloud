@@ -285,28 +285,24 @@ router.post(
     }
     const { email } = req.body
 
-    // TODO(#63): listUsers() fetches all users and
-    // filters client-side. Supabase Admin API does not
-    // support filtering by email. Replace with a direct
-    // query against auth.users (or an email->user_id
-    // lookup table) once user count makes the linear
-    // scan expensive. Tracked at:
-    //   https://github.com/ridingbytes/kaisho-cloud/issues/63
-    const { data: authUsers } =
-      await supabase.auth.admin.listUsers()
-    const authUser = authUsers?.users?.find(
-      (u) => u.email === email,
+    // Direct lookup via find_user_id_by_email SECURITY
+    // DEFINER function (migration 020). Replaces the
+    // earlier auth.admin.listUsers() scan that grew
+    // linearly with user count. The RPC returns NULL
+    // on miss so the no-account path stays silent.
+    const { data: userId } = await supabase.rpc(
+      "find_user_id_by_email", { p_email: email },
     )
 
-    if (authUser) {
-      const token = createResetToken(
-        authUser.id, Date.now(),
-      )
-      const baseUrl =
-        process.env.MOBILE_URL ||
-        "https://cloud.kaisho.dev/m/"
+    if (userId) {
+      const token = createResetToken(userId, Date.now())
+      // The mobile PWA always lives at <BASE_URL>/m/ in
+      // every deployment we ship. The earlier MOBILE_URL
+      // override was a knob nobody used.
+      const baseUrl = process.env.BASE_URL
+        || "https://cloud.kaisho.dev"
       const resetUrl =
-        `${baseUrl}#reset-password=${token}`
+        `${baseUrl}/m/#reset-password=${token}`
       sendPasswordResetEmail({ email, resetUrl })
     }
 

@@ -25,7 +25,9 @@
 
 const { Router } = require("express")
 const { supabase } = require("../db")
-const { syncLimiter } = require("../config")
+const {
+  syncLimiter, DEFAULT_TASK_STATUS,
+} = require("../config")
 const {
   requireAuth, requirePlan,
 } = require("../middleware")
@@ -993,7 +995,7 @@ function taskRowToWire(row) {
     id: row.id,
     customer: row.customer || "",
     title: row.title || "",
-    status: row.status || "TODO",
+    status: row.status || DEFAULT_TASK_STATUS,
     tags: row.tags || [],
     body: row.body || "",
     github_url: row.github_url || "",
@@ -1009,7 +1011,7 @@ function taskWireToRow(entry, userId) {
     user_id: userId,
     customer: entry.customer ?? "",
     title: entry.title ?? "",
-    status: entry.status ?? "TODO",
+    status: entry.status ?? DEFAULT_TASK_STATUS,
     tags: entry.tags ?? [],
     body: entry.body ?? "",
     github_url: entry.github_url ?? "",

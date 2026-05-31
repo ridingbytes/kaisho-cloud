@@ -9,6 +9,7 @@ import type {
   TaskRef,
   User,
 } from "./types"
+import { DEFAULT_TASK_STATUS } from "./types"
 import {
   configureQueue,
   flushQueue,
@@ -539,7 +540,7 @@ export function addSyncedTask(data: {
         id,
         customer: data.customer || "",
         title: data.title,
-        status: data.status || "TODO",
+        status: data.status || DEFAULT_TASK_STATUS,
         tags: [],
         body: "",
         github_url: "",

@@ -13,6 +13,7 @@
  * never collide with the core tool surface.
  */
 
+const { logger } = require("../logger")
 const linear = require("./linear")
 const github = require("./github")
 const slack = require("./slack")
@@ -20,8 +21,6 @@ const google = require("./google")
 const {
   listIntegrations, getIntegration, saveIntegration,
 } = require("./store")
-
-const { logger } = require("../logger")
 
 const MODULES = {
   [linear.KIND]: linear,
