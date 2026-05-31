@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.1.0
+
+A cleanup + hardening release that rolls up the post-2.0.0
+review findings, dev-tooling improvements, and the Stripe
+tax-behaviour fix on the token-pack one-off prices.
+
+- Extract sync.js resource factory (closes #77) [#81](https://github.com/ridingbytes/kaisho-cloud/pull/81)
+- kaisho-cloud cleanup: closes #63, #78, #79 [#80](https://github.com/ridingbytes/kaisho-cloud/pull/80)
+- API + scripts cleanup: dedup, dead code, JSDoc placement, logger consistency [#76](https://github.com/ridingbytes/kaisho-cloud/pull/76)
+- Docs: align dev port, drop dead webhook call, move strategy docs [#75](https://github.com/ridingbytes/kaisho-cloud/pull/75)
+- Drop legacy api_key_prefix fallback in requireApiKey [#74](https://github.com/ridingbytes/kaisho-cloud/pull/74)
+- bin/dev: detect + offer to kill stale Kaisho server on port [#73](https://github.com/ridingbytes/kaisho-cloud/pull/73)
+- dev-stripe.sh: make Ctrl+C actually stop 'stripe listen' [#72](https://github.com/ridingbytes/kaisho-cloud/pull/72)
+- Token-pack Checkout missing USt: set explicit tax_behavior on prices [#71](https://github.com/ridingbytes/kaisho-cloud/pull/71)
+- scripts: add dev-stripe.sh wrapper for symlinked ~/.config setups [#70](https://github.com/ridingbytes/kaisho-cloud/pull/70)
+- PWA: Team is a 'Contact us' mailto, not a subscribe button [#69](https://github.com/ridingbytes/kaisho-cloud/pull/69)
+
+### Migrations
+
+- `020_find_user_by_email.sql` — SECURITY DEFINER RPC used
+  by the password-reset flow (replaces the
+  `auth.admin.listUsers()` scan that #63 eliminated).
+  Applied to production before this tag was cut.
+
 ## 2.0.0
 
 The Track AI release: hosted plans (Companion / Pro), premium
