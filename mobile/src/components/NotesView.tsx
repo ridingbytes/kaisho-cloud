@@ -24,6 +24,7 @@ import { SwipeToReveal } from "./SwipeToReveal"
 import { TagEditor } from "./TagEditor"
 import { Markdown } from "./Markdown"
 import { DetailScreen } from "./DetailScreen"
+import { useConfirm } from "./ConfirmDialog"
 import { Field, Select } from "./Field"
 import { ProjectPicker, ProjectBadge } from "./ProjectPicker"
 
@@ -106,6 +107,7 @@ function NoteDetailSheet({
   note,
   onClose,
   onUpdate,
+  onDelete,
   config,
   customers,
   tasks,
@@ -113,11 +115,13 @@ function NoteDetailSheet({
   note: Note
   onClose: () => void
   onUpdate: (updates: Partial<Note>) => void
+  onDelete: () => void
   config: AppConfig
   customers: Customer[]
   tasks: TaskRef[]
 }) {
   const { t } = useTranslation()
+  const [confirm, confirmDialog] = useConfirm()
   const [editing, setEditing] = useState(false)
   const [customer, setCustomer] = useState(
     note.customer || "",
@@ -170,7 +174,13 @@ function NoteDetailSheet({
     setEditing(false)
   }
 
+  async function handleDelete() {
+    const ok = await confirm(t("notes.confirmDelete"))
+    if (ok) onDelete()
+  }
+
   return (
+    <>
     <DetailScreen
       title={note.title}
       backLabel={t("shell.tab.notes")}
@@ -246,6 +256,14 @@ function NoteDetailSheet({
             onChange={setTags}
             allTags={config.tags}
           />
+
+          <button
+            type="button"
+            className="btn-danger ds-delete"
+            onClick={handleDelete}
+          >
+            {t("detail.delete")}
+          </button>
         </div>
       ) : (
         <div className="ds-content">
@@ -315,6 +333,8 @@ function NoteDetailSheet({
         </div>
       )}
     </DetailScreen>
+    {confirmDialog}
+    </>
   )
 }
 
@@ -516,6 +536,10 @@ export function NotesView() {
           onUpdate={(updates) =>
             handleUpdate(selected, updates)
           }
+          onDelete={async () => {
+            await handleDelete(selected)
+            setSelected(null)
+          }}
           config={config}
           customers={customers}
           tasks={refTasks}

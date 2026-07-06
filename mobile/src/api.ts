@@ -580,6 +580,22 @@ export function updateSyncedTask(
   })
 }
 
+export function deleteSyncedTask(
+  task: Task,
+): Promise<{ updated: number }> {
+  const now = new Date().toISOString()
+  return request("/sync/tasks/apply", {
+    method: "POST",
+    body: JSON.stringify({
+      entries: [{
+        ...task,
+        deleted_at: now,
+        updated_at: now,
+      }],
+    }),
+  })
+}
+
 // -- Notes --
 
 export function getSyncedNotes(): Promise<Note[]> {

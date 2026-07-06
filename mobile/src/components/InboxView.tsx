@@ -18,6 +18,7 @@ import { SearchBar } from "./SearchBar"
 import { SwipeToReveal } from "./SwipeToReveal"
 import { Markdown } from "./Markdown"
 import { DetailScreen } from "./DetailScreen"
+import { useConfirm } from "./ConfirmDialog"
 import { Field, FieldRow, Select } from "./Field"
 
 /** Strip markdown syntax for plain-text preview. */
@@ -114,14 +115,17 @@ function InboxDetailSheet({
   item,
   onClose,
   onUpdate,
+  onDelete,
   customers,
 }: {
   item: InboxItem
   onClose: () => void
   onUpdate: (updates: Partial<InboxItem>) => void
+  onDelete: () => void
   customers: Customer[]
 }) {
   const { t } = useTranslation()
+  const [confirm, confirmDialog] = useConfirm()
   const [editing, setEditing] = useState(false)
   const [itemType, setItemType] = useState(
     item.type || "NOTE",
@@ -164,6 +168,11 @@ function InboxDetailSheet({
     setEditing(false)
   }
 
+  async function handleDelete() {
+    const ok = await confirm(t("inbox.confirmDelete"))
+    if (ok) onDelete()
+  }
+
   const navAction = editing ? (
     <button className="ds-nav-btn" onClick={handleSave}>
       {t("detail.save")}
@@ -178,6 +187,7 @@ function InboxDetailSheet({
   )
 
   return (
+    <>
     <DetailScreen
       title={item.title}
       backLabel={t("shell.tab.inbox")}
@@ -251,6 +261,14 @@ function InboxDetailSheet({
               placeholder="email, phone, chat..."
             />
           </Field>
+
+          <button
+            type="button"
+            className="btn-danger ds-delete"
+            onClick={handleDelete}
+          >
+            {t("detail.delete")}
+          </button>
         </div>
       ) : (
         <div className="ds-content">
@@ -314,6 +332,8 @@ function InboxDetailSheet({
         </div>
       )}
     </DetailScreen>
+    {confirmDialog}
+    </>
   )
 }
 
@@ -492,6 +512,10 @@ export function InboxView() {
           onUpdate={(updates) =>
             handleUpdate(selected, updates)
           }
+          onDelete={async () => {
+            await handleDelete(selected)
+            setSelected(null)
+          }}
           customers={customers}
         />
       )}
