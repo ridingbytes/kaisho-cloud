@@ -226,7 +226,9 @@ function TaskDetailSheet({
 
           <Field label={t("detail.status")}>
             <Select value={status} onChange={setStatus}>
-              {STATUS_ORDER.map((s) => (
+              {Array.from(
+                new Set([...STATUS_ORDER, task.status]),
+              ).map((s) => (
                 <option key={s} value={s}>
                   {statusLabel(s)}
                 </option>
@@ -537,8 +539,24 @@ export function TasksView() {
     }
   }
 
-  // Group by status, ordered
-  const grouped = STATUS_ORDER
+  // Group by status. The desktop's org-mode TODO keywords
+  // are user-configurable, so a task may carry a status the
+  // PWA doesn't know about (e.g. BLOCKED, REVIEW). Build the
+  // order from the known set plus any extra statuses present
+  // in the data — inserted before the terminal DONE group —
+  // so those tasks are never silently dropped.
+  const extraStatuses = Array.from(
+    new Set(filtered.map((task) => task.status)),
+  )
+    .filter((s) => !STATUS_ORDER.includes(s))
+    .sort()
+  const doneIdx = STATUS_ORDER.indexOf("DONE")
+  const statusOrder = [
+    ...STATUS_ORDER.slice(0, doneIdx),
+    ...extraStatuses,
+    ...STATUS_ORDER.slice(doneIdx),
+  ]
+  const grouped = statusOrder
     .map((status) => ({
       status,
       items: filtered.filter(
