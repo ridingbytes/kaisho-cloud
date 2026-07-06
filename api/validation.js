@@ -81,6 +81,7 @@ const clockStartSchema = z.object({
   description: z.string().optional().default(""),
   task_id: z.string().nullable().optional(),
   contract: z.string().nullable().optional(),
+  project: z.string().nullable().optional(),
 })
 
 /**
@@ -93,6 +94,7 @@ const quickBookSchema = z.object({
   description: z.string().optional().default(""),
   task_id: z.string().nullable().optional(),
   contract: z.string().nullable().optional(),
+  project: z.string().nullable().optional(),
   date: z.string().nullable().optional(),
 })
 
@@ -106,6 +108,7 @@ const clockUpdateSchema = z.object({
   description: z.string().optional(),
   task_id: z.string().nullable().optional(),
   contract: z.string().nullable().optional(),
+  project: z.string().nullable().optional(),
   notes: z.string().optional(),
   invoiced: z.boolean().optional(),
   start_at: z.string().optional(),
@@ -167,6 +170,7 @@ const syncEntrySchema = z.object({
   end: z.string().nullable().optional(),
   task_id: z.string().nullable().optional(),
   contract: z.string().nullable().optional(),
+  project: z.string().nullable().optional(),
   notes: z.string().optional().default(""),
   invoiced: z.boolean().optional().default(false),
   updated_at: z.string().min(1),
@@ -245,6 +249,8 @@ const taskEntrySchema = z.object({
   tags: z.array(z.string()),
   body: z.string(),
   github_url: z.string(),
+  project: z.string().nullable().optional(),
+  milestone: z.string().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
   deleted_at: z.string().nullable().optional(),
@@ -281,6 +287,7 @@ const noteEntrySchema = z.object({
   // else in this file — a missing key and an explicit
   // null both mean "note not linked to a task".
   task_id: z.string().nullable().optional(),
+  project: z.string().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
   deleted_at: z.string().nullable().optional(),
@@ -292,6 +299,55 @@ const noteEntrySchema = z.object({
  */
 const noteApplySchema = z.object({
   entries: z.array(noteEntrySchema).max(500),
+})
+
+// ── Project sync schemas ───────────────────────────────
+//
+// Projects use org-mode-style TEXT ids ("P-ab12cd34") like
+// tasks and notes, so the id is a plain z.string(). Dates
+// are plain YYYY-MM-DD strings. Milestones ride inline as
+// an array of small objects (see migration 021).
+
+/**
+ * One milestone inside a project. `done` toggles the
+ * org TODO/DONE keyword on the desktop; `due` is an
+ * optional YYYY-MM-DD date.
+ * @type {z.ZodObject}
+ */
+const milestoneSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  done: z.boolean().optional().default(false),
+  due: z.string().nullable().optional(),
+})
+
+/**
+ * One entry in a POST /sync/projects/apply batch.
+ * @type {z.ZodObject}
+ */
+const projectEntrySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  customer: z.string().optional().default(""),
+  status: z.string().optional().default("ACTIVE"),
+  contract: z.string().nullable().optional(),
+  start: z.string().nullable().optional(),
+  due: z.string().nullable().optional(),
+  color: z.string().optional().default(""),
+  tags: z.array(z.string()).optional().default([]),
+  description: z.string().optional().default(""),
+  milestones: z.array(milestoneSchema).optional().default([]),
+  created_at: z.string().optional(),
+  updated_at: z.string().min(1),
+  deleted_at: z.string().nullable().optional(),
+})
+
+/**
+ * POST /sync/projects/apply request body.
+ * @type {z.ZodObject}
+ */
+const projectApplySchema = z.object({
+  entries: z.array(projectEntrySchema).max(500),
 })
 
 // ── Query schemas ───────────────────────────────────────
@@ -501,6 +557,8 @@ module.exports = {
   taskApplySchema,
   noteEntrySchema,
   noteApplySchema,
+  projectEntrySchema,
+  projectApplySchema,
   activeStartSchema,
   activeStopSchema,
   periodQuerySchema,
