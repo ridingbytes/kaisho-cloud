@@ -230,5 +230,8 @@
   "projects.noteCount": "{{count}} Notizen",
   "projects.showArchived": "Archivierte anzeigen ({{count}})",
   "projects.hideArchived": "Archivierte ausblenden",
-  "detail.openLink": "Öffnen"
+  "detail.openLink": "Öffnen",
+  "tasks.confirmDelete": "Diese Aufgabe löschen?",
+  "notes.confirmDelete": "Diese Notiz löschen?",
+  "inbox.confirmDelete": "Diesen Eintrag löschen?"
 }

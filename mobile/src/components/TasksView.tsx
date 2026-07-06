@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   addSyncedTask,
+  deleteSyncedTask,
   getAppConfig,
   getCustomers,
   getSyncedProjects,
@@ -20,6 +21,7 @@ import { Markdown } from "./Markdown"
 import { DetailScreen } from "./DetailScreen"
 import { Field, Select } from "./Field"
 import { ProjectPicker, ProjectBadge } from "./ProjectPicker"
+import { useConfirm } from "./ConfirmDialog"
 
 const STATUS_ORDER = [
   "TODO", "NEXT", "IN-PROGRESS", "WAIT",
@@ -139,16 +141,19 @@ function TaskDetailSheet({
   task,
   onClose,
   onUpdate,
+  onDelete,
   config,
   customers,
 }: {
   task: Task
   onClose: () => void
   onUpdate: (updates: Partial<Task>) => void
+  onDelete: () => void
   config: AppConfig
   customers: Customer[]
 }) {
   const { t } = useTranslation()
+  const [confirm, confirmDialog] = useConfirm()
   const [editing, setEditing] = useState(false)
   const [customer, setCustomer] = useState(
     task.customer || "",
@@ -210,6 +215,11 @@ function TaskDetailSheet({
     setEditing(false)
   }
 
+  async function handleDelete() {
+    const ok = await confirm(t("tasks.confirmDelete"))
+    if (ok) onDelete()
+  }
+
   const navAction = editing ? (
     <button className="ds-nav-btn" onClick={handleSave}>
       {t("detail.save")}
@@ -224,6 +234,7 @@ function TaskDetailSheet({
   )
 
   return (
+    <>
     <DetailScreen
       title={task.title}
       backLabel={t("shell.tab.tasks")}
@@ -326,6 +337,14 @@ function TaskDetailSheet({
             onChange={setTags}
             allTags={config.tags}
           />
+
+          <button
+            type="button"
+            className="btn-danger ds-delete"
+            onClick={handleDelete}
+          >
+            {t("detail.delete")}
+          </button>
         </div>
       ) : (
         <div className="ds-content">
@@ -416,6 +435,8 @@ function TaskDetailSheet({
         </div>
       )}
     </DetailScreen>
+    {confirmDialog}
+    </>
   )
 }
 
@@ -558,6 +579,18 @@ export function TasksView() {
         ),
       )
       setSelected(updated)
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleDelete(task: Task) {
+    try {
+      await deleteSyncedTask(task)
+      setTasks((prev) =>
+        prev.filter((t) => t.id !== task.id),
+      )
+      setSelected(null)
     } catch {
       // ignore
     }
@@ -731,6 +764,7 @@ export function TasksView() {
           onUpdate={(updates) =>
             handleUpdate(selected, updates)
           }
+          onDelete={() => handleDelete(selected)}
           config={config}
           customers={customers}
         />
