@@ -107,6 +107,7 @@ function formatEntry(row) {
     end: row.end_at || null,
     duration_minutes: durationMinutes,
     task_id: row.task_id || null,
+    project: row.project || null,
     contract: row.contract || null,
     notes: row.notes || "",
     invoiced: row.invoiced || false,

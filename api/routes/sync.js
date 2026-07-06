@@ -42,6 +42,7 @@ const {
   inboxApplySchema,
   taskApplySchema,
   noteApplySchema,
+  projectApplySchema,
   activeStartSchema,
   activeStopSchema,
   syncChangesQuerySchema,
@@ -104,6 +105,7 @@ function rowToWire(row) {
     start: row.start_at,
     end: row.end_at || null,
     task_id: row.task_id || null,
+    project: row.project || null,
     contract: row.contract || null,
     notes: row.notes || "",
     invoiced: row.invoiced || false,
@@ -215,7 +217,7 @@ router.post(
  */
 const APPLY_FIELDS = [
   "customer", "description", "start_at", "end_at",
-  "task_id", "contract", "notes", "invoiced",
+  "task_id", "project", "contract", "notes", "invoiced",
 ]
 
 /**
@@ -237,6 +239,7 @@ function wireToRow(entry, userId) {
     start_at: entry.start,
     end_at: entry.end ?? null,
     task_id: entry.task_id ?? null,
+    project: entry.project ?? null,
     contract: entry.contract ?? null,
     notes: entry.notes ?? "",
     invoiced: entry.invoiced ?? false,
@@ -670,6 +673,8 @@ function taskRowToWire(row) {
     tags: row.tags || [],
     body: row.body || "",
     github_url: row.github_url || "",
+    project: row.project || null,
+    milestone: row.milestone || null,
     created_at: row.created_at,
     updated_at: row.updated_at,
     deleted_at: row.deleted_at || null,
@@ -686,6 +691,8 @@ function taskWireToRow(entry, userId) {
     tags: entry.tags ?? [],
     body: entry.body ?? "",
     github_url: entry.github_url ?? "",
+    project: entry.project ?? null,
+    milestone: entry.milestone ?? null,
     created_at: entry.created_at
       ?? new Date().toISOString(),
     deleted_at: entry.deleted_at ?? null,
@@ -698,7 +705,8 @@ function taskWireToRow(entry, userId) {
 
 const TASK_APPLY_FIELDS = [
   "customer", "title", "status", "tags",
-  "body", "github_url", "created_at",
+  "body", "github_url", "project", "milestone",
+  "created_at",
 ]
 
 mountSyncResource(router, {
@@ -726,6 +734,7 @@ function noteRowToWire(row) {
     body: row.body || "",
     tags: row.tags || [],
     task_id: row.task_id || null,
+    project: row.project || null,
     created_at: row.created_at,
     updated_at: row.updated_at,
     deleted_at: row.deleted_at || null,
@@ -741,6 +750,7 @@ function noteWireToRow(entry, userId) {
     body: entry.body ?? "",
     tags: entry.tags ?? [],
     task_id: entry.task_id ?? null,
+    project: entry.project ?? null,
     created_at: entry.created_at
       ?? new Date().toISOString(),
     deleted_at: entry.deleted_at ?? null,
@@ -753,7 +763,7 @@ function noteWireToRow(entry, userId) {
 
 const NOTE_APPLY_FIELDS = [
   "customer", "title", "body", "tags",
-  "task_id", "created_at",
+  "task_id", "project", "created_at",
 ]
 
 mountSyncResource(router, {
@@ -764,6 +774,78 @@ mountSyncResource(router, {
   rowToWire: noteRowToWire,
   wireToRow: noteWireToRow,
   broadcastEvent: "notes:changed",
+}, {
+  supabase, broadcast,
+  decideMerge, insertWithRowRetry,
+  validate, validateQuery, syncChangesQuerySchema,
+  requireAuth, requireSync, asyncHandler,
+})
+
+// ── Projects sync ─────────────────────────────────────────
+//
+// Project definitions (name, colour, status, milestones)
+// mirrored from the desktop's projects.org. The wire keeps
+// the desktop's date field names (start / due) while the DB
+// stores them as start_date / due_date TEXT columns — see
+// migration 021. Milestones ride inline as a JSONB array.
+
+function projectRowToWire(row) {
+  return {
+    id: row.id,
+    name: row.name || "",
+    customer: row.customer || "",
+    status: row.status || "ACTIVE",
+    contract: row.contract || null,
+    start: row.start_date || null,
+    due: row.due_date || null,
+    color: row.color || "",
+    tags: row.tags || [],
+    description: row.description || "",
+    milestones: row.milestones || [],
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    deleted_at: row.deleted_at || null,
+  }
+}
+
+function projectWireToRow(entry, userId) {
+  return {
+    id: entry.id,
+    user_id: userId,
+    name: entry.name ?? "",
+    customer: entry.customer ?? "",
+    status: entry.status ?? "ACTIVE",
+    contract: entry.contract ?? null,
+    start_date: entry.start ?? null,
+    due_date: entry.due ?? null,
+    color: entry.color ?? "",
+    tags: entry.tags ?? [],
+    description: entry.description ?? "",
+    milestones: entry.milestones ?? [],
+    created_at: entry.created_at
+      ?? new Date().toISOString(),
+    deleted_at: entry.deleted_at ?? null,
+    // Preserve client's updated_at — see clocks
+    // wireToRow comment for the echo-loop rationale.
+    updated_at: entry.updated_at
+      || new Date().toISOString(),
+  }
+}
+
+const PROJECT_APPLY_FIELDS = [
+  "name", "customer", "status", "contract",
+  "start_date", "due_date", "color", "tags",
+  "description", "milestones", "created_at",
+]
+
+mountSyncResource(router, {
+  table: "projects",
+  pathPrefix: "/projects",
+  applyFields: PROJECT_APPLY_FIELDS,
+  applySchema: projectApplySchema,
+  rowToWire: projectRowToWire,
+  wireToRow: projectWireToRow,
+  broadcastEvent: "projects:changed",
 }, {
   supabase, broadcast,
   decideMerge, insertWithRowRetry,

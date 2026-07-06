@@ -125,8 +125,9 @@ router.post(
   "/start",
   validate(clockStartSchema),
   asyncHandler(async (req, res) => {
-    const { customer, description, task_id, contract } =
-      req.body
+    const {
+      customer, description, task_id, contract, project,
+    } = req.body
 
     const { data: active } = await supabase
       .from("clock_entries")
@@ -151,6 +152,7 @@ router.post(
         start_at: new Date().toISOString(),
         task_id: task_id || null,
         contract: contract || null,
+        project: project || null,
       })
       .select()
       .single()
@@ -228,7 +230,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const {
       duration, customer, description,
-      task_id, contract, date,
+      task_id, contract, project, date,
     } = req.body
 
     const minutes = parseDuration(duration)
@@ -262,6 +264,7 @@ router.post(
         end_at: endAt.toISOString(),
         task_id: task_id || null,
         contract: contract || null,
+        project: project || null,
       })
       .select()
       .single()
@@ -294,7 +297,7 @@ router.post(
  */
 const CLOCK_UPDATE_FIELDS = [
   "customer", "description", "task_id",
-  "contract", "notes", "invoiced",
+  "contract", "project", "notes", "invoiced",
   "start_at", "end_at",
 ]
 
