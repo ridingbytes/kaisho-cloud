@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react"
-import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import {
   addSyncedTask,
@@ -14,9 +13,10 @@ import { formatFullDate } from "../utils/formatDate"
 import {
   hexToRgba, tagBadgeStyle,
 } from "../utils/tagColors"
-import { Markdown } from "./Markdown"
 import { SearchBar } from "./SearchBar"
 import { TagEditor } from "./TagEditor"
+import { Modal } from "./Modal"
+import { Field, Select } from "./Field"
 
 const STATUS_ORDER = [
   "TODO", "NEXT", "IN-PROGRESS", "WAIT",
@@ -119,11 +119,11 @@ function TaskDetailSheet({
   customers: Customer[]
 }) {
   const { t } = useTranslation()
-  const [editing, setEditing] = useState(false)
   const [customer, setCustomer] = useState(
     task.customer || "",
   )
   const [title, setTitle] = useState(task.title)
+  const [status, setStatus] = useState(task.status)
   const [body, setBody] = useState(task.body || "")
   const [githubUrl, setGithubUrl] = useState(
     task.github_url || "",
@@ -138,191 +138,98 @@ function TaskDetailSheet({
     onUpdate({
       customer,
       title,
+      status,
       body,
       github_url: githubUrl,
       tags,
     })
-    setEditing(false)
+    onClose()
   }
 
   return (
-    <div className="detail-panel">
-      <div className="detail-panel-header">
-        <button
-          className="detail-panel-back"
-          onClick={onClose}
-        >
-          &#8249; {t("shell.group.organize")}
-        </button>
-        <span className="detail-panel-title" />
-        <div className="detail-panel-actions">
-          {!editing ? (
-            <button
-              className="detail-panel-back"
-              onClick={() => setEditing(true)}
-            >
-              {t("detail.edit")}
-            </button>
-          ) : (
-            <button
-              className="detail-panel-back"
-              onClick={handleSave}
-            >
-              {t("detail.save")}
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="detail-panel-body">
-        <h3 style={{ margin: "0 0 16px" }}>
-          {task.title}
-        </h3>
-        <div className="detail-field">
-          <div className="detail-label">
-            {t("detail.status")}
-          </div>
-          <select
-            className="detail-select"
-            value={task.status}
-            onChange={(e) =>
-              onUpdate({ status: e.target.value })
-            }
-            >
-              {STATUS_ORDER.map((s) => (
-                <option key={s} value={s}>
-                  {statusLabel(s)}
-                </option>
-              ))}
-            </select>
-          </div>
+    <Modal
+      title={t("detail.edit")}
+      subtitle={created
+        ? t("detail.created") + " · " + created
+        : undefined}
+      onClose={onClose}
+      footer={
+        <>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={onClose}
+          >
+            {t("edit.cancel")}
+          </button>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={handleSave}
+          >
+            {t("detail.save")}
+          </button>
+        </>
+      }
+    >
+      <Field label={t("detail.title")}>
+        <input
+          className="field-control"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </Field>
 
-          {editing ? (
-            <div className="detail-edit-form">
-              <div className="detail-field">
-                <div className="detail-label">
-                  {t("timer.customer")}
-                </div>
-                <select
-                  className="detail-select"
-                  value={customer}
-                  onChange={(e) =>
-                    setCustomer(e.target.value)
-                  }
-                >
-                  <option value="">—</option>
-                  {customers.map((c) => (
-                    <option key={c.name} value={c.name}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="detail-field">
-                <div className="detail-label">
-                  {t("detail.title")}
-                </div>
-                <input
-                  className="detail-input"
-                  value={title}
-                  onChange={(e) =>
-                    setTitle(e.target.value)
-                  }
-                />
-              </div>
-              <div className="detail-field detail-field-grow">
-                <div className="detail-label">
-                  {t("detail.description")}
-                </div>
-                <textarea
-                  className="detail-textarea"
-                  value={body}
-                  onChange={(e) =>
-                    setBody(e.target.value)
-                  }
-                />
-              </div>
-              {config.github_configured && (
-                <div className="detail-field">
-                  <div className="detail-label">
-                    {t("detail.github")}
-                  </div>
-                  <input
-                    className="detail-input"
-                    value={githubUrl}
-                    onChange={(e) =>
-                      setGithubUrl(e.target.value)
-                    }
-                    placeholder="https://github.com/..."
-                  />
-                </div>
-              )}
-              <TagEditor
-                tags={tags}
-                editing={true}
-                onChange={setTags}
-                allTags={config.tags}
-              />
-            </div>
-          ) : (
-            <>
-              {task.customer && (
-                <div className="detail-field">
-                  <div className="detail-label">
-                    {t("timer.customer")}
-                  </div>
-                  <div className="detail-value">
-                    {task.customer}
-                  </div>
-                </div>
-              )}
+      <Field label={t("detail.status")}>
+        <Select value={status} onChange={setStatus}>
+          {STATUS_ORDER.map((s) => (
+            <option key={s} value={s}>
+              {statusLabel(s)}
+            </option>
+          ))}
+        </Select>
+      </Field>
 
-              {task.body && (
-                <div className="detail-field">
-                  <div className="detail-label">
-                    {t("detail.description")}
-                  </div>
-                  <Markdown>{task.body}</Markdown>
-                </div>
-              )}
+      <Field label={t("timer.customer")}>
+        <Select value={customer} onChange={setCustomer}>
+          <option value="">—</option>
+          {customers.map((c) => (
+            <option key={c.name} value={c.name}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
 
-              {config.github_configured
-                && task.github_url && (
-                <div className="detail-field">
-                  <div className="detail-label">
-                    {t("detail.github")}
-                  </div>
-                  <a
-                    className="detail-link"
-                    href={task.github_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {task.github_url}
-                  </a>
-                </div>
-              )}
+      <Field label={t("detail.description")} grow>
+        <textarea
+          className="field-control"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={4}
+        />
+      </Field>
 
-              <TagEditor
-                tags={tags}
-                editing={false}
-                onChange={() => {}}
-                allTags={config.tags}
-              />
+      {config.github_configured && (
+        <Field label={t("detail.github")}>
+          <input
+            className="field-control"
+            value={githubUrl}
+            onChange={(e) => setGithubUrl(e.target.value)}
+            placeholder="https://github.com/..."
+          />
+        </Field>
+      )}
 
-              {created && (
-                <div className="detail-field">
-                  <div className="detail-label">
-                    {t("detail.created")}
-                  </div>
-                  <div className="detail-value">
-                    {created}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
+      <Field label={t("tasks.tagsLabel", "Tags")}>
+        <TagEditor
+          tags={tags}
+          editing={true}
+          onChange={setTags}
+          allTags={config.tags}
+        />
+      </Field>
+    </Modal>
   )
 }
 
@@ -602,7 +509,7 @@ export function TasksView() {
         </div>
       )}
 
-      {selected && createPortal(
+      {selected && (
         <TaskDetailSheet
           task={selected}
           onClose={() => setSelected(null)}
@@ -611,8 +518,7 @@ export function TasksView() {
           }
           config={config}
           customers={customers}
-        />,
-        document.body,
+        />
       )}
     </div>
   )

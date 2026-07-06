@@ -16,6 +16,7 @@ import type { AppConfig } from "../api"
 import { planLabel, isPaidPlan } from "../utils/planLabel"
 import { PixelAvatar } from "./PixelAvatar"
 import { PullToRefresh } from "./PullToRefresh"
+import { Modal } from "./Modal"
 
 type Tab =
   | "timer"
@@ -377,28 +378,12 @@ export function AppShell() {
       </nav>
 
       {profileOpen && (
-        <div
-          className="edit-sheet-backdrop"
-          onClick={() => setProfileOpen(false)}
+        <Modal
+          title={t("shell.tab.profile")}
+          onClose={() => setProfileOpen(false)}
         >
-          <div
-            className="edit-sheet profile-sheet"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="edit-sheet-header">
-              <h3>{t("shell.tab.profile")}</h3>
-              <button
-                className="edit-sheet-close"
-                onClick={() => setProfileOpen(false)}
-              >
-                &times;
-              </button>
-            </div>
-            <div className="edit-sheet-body">
-              <ProfileView />
-            </div>
-          </div>
-        </div>
+          <ProfileView />
+        </Modal>
       )}
     </div>
   )

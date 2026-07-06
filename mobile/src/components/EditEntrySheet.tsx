@@ -12,6 +12,8 @@ import {
 import { useToast } from "../toast"
 import { CustomerPicker } from "./CustomerPicker"
 import { ErrorBanner } from "./ErrorBanner"
+import { Modal } from "./Modal"
+import { Field, FieldRow, Select } from "./Field"
 import { formatDate } from "../utils/time"
 
 /**
@@ -152,167 +154,12 @@ export function EditEntrySheet(props: Props) {
   }
 
   return (
-    <div className="edit-sheet-backdrop" onClick={onClose}>
-      <div
-        className="edit-sheet"
-        role="dialog"
-        aria-modal="true"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="edit-sheet-header">
-          <h3>{t("edit.title")}</h3>
-          <button
-            type="button"
-            className="edit-sheet-close"
-            onClick={onClose}
-            aria-label={t("edit.close")}
-          >
-            &times;
-          </button>
-        </header>
-
-        <div className="edit-sheet-body">
-          <ErrorBanner
-            message={error}
-            onDismiss={() => setError(null)}
-          />
-
-          {/* Date + editable start time and duration */}
-          <div className="edit-sheet-time">
-            <span>{formatDate(entry.start)}</span>
-          </div>
-          <div className="form" style={{ marginTop: 8 }}>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 8,
-            }}>
-              <div>
-                <label className="edit-sheet-label">
-                  {t("edit.label.start")}
-                </label>
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) =>
-                    setStartTime(e.target.value)
-                  }
-                />
-              </div>
-              {entry.end && (
-                <div>
-                  <label className="edit-sheet-label">
-                    {t("edit.label.duration")}
-                  </label>
-                  <input
-                    type="text"
-                    value={duration}
-                    onChange={(e) =>
-                      setDuration(e.target.value)
-                    }
-                    placeholder="1h30m"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Editable fields */}
-          <div className="form">
-            <label className="edit-sheet-label">
-              {t("edit.label.customer")}
-            </label>
-            <CustomerPicker
-              value={customer}
-              customers={customers}
-              onChange={(v) => {
-                setCustomer(v)
-                setContract("")
-              }}
-              synced={customers.length > 0}
-            />
-
-            {contracts.length > 0 && (
-              <>
-                <label className="edit-sheet-label">
-                  {t("edit.label.contract")}
-                </label>
-                <select
-                  value={contract}
-                  onChange={(e) =>
-                    setContract(e.target.value)
-                  }
-                >
-                  <option value="">
-                    {t("edit.contract.none")}
-                  </option>
-                  {contracts.map((c) => (
-                    <option key={c.name} value={c.name}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
-
-            <label className="edit-sheet-label">
-              {t("edit.label.task")}
-            </label>
-            <select
-              value={taskId}
-              onChange={(e) => setTaskId(e.target.value)}
-            >
-              <option value="">
-                {t("edit.task.none")}
-              </option>
-              {tasks.map((task) => (
-                <option key={task.id} value={task.id}>
-                  {task.title}
-                  {task.customer
-                    ? ` (${task.customer})` : ""}
-                </option>
-              ))}
-            </select>
-
-            <label className="edit-sheet-label">
-              {t("edit.label.description")}
-            </label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) =>
-                setDescription(e.target.value)
-              }
-              placeholder={
-                t("edit.description_placeholder")
-              }
-            />
-
-            <label className="edit-sheet-label">
-              {t("edit.label.notes")}
-            </label>
-            <textarea
-              className="edit-sheet-textarea"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder={t("edit.notes_placeholder")}
-              rows={3}
-            />
-
-            <label className="edit-sheet-check">
-              <input
-                type="checkbox"
-                checked={invoiced}
-                onChange={(e) =>
-                  setInvoiced(e.target.checked)
-                }
-              />
-              <span>{t("edit.label.invoiced")}</span>
-            </label>
-          </div>
-        </div>
-
-        <footer className="edit-sheet-footer">
+    <Modal
+      title={t("edit.title")}
+      subtitle={formatDate(entry.start)}
+      onClose={onClose}
+      footer={
+        <>
           <button
             type="button"
             className="btn-secondary"
@@ -326,12 +173,105 @@ export function EditEntrySheet(props: Props) {
             onClick={handleSave}
             disabled={saving}
           >
-            {saving
-              ? t("edit.saving")
-              : t("edit.save")}
+            {saving ? t("edit.saving") : t("edit.save")}
           </button>
-        </footer>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <ErrorBanner
+        message={error}
+        onDismiss={() => setError(null)}
+      />
+
+      <FieldRow>
+        <Field label={t("edit.label.start")}>
+          <input
+            className="field-control"
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+          />
+        </Field>
+        {entry.end && (
+          <Field label={t("edit.label.duration")}>
+            <input
+              className="field-control"
+              type="text"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              placeholder="1h30m"
+            />
+          </Field>
+        )}
+      </FieldRow>
+
+      <Field label={t("edit.label.customer")}>
+        <CustomerPicker
+          value={customer}
+          customers={customers}
+          onChange={(v) => {
+            setCustomer(v)
+            setContract("")
+          }}
+          synced={customers.length > 0}
+        />
+      </Field>
+
+      {contracts.length > 0 && (
+        <Field label={t("edit.label.contract")}>
+          <Select value={contract} onChange={setContract}>
+            <option value="">
+              {t("edit.contract.none")}
+            </option>
+            {contracts.map((c) => (
+              <option key={c.name} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
+      <Field label={t("edit.label.task")}>
+        <Select value={taskId} onChange={setTaskId}>
+          <option value="">{t("edit.task.none")}</option>
+          {tasks.map((task) => (
+            <option key={task.id} value={task.id}>
+              {task.title}
+              {task.customer ? ` (${task.customer})` : ""}
+            </option>
+          ))}
+        </Select>
+      </Field>
+
+      <Field label={t("edit.label.description")}>
+        <input
+          className="field-control"
+          type="text"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder={t("edit.description_placeholder")}
+        />
+      </Field>
+
+      <Field label={t("edit.label.notes")}>
+        <textarea
+          className="field-control"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder={t("edit.notes_placeholder")}
+          rows={3}
+        />
+      </Field>
+
+      <label className="field-toggle">
+        <input
+          type="checkbox"
+          checked={invoiced}
+          onChange={(e) => setInvoiced(e.target.checked)}
+        />
+        <span>{t("edit.label.invoiced")}</span>
+      </label>
+    </Modal>
   )
 }
