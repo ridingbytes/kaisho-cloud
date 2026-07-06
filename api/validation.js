@@ -145,6 +145,15 @@ const snapshotSchema = z.object({
       name: z.string(),
       color: z.string().optional().default(""),
     })).optional().default([]),
+    // The desktop's org TODO keywords with their display
+    // label, kanban colour, and done-flag. Lets the PWA
+    // render the user's actual statuses instead of guessing.
+    task_states: z.array(z.object({
+      name: z.string(),
+      label: z.string().optional().default(""),
+      color: z.string().optional().default(""),
+      done: z.boolean().optional().default(false),
+    })).optional().default([]),
     github_configured: z.boolean()
       .optional().default(false),
     avatar_seed: z.string().optional().default(""),

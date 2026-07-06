@@ -322,8 +322,16 @@ export function getTasks(): Promise<TaskRef[]> {
   return request("/ref/tasks")
 }
 
+export interface TaskState {
+  name: string
+  label?: string
+  color?: string
+  done?: boolean
+}
+
 export interface AppConfig {
   tags: { name: string; color: string }[]
+  task_states?: TaskState[]
   github_configured: boolean
   avatar_seed?: string
   avatar_style?: string

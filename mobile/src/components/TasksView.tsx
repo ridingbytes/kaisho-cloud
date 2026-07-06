@@ -8,7 +8,7 @@ import {
   getSyncedTasks,
   updateSyncedTask,
 } from "../api"
-import type { AppConfig } from "../api"
+import type { AppConfig, TaskState } from "../api"
 import type { Customer, Project, Task } from "../types"
 import { formatFullDate } from "../utils/formatDate"
 import {
@@ -39,11 +39,31 @@ const STATUS_COLORS: Record<string, string> = {
   "CANCELLED": "#9ca3af",
 }
 
+// When the desktop has synced its task_states config, use
+// the user's own keyword order / labels / colours; otherwise
+// fall back to the built-in defaults above.
+function orderedStates(states?: TaskState[]): string[] {
+  return states && states.length
+    ? states.map((s) => s.name)
+    : STATUS_ORDER
+}
+
+function stateLabel(name: string, states?: TaskState[]): string {
+  const st = states?.find((s) => s.name === name)
+  return st?.label || statusLabel(name)
+}
+
+function stateColor(name: string, states?: TaskState[]): string {
+  const st = states?.find((s) => s.name === name)
+  return st?.color || STATUS_COLORS[name] || "#9ca3af"
+}
+
 function TaskRow({
   task,
   onSelect,
   allTags,
   projects,
+  taskStates,
   onTagClick,
   onStatusClick,
 }: {
@@ -51,10 +71,11 @@ function TaskRow({
   onSelect: (task: Task) => void
   allTags: { name: string; color: string }[]
   projects: Project[]
+  taskStates?: TaskState[]
   onTagClick: (tag: string) => void
   onStatusClick: (status: string) => void
 }) {
-  const sc = STATUS_COLORS[task.status] || "#9ca3af"
+  const sc = stateColor(task.status, taskStates)
   return (
     <div
       className="task-row"
@@ -81,7 +102,7 @@ function TaskRow({
               onStatusClick(task.status)
             }}
           >
-            {statusLabel(task.status)}
+            {stateLabel(task.status, taskStates)}
           </button>
           <ProjectBadge
             projectId={task.project}
@@ -154,7 +175,7 @@ function TaskDetailSheet({
   const created = task.created_at
     ? formatFullDate(task.created_at)
     : ""
-  const sc = STATUS_COLORS[task.status] || "#9ca3af"
+  const sc = stateColor(task.status, config.task_states)
   const selProject = projects.find(
     (p) => p.id === projectId,
   )
@@ -227,10 +248,13 @@ function TaskDetailSheet({
           <Field label={t("detail.status")}>
             <Select value={status} onChange={setStatus}>
               {Array.from(
-                new Set([...STATUS_ORDER, task.status]),
+                new Set([
+                  ...orderedStates(config.task_states),
+                  task.status,
+                ]),
               ).map((s) => (
                 <option key={s} value={s}>
-                  {statusLabel(s)}
+                  {stateLabel(s, config.task_states)}
                 </option>
               ))}
             </Select>
@@ -317,7 +341,7 @@ function TaskDetailSheet({
                   background: hexToRgba(sc, 0.15),
                 }}
               >
-                {statusLabel(task.status)}
+                {stateLabel(task.status, config.task_states)}
               </span>
               <ProjectBadge
                 projectId={task.project}
@@ -539,22 +563,29 @@ export function TasksView() {
     }
   }
 
-  // Group by status. The desktop's org-mode TODO keywords
-  // are user-configurable, so a task may carry a status the
-  // PWA doesn't know about (e.g. BLOCKED, REVIEW). Build the
-  // order from the known set plus any extra statuses present
-  // in the data — inserted before the terminal DONE group —
-  // so those tasks are never silently dropped.
+  // Group by status. Use the desktop's configured keyword
+  // order when it has synced (config.task_states), else the
+  // built-in defaults. Any extra status present in the data
+  // but absent from that order — a custom keyword — is
+  // inserted before the first "done" group so those tasks
+  // are never silently dropped.
+  const baseOrder = orderedStates(config.task_states)
+  const doneNames = config.task_states?.length
+    ? config.task_states.filter((s) => s.done).map((s) => s.name)
+    : ["DONE", "CANCELLED"]
   const extraStatuses = Array.from(
     new Set(filtered.map((task) => task.status)),
   )
-    .filter((s) => !STATUS_ORDER.includes(s))
+    .filter((s) => !baseOrder.includes(s))
     .sort()
-  const doneIdx = STATUS_ORDER.indexOf("DONE")
+  const firstDoneIdx = baseOrder.findIndex(
+    (s) => doneNames.includes(s),
+  )
+  const cut = firstDoneIdx < 0 ? baseOrder.length : firstDoneIdx
   const statusOrder = [
-    ...STATUS_ORDER.slice(0, doneIdx),
+    ...baseOrder.slice(0, cut),
     ...extraStatuses,
-    ...STATUS_ORDER.slice(doneIdx),
+    ...baseOrder.slice(cut),
   ]
   const grouped = statusOrder
     .map((status) => ({
@@ -590,9 +621,8 @@ export function TasksView() {
           onToggle={() => setSearchOpen(!searchOpen)}
           allTags={config.tags}
           statusChip={searchStatus ? {
-            label: statusLabel(searchStatus),
-            color: STATUS_COLORS[searchStatus]
-              || "#9ca3af",
+            label: stateLabel(searchStatus, config.task_states),
+            color: stateColor(searchStatus, config.task_states),
             onRemove: () => setSearchStatus(""),
           } : undefined}
         />
@@ -643,7 +673,7 @@ export function TasksView() {
             const isCollapsed =
               collapsed.has(group.status)
             const color =
-              STATUS_COLORS[group.status] || "#9ca3af"
+              stateColor(group.status, config.task_states)
             return (
               <div
                 key={group.status}
@@ -666,7 +696,7 @@ export function TasksView() {
                     className="task-group-status"
                     style={{ color }}
                   >
-                    {statusLabel(group.status)}
+                    {stateLabel(group.status, config.task_states)}
                   </span>
                   <span className="task-group-count">
                     {group.items.length}
@@ -681,6 +711,7 @@ export function TasksView() {
                         onSelect={setSelected}
                         allTags={config.tags}
                         projects={projects}
+                        taskStates={config.task_states}
                         onTagClick={toggleSearchTag}
                         onStatusClick={toggleStatusFilter}
                       />

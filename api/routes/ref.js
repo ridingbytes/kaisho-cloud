@@ -96,6 +96,7 @@ router.get(
 
     res.json(data?.config || {
       tags: [],
+      task_states: [],
       github_configured: false,
     })
   }),
