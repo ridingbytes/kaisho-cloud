@@ -37,6 +37,26 @@ export function FieldRow(
   return <div className="field-row">{children}</div>
 }
 
+/** Read-only label/value row for view mode. */
+export function ViewRow(props: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="view-row">
+      <div className="view-row-label">{props.label}</div>
+      <div className="view-row-value">{props.children}</div>
+    </div>
+  )
+}
+
+/** Grouped card of view rows / content in view mode. */
+export function ViewSection(props: {
+  children: React.ReactNode
+}) {
+  return <div className="view-section">{props.children}</div>
+}
+
 interface SelectProps {
   value: string
   onChange: (v: string) => void

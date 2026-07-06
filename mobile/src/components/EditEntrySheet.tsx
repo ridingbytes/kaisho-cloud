@@ -13,9 +13,9 @@ import {
 import { useToast } from "../toast"
 import { CustomerPicker } from "./CustomerPicker"
 import { ErrorBanner } from "./ErrorBanner"
-import { Modal } from "./Modal"
+import { DetailScreen } from "./DetailScreen"
 import { Field, FieldRow, Select } from "./Field"
-import { ProjectPicker } from "./ProjectPicker"
+import { ProjectPicker, ProjectBadge } from "./ProjectPicker"
 import { formatDate } from "../utils/time"
 
 /**
@@ -84,6 +84,7 @@ export function EditEntrySheet(props: Props) {
   })
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [editing, setEditing] = useState(false)
 
   useEffect(() => {
     getCustomers()
@@ -163,133 +164,279 @@ export function EditEntrySheet(props: Props) {
     }
   }
 
-  return (
-    <Modal
-      title={t("edit.title")}
-      subtitle={formatDate(entry.start)}
-      onClose={onClose}
-      footer={
-        <>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={onClose}
-          >
-            {t("edit.cancel")}
-          </button>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? t("edit.saving") : t("edit.save")}
-          </button>
-        </>
-      }
-    >
-      <ErrorBanner
-        message={error}
-        onDismiss={() => setError(null)}
-      />
+  function cancelEdit() {
+    setCustomer(entry.customer || "")
+    setContract(entry.contract || "")
+    setTaskId(entry.task_id || "")
+    setProjectId(entry.project || "")
+    setDescription(entry.description || "")
+    setNotes(entry.notes || "")
+    setInvoiced(entry.invoiced || false)
+    const d = new Date(entry.start)
+    setStartTime(d.toTimeString().slice(0, 5))
+    setError(null)
+    setEditing(false)
+  }
 
-      <FieldRow>
-        <Field label={t("edit.label.start")}>
-          <input
-            className="field-control"
-            type="time"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
+  const selectedTask = tasks.find((tk) => tk.id === taskId)
+  const selectedProject = projects.find(
+    (p) => p.id === projectId,
+  )
+  const heroTitle = description || t("edit.title")
+
+  const navAction = editing ? (
+    <button
+      className="ds-nav-btn"
+      onClick={handleSave}
+      disabled={saving}
+    >
+      {saving ? t("edit.saving") : t("detail.save")}
+    </button>
+  ) : (
+    <button
+      className="ds-nav-btn"
+      onClick={() => setEditing(true)}
+    >
+      {t("detail.edit")}
+    </button>
+  )
+
+  return (
+    <DetailScreen
+      title={heroTitle}
+      backLabel={t("shell.tab.entries")}
+      onBack={onClose}
+      action={navAction}
+      leftAction={editing ? (
+        <button className="ds-nav-btn" onClick={cancelEdit}>
+          {t("edit.cancel")}
+        </button>
+      ) : undefined}
+    >
+      {editing ? (
+        <div className="ds-form">
+          <ErrorBanner
+            message={error}
+            onDismiss={() => setError(null)}
           />
-        </Field>
-        {entry.end && (
-          <Field label={t("edit.label.duration")}>
+
+          <FieldRow>
+            <Field label={t("edit.label.start")}>
+              <input
+                className="field-control"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+              />
+            </Field>
+            {entry.end && (
+              <Field label={t("edit.label.duration")}>
+                <input
+                  className="field-control"
+                  type="text"
+                  value={duration}
+                  onChange={(e) =>
+                    setDuration(e.target.value)
+                  }
+                  placeholder="1h30m"
+                />
+              </Field>
+            )}
+          </FieldRow>
+
+          <Field label={t("edit.label.customer")}>
+            <CustomerPicker
+              value={customer}
+              customers={customers}
+              onChange={(v) => {
+                setCustomer(v)
+                setContract("")
+              }}
+              synced={customers.length > 0}
+            />
+          </Field>
+
+          {contracts.length > 0 && (
+            <Field label={t("edit.label.contract")}>
+              <Select value={contract} onChange={setContract}>
+                <option value="">
+                  {t("edit.contract.none")}
+                </option>
+                {contracts.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+
+          <Field label={t("edit.label.task")}>
+            <Select value={taskId} onChange={setTaskId}>
+              <option value="">
+                {t("edit.task.none")}
+              </option>
+              {tasks.map((task) => (
+                <option key={task.id} value={task.id}>
+                  {task.title}
+                  {task.customer
+                    ? ` (${task.customer})`
+                    : ""}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field label={t("projects.label")}>
+            <ProjectPicker
+              value={projectId}
+              projects={projects}
+              onChange={setProjectId}
+            />
+          </Field>
+
+          <Field label={t("edit.label.description")}>
             <input
               className="field-control"
               type="text"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              placeholder="1h30m"
+              value={description}
+              onChange={(e) =>
+                setDescription(e.target.value)
+              }
+              placeholder={t("edit.description_placeholder")}
             />
           </Field>
-        )}
-      </FieldRow>
 
-      <Field label={t("edit.label.customer")}>
-        <CustomerPicker
-          value={customer}
-          customers={customers}
-          onChange={(v) => {
-            setCustomer(v)
-            setContract("")
-          }}
-          synced={customers.length > 0}
-        />
-      </Field>
+          <Field label={t("edit.label.notes")}>
+            <textarea
+              className="field-control"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder={t("edit.notes_placeholder")}
+              rows={3}
+            />
+          </Field>
 
-      {contracts.length > 0 && (
-        <Field label={t("edit.label.contract")}>
-          <Select value={contract} onChange={setContract}>
-            <option value="">
-              {t("edit.contract.none")}
-            </option>
-            {contracts.map((c) => (
-              <option key={c.name} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+          <label className="field-toggle">
+            <input
+              type="checkbox"
+              checked={invoiced}
+              onChange={(e) =>
+                setInvoiced(e.target.checked)
+              }
+            />
+            <span>{t("edit.label.invoiced")}</span>
+          </label>
+        </div>
+      ) : (
+        <div className="ds-content">
+          <div className="view-hero">
+            <div className="view-hero-title">
+              {heroTitle}
+            </div>
+            <div className="view-pills">
+              {customer && (
+                <span className="inbox-customer">
+                  {customer}
+                </span>
+              )}
+              {selectedProject && (
+                <ProjectBadge
+                  projectId={projectId}
+                  projects={projects}
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="view-section">
+            <div className="view-row">
+              <span className="view-row-label">
+                {t("edit.label.date")}
+              </span>
+              <span className="view-row-value">
+                {formatDate(entry.start)}
+              </span>
+            </div>
+            <div className="view-row">
+              <span className="view-row-label">
+                {t("edit.label.start")}
+              </span>
+              <span className="view-row-value">
+                {startTime}
+              </span>
+            </div>
+            {entry.end && duration && (
+              <div className="view-row">
+                <span className="view-row-label">
+                  {t("edit.label.duration")}
+                </span>
+                <span className="view-row-value">
+                  {duration}
+                </span>
+              </div>
+            )}
+            {customer && (
+              <div className="view-row">
+                <span className="view-row-label">
+                  {t("edit.label.customer")}
+                </span>
+                <span className="view-row-value">
+                  {customer}
+                </span>
+              </div>
+            )}
+            {contract && (
+              <div className="view-row">
+                <span className="view-row-label">
+                  {t("edit.label.contract")}
+                </span>
+                <span className="view-row-value">
+                  {contract}
+                </span>
+              </div>
+            )}
+            {selectedTask && (
+              <div className="view-row">
+                <span className="view-row-label">
+                  {t("edit.label.task")}
+                </span>
+                <span className="view-row-value">
+                  {selectedTask.title}
+                </span>
+              </div>
+            )}
+            {selectedProject && (
+              <div className="view-row">
+                <span className="view-row-label">
+                  {t("projects.label")}
+                </span>
+                <span className="view-row-value">
+                  {selectedProject.name}
+                </span>
+              </div>
+            )}
+            {notes && (
+              <div className="view-row">
+                <span className="view-row-label">
+                  {t("edit.label.notes")}
+                </span>
+                <span className="view-row-value">
+                  {notes}
+                </span>
+              </div>
+            )}
+            <div className="view-row">
+              <span className="view-row-label">
+                {t("edit.label.invoiced")}
+              </span>
+              <span className="view-row-value">
+                {invoiced ? t("common.yes") : t("common.no")}
+              </span>
+            </div>
+          </div>
+        </div>
       )}
-
-      <Field label={t("edit.label.task")}>
-        <Select value={taskId} onChange={setTaskId}>
-          <option value="">{t("edit.task.none")}</option>
-          {tasks.map((task) => (
-            <option key={task.id} value={task.id}>
-              {task.title}
-              {task.customer ? ` (${task.customer})` : ""}
-            </option>
-          ))}
-        </Select>
-      </Field>
-
-      <Field label={t("projects.label")}>
-        <ProjectPicker
-          value={projectId}
-          projects={projects}
-          onChange={setProjectId}
-        />
-      </Field>
-
-      <Field label={t("edit.label.description")}>
-        <input
-          className="field-control"
-          type="text"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder={t("edit.description_placeholder")}
-        />
-      </Field>
-
-      <Field label={t("edit.label.notes")}>
-        <textarea
-          className="field-control"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder={t("edit.notes_placeholder")}
-          rows={3}
-        />
-      </Field>
-
-      <label className="field-toggle">
-        <input
-          type="checkbox"
-          checked={invoiced}
-          onChange={(e) => setInvoiced(e.target.checked)}
-        />
-        <span>{t("edit.label.invoiced")}</span>
-      </label>
-    </Modal>
+    </DetailScreen>
   )
 }

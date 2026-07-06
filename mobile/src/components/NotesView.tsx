@@ -22,9 +22,10 @@ import { tagBadgeStyle } from "../utils/tagColors"
 import { SearchBar } from "./SearchBar"
 import { SwipeToReveal } from "./SwipeToReveal"
 import { TagEditor } from "./TagEditor"
-import { Modal } from "./Modal"
+import { Markdown } from "./Markdown"
+import { DetailScreen } from "./DetailScreen"
 import { Field, Select } from "./Field"
-import { ProjectPicker } from "./ProjectPicker"
+import { ProjectPicker, ProjectBadge } from "./ProjectPicker"
 
 function NoteRow({
   note,
@@ -117,6 +118,7 @@ function NoteDetailSheet({
   tasks: TaskRef[]
 }) {
   const { t } = useTranslation()
+  const [editing, setEditing] = useState(false)
   const [customer, setCustomer] = useState(
     note.customer || "",
   )
@@ -142,6 +144,19 @@ function NoteDetailSheet({
   const filteredTasks = customer
     ? tasks.filter((task) => task.customer === customer)
     : tasks
+  const linkedTask = tasks.find(
+    (task) => task.id === note.task_id,
+  )
+
+  function cancelEdit() {
+    setCustomer(note.customer || "")
+    setTitle(note.title)
+    setTaskId(note.task_id || "")
+    setBody(note.body || "")
+    setTags(note.tags || [])
+    setProjectId(note.project || "")
+    setEditing(false)
+  }
 
   function handleSave() {
     onUpdate({
@@ -152,93 +167,154 @@ function NoteDetailSheet({
       body,
       tags,
     })
-    onClose()
+    setEditing(false)
   }
 
   return (
-    <Modal
-      title={t("detail.edit")}
-      subtitle={created
-        ? t("detail.created") + " · " + created
-        : undefined}
-      onClose={onClose}
-      footer={
-        <>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={onClose}
-          >
-            {t("edit.cancel")}
-          </button>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={handleSave}
-          >
-            {t("detail.save")}
-          </button>
-        </>
+    <DetailScreen
+      title={note.title}
+      backLabel={t("shell.tab.notes")}
+      onBack={onClose}
+      action={
+        <button
+          className="ds-nav-btn"
+          onClick={editing ? handleSave : () => setEditing(true)}
+        >
+          {editing ? t("detail.save") : t("detail.edit")}
+        </button>
       }
+      leftAction={editing ? (
+        <button className="ds-nav-btn" onClick={cancelEdit}>
+          {t("edit.cancel")}
+        </button>
+      ) : undefined}
     >
-      <Field label={t("detail.title")}>
-        <input
-          className="field-control"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-      </Field>
+      {editing ? (
+        <div className="ds-form">
+          <Field label={t("detail.title")}>
+            <input
+              className="field-control"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </Field>
 
-      <Field label={t("timer.customer")}>
-        <Select value={customer} onChange={setCustomer}>
-          <option value="">—</option>
-          {customers.map((c) => (
-            <option key={c.name} value={c.name}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
-      </Field>
+          <Field label={t("timer.customer")}>
+            <Select value={customer} onChange={setCustomer}>
+              <option value="">—</option>
+              {customers.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-      {filteredTasks.length > 0 && (
-        <Field label={t("detail.task")}>
-          <Select value={taskId} onChange={setTaskId}>
-            <option value="">—</option>
-            {filteredTasks.map((task) => (
-              <option key={task.id} value={task.id}>
-                {task.title}
-              </option>
-            ))}
-          </Select>
-        </Field>
+          {filteredTasks.length > 0 && (
+            <Field label={t("detail.task")}>
+              <Select value={taskId} onChange={setTaskId}>
+                <option value="">—</option>
+                {filteredTasks.map((task) => (
+                  <option key={task.id} value={task.id}>
+                    {task.title}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+
+          <Field label={t("projects.label")}>
+            <ProjectPicker
+              value={projectId}
+              projects={projects}
+              onChange={setProjectId}
+            />
+          </Field>
+
+          <Field label={t("detail.description")} grow>
+            <textarea
+              className="field-control"
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={6}
+            />
+          </Field>
+
+          <TagEditor
+            tags={tags}
+            editing={true}
+            onChange={setTags}
+            allTags={config.tags}
+          />
+        </div>
+      ) : (
+        <div className="ds-content">
+          <div className="view-hero">
+            <div className="view-hero-title">
+              {note.title}
+            </div>
+            {(note.customer || note.project) && (
+              <div className="view-pills">
+                {note.customer && (
+                  <span className="inbox-customer">
+                    {note.customer}
+                  </span>
+                )}
+                <ProjectBadge
+                  projectId={note.project}
+                  projects={projects}
+                />
+              </div>
+            )}
+          </div>
+
+          {(linkedTask || created) && (
+            <div className="view-section">
+              {linkedTask && (
+                <div className="view-row">
+                  <span className="view-row-label">
+                    {t("detail.task")}
+                  </span>
+                  <span className="view-row-value">
+                    {linkedTask.title}
+                  </span>
+                </div>
+              )}
+              {created && (
+                <div className="view-row">
+                  <span className="view-row-label">
+                    {t("detail.created")}
+                  </span>
+                  <span className="view-row-value">
+                    {created}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {note.body && (
+            <div>
+              <div className="view-block-label">
+                {t("detail.description")}
+              </div>
+              <div className="view-body">
+                <Markdown>{note.body}</Markdown>
+              </div>
+            </div>
+          )}
+
+          {note.tags && note.tags.length > 0 && (
+            <TagEditor
+              tags={note.tags}
+              editing={false}
+              onChange={() => {}}
+              allTags={config.tags}
+            />
+          )}
+        </div>
       )}
-
-      <Field label={t("projects.label")}>
-        <ProjectPicker
-          value={projectId}
-          projects={projects}
-          onChange={setProjectId}
-        />
-      </Field>
-
-      <Field label={t("detail.description")} grow>
-        <textarea
-          className="field-control"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={5}
-        />
-      </Field>
-
-      <Field label={t("tasks.tagsLabel", "Tags")}>
-        <TagEditor
-          tags={tags}
-          editing={true}
-          onChange={setTags}
-          allTags={config.tags}
-        />
-      </Field>
-    </Modal>
+    </DetailScreen>
   )
 }
 
