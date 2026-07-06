@@ -18,7 +18,7 @@ import { SearchBar } from "./SearchBar"
 import { TagEditor } from "./TagEditor"
 import { Modal } from "./Modal"
 import { Field, Select } from "./Field"
-import { ProjectPicker } from "./ProjectPicker"
+import { ProjectPicker, ProjectBadge } from "./ProjectPicker"
 
 const STATUS_ORDER = [
   "TODO", "NEXT", "IN-PROGRESS", "WAIT",
@@ -42,12 +42,14 @@ function TaskRow({
   task,
   onSelect,
   allTags,
+  projects,
   onTagClick,
   onStatusClick,
 }: {
   task: Task
   onSelect: (task: Task) => void
   allTags: { name: string; color: string }[]
+  projects: Project[]
   onTagClick: (tag: string) => void
   onStatusClick: (status: string) => void
 }) {
@@ -80,6 +82,10 @@ function TaskRow({
           >
             {statusLabel(task.status)}
           </button>
+          <ProjectBadge
+            projectId={task.project}
+            projects={projects}
+          />
           {task.tags?.map((tag) => {
             const c = allTags.find(
               (t) => t.name === tag,
@@ -297,6 +303,8 @@ export function TasksView() {
     useState<AppConfig>(DEFAULT_CONFIG)
   const [customers, setCustomers] =
     useState<Customer[]>([])
+  const [projects, setProjects] =
+    useState<Project[]>([])
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchText, setSearchText] = useState("")
   const [searchTags, setSearchTags] = useState<
@@ -326,6 +334,9 @@ export function TasksView() {
       .catch(() => {})
     getCustomers()
       .then(setCustomers)
+      .catch(() => {})
+    getSyncedProjects()
+      .then(setProjects)
       .catch(() => {})
   }, [])
 
@@ -544,6 +555,7 @@ export function TasksView() {
                         task={task}
                         onSelect={setSelected}
                         allTags={config.tags}
+                        projects={projects}
                         onTagClick={toggleSearchTag}
                         onStatusClick={toggleStatusFilter}
                       />

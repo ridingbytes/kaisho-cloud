@@ -2,11 +2,12 @@ import {
   useCallback, useEffect, useRef, useState,
 } from "react"
 import { useTranslation } from "react-i18next"
-import type { Customer, TaskRef } from "../types"
+import type { Customer, Project, TaskRef } from "../types"
 import {
   getActive,
   getCustomers,
   getTasks,
+  getSyncedProjects,
   startTimer,
   stopTimer,
   updateEntry,
@@ -16,6 +17,7 @@ import { onWsEvent } from "../ws"
 import { useToast } from "../toast"
 import { ErrorBanner } from "./ErrorBanner"
 import { CustomerPicker } from "./CustomerPicker"
+import { ProjectPicker } from "./ProjectPicker"
 import { EditEntrySheet } from "./EditEntrySheet"
 import { Markdown } from "./Markdown"
 import { UpgradeBanner } from "./UpgradeBanner"
@@ -68,9 +70,11 @@ export function TimerView() {
     [],
   )
   const [tasks, setTasks] = useState<TaskRef[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
   const [customer, setCustomer] = useState("")
   const [contract, setContract] = useState("")
   const [taskId, setTaskId] = useState("")
+  const [projectId, setProjectId] = useState("")
   const [desc, setDesc] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [needsUpgrade, setNeedsUpgrade] = useState(false)
@@ -121,14 +125,17 @@ export function TimerView() {
 
   const load = useCallback(async () => {
     try {
-      const [active, custs, tsks] = await Promise.all([
-        getActive(),
-        getCustomers(),
-        getTasks(),
-      ])
+      const [active, custs, tsks, projs] =
+        await Promise.all([
+          getActive(),
+          getCustomers(),
+          getTasks(),
+          getSyncedProjects().catch(() => []),
+        ])
       setTimer(active.active ? active : null)
       setCustomers(custs)
       setTasks(tsks)
+      setProjects(projs)
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
@@ -249,6 +256,7 @@ export function TimerView() {
           description: string
           task_id: string
           contract: string
+          project?: string
           autoStart?: boolean
         }>
       ).detail
@@ -256,6 +264,7 @@ export function TimerView() {
       setDesc(detail.description || "")
       setTaskId(detail.task_id || "")
       setContract(detail.contract || "")
+      setProjectId(detail.project || "")
       if (detail.autoStart && !timer) {
         // Optimistic: show timer immediately
         suppressUntilRef.current = Date.now() + 3000
@@ -267,6 +276,7 @@ export function TimerView() {
           start: new Date().toISOString(),
           end: null,
           task_id: detail.task_id || null,
+          project: detail.project || null,
           contract: detail.contract || null,
         })
         // Fire API call in background
@@ -275,6 +285,7 @@ export function TimerView() {
           description: detail.description || "",
           task_id: detail.task_id || undefined,
           contract: detail.contract || undefined,
+          project: detail.project || undefined,
         })
           .then((result) => {
             setTimer(result)
@@ -320,6 +331,7 @@ export function TimerView() {
       start: new Date().toISOString(),
       end: null,
       task_id: taskId || null,
+      project: projectId || null,
       contract: contract || null,
     }
     setTimer(optimistic)
@@ -331,6 +343,7 @@ export function TimerView() {
         description: desc,
         task_id: taskId || undefined,
         contract: contract || undefined,
+        project: projectId || undefined,
       })
       setTimer(result)
       toast(t("timer.started"))
@@ -668,6 +681,13 @@ export function TimerView() {
             </option>
           ))}
         </select>
+        {projects.length > 0 && (
+          <ProjectPicker
+            value={projectId}
+            projects={projects}
+            onChange={setProjectId}
+          />
+        )}
         <input
           type="text"
           placeholder={t("timer.description_optional")}

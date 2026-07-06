@@ -5,11 +5,14 @@ import {
   useState,
 } from "react"
 import { useTranslation } from "react-i18next"
-import type { ClockEntry, Customer } from "../types"
+import type {
+  ClockEntry, Customer, Project,
+} from "../types"
 import {
   deleteEntry,
   getCustomers,
   getEntries,
+  getSyncedProjects,
   stopTimer,
   ApiError,
 } from "../api"
@@ -18,6 +21,7 @@ import { useToast } from "../toast"
 import { useConfirm } from "./ConfirmDialog"
 import { ErrorBanner } from "./ErrorBanner"
 import { EditEntrySheet } from "./EditEntrySheet"
+import { ProjectBadge } from "./ProjectPicker"
 import { formatElapsed } from "../utils/formatElapsed"
 import {
   formatMins, formatDate, formatTime,
@@ -233,6 +237,7 @@ export function EntriesView() {
   const [customers, setCustomers] = useState<Customer[]>(
     [],
   )
+  const [projects, setProjects] = useState<Project[]>([])
   const [customerFilter, setCustomerFilter] =
     useState("")
   const [loading, setLoading] = useState(false)
@@ -251,6 +256,9 @@ export function EntriesView() {
     getCustomers()
       .then(setCustomers)
       .catch((e) => console.warn("customers:", e))
+    getSyncedProjects()
+      .then(setProjects)
+      .catch(() => {})
   }, [])
 
   // React to drilldown navigation from the Dashboard.
@@ -553,6 +561,14 @@ export function EntriesView() {
               {e.description && (
                 <div className="entry-desc">
                   {e.description}
+                </div>
+              )}
+              {e.project && (
+                <div className="entry-project">
+                  <ProjectBadge
+                    projectId={e.project}
+                    projects={projects}
+                  />
                 </div>
               )}
               <span
