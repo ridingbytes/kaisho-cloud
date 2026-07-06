@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+Projects come to the cloud and the PWA, and the mobile app
+gets a native-feeling editor overhaul.
+
+- Add cloud sync support for projects [#83](https://github.com/ridingbytes/kaisho-cloud/pull/83)
+- Unify all editors on a modern Modal + Field kit [#84](https://github.com/ridingbytes/kaisho-cloud/pull/84)
+- Add Projects to the PWA [#85](https://github.com/ridingbytes/kaisho-cloud/pull/85)
+- Assign projects at creation time and show them on rows [#86](https://github.com/ridingbytes/kaisho-cloud/pull/86)
+
+### Migrations
+
+- `021_projects.sql` — `projects` table plus the
+  `project` / `milestone` reference columns on `tasks`,
+  `notes`, and `clock_entries`.
+- `022_wipe_projects.sql` — fold `projects` into the
+  `wipe_user_sync_state` RPC.
+
+Apply both to the kaisho-cloud Supabase (Dashboard SQL
+Editor) BEFORE deploying this to production.
+
 ## 2.1.0
 
 A cleanup + hardening release that rolls up the post-2.0.0
