@@ -233,5 +233,6 @@
   "detail.openLink": "Öffnen",
   "tasks.confirmDelete": "Diese Aufgabe löschen?",
   "notes.confirmDelete": "Diese Notiz löschen?",
-  "inbox.confirmDelete": "Diesen Eintrag löschen?"
+  "inbox.confirmDelete": "Diesen Eintrag löschen?",
+  "timer.notes_edit_hint": "Zum Bearbeiten tippen"
 }
