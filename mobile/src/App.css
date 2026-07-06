@@ -4,8 +4,25 @@
   --font: "Inter", -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
   --radius: 12px;
+  --radius-lg: 18px;
   --green: #22c55e;
   --red: #ef4444;
+  /* Brand accent — interactive elements, focus rings,
+     project fallbacks. Indigo reads well on both themes. */
+  --accent: #6366f1;
+  --accent-contrast: #ffffff;
+  /* Motion. One easing + two durations keeps the whole
+     app feeling like a single coordinated surface. */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur: 0.22s;
+  --dur-fast: 0.14s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur: 0.001s;
+    --dur-fast: 0.001s;
+  }
 }
 
 /* Dark theme (default) */
@@ -128,8 +145,11 @@ input[type="time"] {
   min-height: 44px;
 }
 
-input:focus, select:focus {
-  border-color: var(--t4);
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(
+    in srgb, var(--accent) 22%, transparent
+  );
 }
 
 input::placeholder {
@@ -2778,4 +2798,281 @@ select {
 [data-theme="dark"] .task-status-cancelled {
   background: #374151;
   color: #9ca3af;
+}
+
+/* ===================================================== */
+/* Unified Modal + Field kit                              */
+/* The single editor surface for the whole app. Bottom   */
+/* sheet on phones, centered dialog on wide screens.     */
+/* ===================================================== */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: modal-fade var(--dur-fast) var(--ease);
+}
+
+.modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  max-height: 92vh;
+  max-height: 92svh;
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow);
+  animation: modal-rise var(--dur) var(--ease);
+  overflow: hidden;
+}
+
+.modal-grip {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 2px;
+  flex-shrink: 0;
+}
+
+.modal-grip span {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--t4);
+  opacity: 0.5;
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.modal-heading h3 {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--t1);
+  margin: 0;
+}
+
+.modal-subtitle {
+  font-size: 13px;
+  color: var(--t3);
+  margin: 2px 0 0;
+}
+
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--raised);
+  color: var(--t2);
+  cursor: pointer;
+  transition: background var(--dur-fast),
+    color var(--dur-fast);
+}
+
+.modal-close:hover {
+  background: var(--border);
+  color: var(--t1);
+}
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  padding: 14px 20px;
+  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0));
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--card);
+}
+
+.modal-footer .btn-primary,
+.modal-footer .btn-secondary,
+.modal-footer .btn-danger {
+  flex: 1;
+  width: auto;
+}
+
+/* Centered variant floats even on phones. */
+.modal-center {
+  align-self: center;
+}
+
+@media (min-width: 560px) {
+  .modal-backdrop {
+    align-items: center;
+    padding: 24px;
+  }
+  .modal-card {
+    border-bottom: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    animation: modal-pop var(--dur) var(--ease);
+  }
+  .modal-grip {
+    display: none;
+  }
+  .modal-header {
+    padding-top: 18px;
+  }
+}
+
+@keyframes modal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-rise {
+  from { transform: translateY(14px); opacity: 0.6; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes modal-pop {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* -- Field kit -- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.field--grow {
+  flex: 1;
+  min-height: 0;
+}
+
+.field--grow textarea,
+.field--grow .field-control {
+  flex: 1;
+  min-height: 96px;
+}
+
+.field-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.field-label {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+
+.field-hint {
+  font-size: 11px;
+  color: var(--t4);
+  font-variant-numeric: tabular-nums;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.field-control,
+textarea.field-control {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--t1);
+  font-family: var(--font);
+  font-size: 15px;
+  outline: none;
+  transition: border-color var(--dur-fast),
+    box-shadow var(--dur-fast);
+}
+
+textarea.field-control {
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.field-control:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(
+    in srgb, var(--accent) 22%, transparent
+  );
+}
+
+.select-wrap {
+  position: relative;
+  display: flex;
+}
+
+.select-wrap select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 36px;
+  box-shadow: none;
+}
+
+.select-caret {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--t3);
+  pointer-events: none;
+}
+
+/* Checkbox pill — reused by "invoiced", "done", etc. */
+.field-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 14px;
+  color: var(--t2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.field-toggle input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
 }

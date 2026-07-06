@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react"
-import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import {
   getAppConfig,
@@ -19,10 +18,11 @@ import {
   formatFullDate,
 } from "../utils/formatDate"
 import { tagBadgeStyle } from "../utils/tagColors"
-import { Markdown } from "./Markdown"
 import { SearchBar } from "./SearchBar"
 import { SwipeToReveal } from "./SwipeToReveal"
 import { TagEditor } from "./TagEditor"
+import { Modal } from "./Modal"
+import { Field, Select } from "./Field"
 
 function NoteRow({
   note,
@@ -115,7 +115,6 @@ function NoteDetailSheet({
   tasks: TaskRef[]
 }) {
   const { t } = useTranslation()
-  const [editing, setEditing] = useState(false)
   const [customer, setCustomer] = useState(
     note.customer || "",
   )
@@ -131,7 +130,7 @@ function NoteDetailSheet({
     : ""
 
   const filteredTasks = customer
-    ? tasks.filter((t) => t.customer === customer)
+    ? tasks.filter((task) => task.customer === customer)
     : tasks
 
   function handleSave() {
@@ -142,156 +141,85 @@ function NoteDetailSheet({
       body,
       tags,
     })
-    setEditing(false)
+    onClose()
   }
 
   return (
-    <div className="detail-panel">
-      <div className="detail-panel-header">
-        <button
-          className="detail-panel-back"
-          onClick={onClose}
-        >
-          &#8249; {t("shell.group.organize")}
-        </button>
-        <span className="detail-panel-title" />
-        <div className="detail-panel-actions">
-          {!editing ? (
-            <button
-              className="detail-panel-back"
-              onClick={() => setEditing(true)}
-            >
-              {t("detail.edit")}
-            </button>
-          ) : (
-            <button
-              className="detail-panel-back"
-              onClick={handleSave}
-            >
-              {t("detail.save")}
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="detail-panel-body">
-        <h3 style={{ margin: "0 0 16px" }}>
-          {note.title}
-        </h3>
-        {editing ? (
-          <div className="detail-edit-form">
-            <div className="detail-field">
-              <div className="detail-label">
-                {t("timer.customer")}
-              </div>
-              <select
-                className="detail-select"
-                value={customer}
-                onChange={(e) =>
-                  setCustomer(e.target.value)
-                }
-              >
-                <option value="">—</option>
-                {customers.map((c) => (
-                  <option key={c.name} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-              <div className="detail-field">
-                <div className="detail-label">
-                  {t("detail.title")}
-                </div>
-                <input
-                  className="detail-input"
-                  value={title}
-                  onChange={(e) =>
-                    setTitle(e.target.value)
-                  }
-                />
-              </div>
-              {filteredTasks.length > 0 && (
-                <div className="detail-field">
-                  <div className="detail-label">
-                    {t("detail.task")}
-                  </div>
-                  <select
-                    className="detail-select"
-                    value={taskId}
-                    onChange={(e) =>
-                      setTaskId(e.target.value)
-                    }
-                  >
-                    <option value="">—</option>
-                    {filteredTasks.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div className="detail-field detail-field-grow">
-                <div className="detail-label">
-                  {t("detail.description")}
-                </div>
-                <textarea
-                  className="detail-textarea"
-                  value={body}
-                  onChange={(e) =>
-                    setBody(e.target.value)
-                  }
-                />
-              </div>
-              <TagEditor
-                tags={tags}
-                editing={true}
-                onChange={setTags}
-                allTags={config.tags}
-              />
-            </div>
-          ) : (
-            <>
-              <div className="detail-field">
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                  }}
-                >
-                  {note.customer && (
-                    <span className="inbox-customer">
-                      {note.customer}
-                    </span>
-                  )}
-                  {created && (
-                    <span className="inbox-date">
-                      {created}
-                    </span>
-                  )}
-                </div>
-              </div>
+    <Modal
+      title={t("detail.edit")}
+      subtitle={created
+        ? t("detail.created") + " · " + created
+        : undefined}
+      onClose={onClose}
+      footer={
+        <>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={onClose}
+          >
+            {t("edit.cancel")}
+          </button>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={handleSave}
+          >
+            {t("detail.save")}
+          </button>
+        </>
+      }
+    >
+      <Field label={t("detail.title")}>
+        <input
+          className="field-control"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </Field>
 
-              {note.body && (
-                <div className="detail-field">
-                  <div className="detail-label">
-                    {t("detail.description")}
-                  </div>
-                  <Markdown>{note.body}</Markdown>
-                </div>
-              )}
+      <Field label={t("timer.customer")}>
+        <Select value={customer} onChange={setCustomer}>
+          <option value="">—</option>
+          {customers.map((c) => (
+            <option key={c.name} value={c.name}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
 
-              <TagEditor
-                tags={tags}
-                editing={false}
-                onChange={() => {}}
-                allTags={config.tags}
-              />
-            </>
-          )}
-        </div>
-      </div>
+      {filteredTasks.length > 0 && (
+        <Field label={t("detail.task")}>
+          <Select value={taskId} onChange={setTaskId}>
+            <option value="">—</option>
+            {filteredTasks.map((task) => (
+              <option key={task.id} value={task.id}>
+                {task.title}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
+      <Field label={t("detail.description")} grow>
+        <textarea
+          className="field-control"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={5}
+        />
+      </Field>
+
+      <Field label={t("tasks.tagsLabel", "Tags")}>
+        <TagEditor
+          tags={tags}
+          editing={true}
+          onChange={setTags}
+          allTags={config.tags}
+        />
+      </Field>
+    </Modal>
   )
 }
 
@@ -486,7 +414,7 @@ export function NotesView() {
         </div>
       )}
 
-      {selected && createPortal(
+      {selected && (
         <NoteDetailSheet
           note={selected}
           onClose={() => setSelected(null)}
@@ -496,8 +424,7 @@ export function NotesView() {
           config={config}
           customers={customers}
           tasks={refTasks}
-        />,
-        document.body,
+        />
       )}
     </div>
   )

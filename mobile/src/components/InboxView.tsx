@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react"
-import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import {
   addInboxItem,
@@ -15,9 +14,10 @@ import {
   formatShortDate,
   formatFullDate,
 } from "../utils/formatDate"
-import { Markdown } from "./Markdown"
 import { SearchBar } from "./SearchBar"
 import { SwipeToReveal } from "./SwipeToReveal"
+import { Modal } from "./Modal"
+import { Field, FieldRow, Select } from "./Field"
 
 /** Strip markdown syntax for plain-text preview. */
 function stripMd(text: string): string {
@@ -121,7 +121,6 @@ function InboxDetailSheet({
   customers: Customer[]
 }) {
   const { t } = useTranslation()
-  const [editing, setEditing] = useState(false)
   const [itemType, setItemType] = useState(
     item.type || "NOTE",
   )
@@ -150,194 +149,93 @@ function InboxDetailSheet({
       direction,
       body,
     })
-    setEditing(false)
+    onClose()
   }
 
   return (
-    <div className="detail-panel">
-      <div className="detail-panel-header">
-        <button
-          className="detail-panel-back"
-          onClick={onClose}
-        >
-          &#8249; {t("shell.group.organize")}
-        </button>
-        <span className="detail-panel-title" />
-        <div className="detail-panel-actions">
-          {!editing ? (
-            <button
-              className="detail-panel-back"
-              onClick={() => setEditing(true)}
-            >
-              {t("detail.edit")}
-            </button>
-          ) : (
-            <button
-              className="detail-panel-back"
-              onClick={handleSave}
-            >
-              {t("detail.save")}
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="detail-panel-body">
-        <h3 style={{ margin: "0 0 16px" }}>
-          {item.title}
-        </h3>
-        {editing ? (
-          <div className="detail-edit-form">
-            <div className="detail-field">
-              <div className="detail-label">
-                {t("detail.type")}
-              </div>
-              <select
-                className="detail-select"
-                value={itemType}
-                onChange={(e) =>
-                  setItemType(e.target.value)
-                }
-              >
-                {INBOX_TYPES.map((tp) => (
-                  <option key={tp} value={tp}>
-                    {tp}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="detail-field">
-              <div className="detail-label">
-                {t("timer.customer")}
-              </div>
-              <select
-                className="detail-select"
-                value={customer}
-                onChange={(e) =>
-                  setCustomer(e.target.value)
-                }
-              >
-                <option value="">—</option>
-                {customers.map((c) => (
-                  <option key={c.name} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="detail-field">
-              <div className="detail-label">
-                {t("detail.title")}
-              </div>
-              <input
-                className="detail-input"
-                value={title}
-                onChange={(e) =>
-                  setTitle(e.target.value)
-                }
-              />
-            </div>
-            <div className="detail-field detail-field-grow">
-              <div className="detail-label">
-                {t("detail.description")}
-              </div>
-              <textarea
-                className="detail-textarea"
-                value={body}
-                onChange={(e) =>
-                  setBody(e.target.value)
-                }
-              />
-            </div>
-            <div className="detail-field">
-              <div className="detail-label">
-                {t("detail.channel")}
-              </div>
-              <input
-                className="detail-input"
-                value={channel}
-                onChange={(e) =>
-                  setChannel(e.target.value)
-                }
-                placeholder="email, phone, chat..."
-              />
-            </div>
-            <div className="detail-field">
-              <div className="detail-label">
-                {t("detail.direction")}
-              </div>
-              <select
-                className="detail-select"
-                value={direction}
-                onChange={(e) =>
-                  setDirection(e.target.value)
-                }
-              >
-                {DIRECTIONS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="detail-field">
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                }}
-              >
-                <TypeBadge type={item.type} />
-                {item.customer && (
-                  <span className="inbox-customer">
-                    {item.customer}
-                  </span>
-                )}
-                {created && (
-                  <span className="inbox-date">
-                    {created}
-                  </span>
-                )}
-              </div>
-            </div>
+    <Modal
+      title={t("detail.edit")}
+      subtitle={created
+        ? t("detail.created") + " · " + created
+        : undefined}
+      onClose={onClose}
+      footer={
+        <>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={onClose}
+          >
+            {t("edit.cancel")}
+          </button>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={handleSave}
+          >
+            {t("detail.save")}
+          </button>
+        </>
+      }
+    >
+      <Field label={t("detail.title")}>
+        <input
+          className="field-control"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </Field>
 
-            {item.body && (
-              <div className="detail-field">
-                <div className="detail-label">
-                  {t("detail.description")}
-                </div>
-                <Markdown>{item.body}</Markdown>
-              </div>
-            )}
+      <FieldRow>
+        <Field label={t("detail.type")}>
+          <Select value={itemType} onChange={setItemType}>
+            {INBOX_TYPES.map((tp) => (
+              <option key={tp} value={tp}>
+                {tp}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label={t("detail.direction")}>
+          <Select value={direction} onChange={setDirection}>
+            {DIRECTIONS.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </FieldRow>
 
-            {item.channel && (
-              <div className="detail-field">
-                <div className="detail-label">
-                  {t("detail.channel")}
-                </div>
-                <div className="detail-value">
-                  {item.channel}
-                </div>
-              </div>
-            )}
+      <Field label={t("timer.customer")}>
+        <Select value={customer} onChange={setCustomer}>
+          <option value="">—</option>
+          {customers.map((c) => (
+            <option key={c.name} value={c.name}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
 
-            {item.direction && (
-              <div className="detail-field">
-                <div className="detail-label">
-                  {t("detail.direction")}
-                </div>
-                <div className="detail-value">
-                  {item.direction}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
+      <Field label={t("detail.description")} grow>
+        <textarea
+          className="field-control"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={4}
+        />
+      </Field>
+
+      <Field label={t("detail.channel")}>
+        <input
+          className="field-control"
+          value={channel}
+          onChange={(e) => setChannel(e.target.value)}
+          placeholder="email, phone, chat..."
+        />
+      </Field>
+    </Modal>
   )
 }
 
@@ -509,7 +407,7 @@ export function InboxView() {
         </div>
       )}
 
-      {selected && createPortal(
+      {selected && (
         <InboxDetailSheet
           item={selected}
           onClose={() => setSelected(null)}
@@ -517,8 +415,7 @@ export function InboxView() {
             handleUpdate(selected, updates)
           }
           customers={customers}
-        />,
-        document.body,
+        />
       )}
     </div>
   )
