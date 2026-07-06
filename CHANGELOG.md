@@ -9,6 +9,7 @@ gets a native-feeling editor overhaul.
 - Unify all editors on a modern Modal + Field kit [#84](https://github.com/ridingbytes/kaisho-cloud/pull/84)
 - Add Projects to the PWA [#85](https://github.com/ridingbytes/kaisho-cloud/pull/85)
 - Assign projects at creation time and show them on rows [#86](https://github.com/ridingbytes/kaisho-cloud/pull/86)
+- Rework editors into stacked view-first detail screens [#87](https://github.com/ridingbytes/kaisho-cloud/pull/87)
 
 ### Migrations
 
