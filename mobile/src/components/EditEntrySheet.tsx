@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type {
-  ClockEntry, Customer, TaskRef,
+  ClockEntry, Customer, Project, TaskRef,
 } from "../types"
 import {
   getCustomers,
   getTasks,
+  getSyncedProjects,
   updateEntry,
   ApiError,
 } from "../api"
@@ -14,6 +15,7 @@ import { CustomerPicker } from "./CustomerPicker"
 import { ErrorBanner } from "./ErrorBanner"
 import { Modal } from "./Modal"
 import { Field, FieldRow, Select } from "./Field"
+import { ProjectPicker } from "./ProjectPicker"
 import { formatDate } from "../utils/time"
 
 /**
@@ -56,6 +58,10 @@ export function EditEntrySheet(props: Props) {
     entry.task_id || "",
   )
   const [tasks, setTasks] = useState<TaskRef[]>([])
+  const [projectId, setProjectId] = useState(
+    entry.project || "",
+  )
+  const [projects, setProjects] = useState<Project[]>([])
   const [description, setDescription] = useState(
     entry.description || "",
   )
@@ -86,6 +92,9 @@ export function EditEntrySheet(props: Props) {
     getTasks()
       .then(setTasks)
       .catch((e) => console.warn("tasks:", e))
+    getSyncedProjects()
+      .then(setProjects)
+      .catch((e) => console.warn("projects:", e))
   }, [])
 
   const selectedCustomer = customers.find(
@@ -115,6 +124,7 @@ export function EditEntrySheet(props: Props) {
         description,
         contract: contract || null,
         task_id: taskId || null,
+        project: projectId || null,
         notes,
         invoiced,
       }
@@ -242,6 +252,14 @@ export function EditEntrySheet(props: Props) {
             </option>
           ))}
         </Select>
+      </Field>
+
+      <Field label={t("projects.label")}>
+        <ProjectPicker
+          value={projectId}
+          projects={projects}
+          onChange={setProjectId}
+        />
       </Field>
 
       <Field label={t("edit.label.description")}>

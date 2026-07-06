@@ -4,11 +4,12 @@ import {
   addSyncedTask,
   getAppConfig,
   getCustomers,
+  getSyncedProjects,
   getSyncedTasks,
   updateSyncedTask,
 } from "../api"
 import type { AppConfig } from "../api"
-import type { Customer, Task } from "../types"
+import type { Customer, Project, Task } from "../types"
 import { formatFullDate } from "../utils/formatDate"
 import {
   hexToRgba, tagBadgeStyle,
@@ -17,6 +18,7 @@ import { SearchBar } from "./SearchBar"
 import { TagEditor } from "./TagEditor"
 import { Modal } from "./Modal"
 import { Field, Select } from "./Field"
+import { ProjectPicker } from "./ProjectPicker"
 
 const STATUS_ORDER = [
   "TODO", "NEXT", "IN-PROGRESS", "WAIT",
@@ -129,10 +131,26 @@ function TaskDetailSheet({
     task.github_url || "",
   )
   const [tags, setTags] = useState(task.tags || [])
+  const [projectId, setProjectId] = useState(
+    task.project || "",
+  )
+  const [milestoneId, setMilestoneId] = useState(
+    task.milestone || "",
+  )
+  const [projects, setProjects] = useState<Project[]>([])
+
+  useEffect(() => {
+    getSyncedProjects().then(setProjects).catch(() => {})
+  }, [])
 
   const created = task.created_at
     ? formatFullDate(task.created_at)
     : ""
+
+  const selProject = projects.find(
+    (p) => p.id === projectId,
+  )
+  const milestones = selProject?.milestones || []
 
   function handleSave() {
     onUpdate({
@@ -142,6 +160,8 @@ function TaskDetailSheet({
       body,
       github_url: githubUrl,
       tags,
+      project: projectId || null,
+      milestone: projectId ? milestoneId || null : null,
     })
     onClose()
   }
@@ -200,6 +220,33 @@ function TaskDetailSheet({
           ))}
         </Select>
       </Field>
+
+      <Field label={t("projects.label")}>
+        <ProjectPicker
+          value={projectId}
+          projects={projects}
+          onChange={(id) => {
+            setProjectId(id)
+            setMilestoneId("")
+          }}
+        />
+      </Field>
+
+      {milestones.length > 0 && (
+        <Field label={t("projects.milestones")}>
+          <Select
+            value={milestoneId}
+            onChange={setMilestoneId}
+          >
+            <option value="">—</option>
+            {milestones.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.title}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
 
       <Field label={t("detail.description")} grow>
         <textarea

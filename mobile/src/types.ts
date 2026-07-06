@@ -22,6 +22,7 @@ export interface ActiveTimer {
   customer?: string | null
   description?: string
   task_id?: string | null
+  project?: string | null
   contract?: string | null
   start?: string
   end?: string | null
@@ -39,12 +40,45 @@ export interface ClockEntry {
   description: string
   duration_minutes: number | null
   task_id?: string | null
+  project?: string | null
   contract?: string | null
   notes?: string
   invoiced?: boolean
   synced_at?: string | null
   created_at?: string
   updated_at?: string
+}
+
+/** Project lifecycle states, mirrored from the desktop. */
+export const PROJECT_STATES = [
+  "ACTIVE", "ON_HOLD", "COMPLETED", "ARCHIVED",
+] as const
+
+export type ProjectStatus =
+  (typeof PROJECT_STATES)[number]
+
+export interface Milestone {
+  id: string
+  title: string
+  done: boolean
+  due?: string | null
+}
+
+export interface Project {
+  id: string
+  name: string
+  customer: string
+  status: string
+  contract?: string | null
+  start?: string | null
+  due?: string | null
+  color: string
+  tags: string[]
+  description: string
+  milestones: Milestone[]
+  created_at?: string
+  updated_at: string
+  deleted_at?: string | null
 }
 
 export interface Customer {
@@ -63,6 +97,8 @@ export interface Task extends TaskRef {
   tags: string[]
   body: string
   github_url: string
+  project?: string | null
+  milestone?: string | null
   created_at: string
   updated_at: string
   deleted_at?: string | null
@@ -75,6 +111,7 @@ export interface Note {
   body: string
   tags: string[]
   task_id: string | null
+  project?: string | null
   created_at: string
   updated_at: string
   deleted_at?: string | null
