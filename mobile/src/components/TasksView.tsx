@@ -16,7 +16,8 @@ import {
 } from "../utils/tagColors"
 import { SearchBar } from "./SearchBar"
 import { TagEditor } from "./TagEditor"
-import { Modal } from "./Modal"
+import { Markdown } from "./Markdown"
+import { DetailScreen } from "./DetailScreen"
 import { Field, Select } from "./Field"
 import { ProjectPicker, ProjectBadge } from "./ProjectPicker"
 
@@ -127,6 +128,7 @@ function TaskDetailSheet({
   customers: Customer[]
 }) {
   const { t } = useTranslation()
+  const [editing, setEditing] = useState(false)
   const [customer, setCustomer] = useState(
     task.customer || "",
   )
@@ -152,11 +154,26 @@ function TaskDetailSheet({
   const created = task.created_at
     ? formatFullDate(task.created_at)
     : ""
-
+  const sc = STATUS_COLORS[task.status] || "#9ca3af"
   const selProject = projects.find(
     (p) => p.id === projectId,
   )
   const milestones = selProject?.milestones || []
+  const activeMilestone = milestones.find(
+    (m) => m.id === task.milestone,
+  )
+
+  function cancelEdit() {
+    setCustomer(task.customer || "")
+    setTitle(task.title)
+    setStatus(task.status)
+    setBody(task.body || "")
+    setGithubUrl(task.github_url || "")
+    setTags(task.tags || [])
+    setProjectId(task.project || "")
+    setMilestoneId(task.milestone || "")
+    setEditing(false)
+  }
 
   function handleSave() {
     onUpdate({
@@ -169,120 +186,210 @@ function TaskDetailSheet({
       project: projectId || null,
       milestone: projectId ? milestoneId || null : null,
     })
-    onClose()
+    setEditing(false)
   }
 
-  return (
-    <Modal
-      title={t("detail.edit")}
-      subtitle={created
-        ? t("detail.created") + " · " + created
-        : undefined}
-      onClose={onClose}
-      footer={
-        <>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={onClose}
-          >
-            {t("edit.cancel")}
-          </button>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={handleSave}
-          >
-            {t("detail.save")}
-          </button>
-        </>
-      }
+  const navAction = editing ? (
+    <button className="ds-nav-btn" onClick={handleSave}>
+      {t("detail.save")}
+    </button>
+  ) : (
+    <button
+      className="ds-nav-btn"
+      onClick={() => setEditing(true)}
     >
-      <Field label={t("detail.title")}>
-        <input
-          className="field-control"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-      </Field>
+      {t("detail.edit")}
+    </button>
+  )
 
-      <Field label={t("detail.status")}>
-        <Select value={status} onChange={setStatus}>
-          {STATUS_ORDER.map((s) => (
-            <option key={s} value={s}>
-              {statusLabel(s)}
-            </option>
-          ))}
-        </Select>
-      </Field>
+  return (
+    <DetailScreen
+      title={task.title}
+      backLabel={t("shell.tab.tasks")}
+      onBack={onClose}
+      action={navAction}
+      leftAction={editing ? (
+        <button className="ds-nav-btn" onClick={cancelEdit}>
+          {t("edit.cancel")}
+        </button>
+      ) : undefined}
+    >
+      {editing ? (
+        <div className="ds-form">
+          <Field label={t("detail.title")}>
+            <input
+              className="field-control"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </Field>
 
-      <Field label={t("timer.customer")}>
-        <Select value={customer} onChange={setCustomer}>
-          <option value="">—</option>
-          {customers.map((c) => (
-            <option key={c.name} value={c.name}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
-      </Field>
+          <Field label={t("detail.status")}>
+            <Select value={status} onChange={setStatus}>
+              {STATUS_ORDER.map((s) => (
+                <option key={s} value={s}>
+                  {statusLabel(s)}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-      <Field label={t("projects.label")}>
-        <ProjectPicker
-          value={projectId}
-          projects={projects}
-          onChange={(id) => {
-            setProjectId(id)
-            setMilestoneId("")
-          }}
-        />
-      </Field>
+          <Field label={t("timer.customer")}>
+            <Select value={customer} onChange={setCustomer}>
+              <option value="">—</option>
+              {customers.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-      {milestones.length > 0 && (
-        <Field label={t("projects.milestones")}>
-          <Select
-            value={milestoneId}
-            onChange={setMilestoneId}
-          >
-            <option value="">—</option>
-            {milestones.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.title}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      )}
+          <Field label={t("projects.label")}>
+            <ProjectPicker
+              value={projectId}
+              projects={projects}
+              onChange={(id) => {
+                setProjectId(id)
+                setMilestoneId("")
+              }}
+            />
+          </Field>
 
-      <Field label={t("detail.description")} grow>
-        <textarea
-          className="field-control"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={4}
-        />
-      </Field>
+          {milestones.length > 0 && (
+            <Field label={t("projects.milestones")}>
+              <Select
+                value={milestoneId}
+                onChange={setMilestoneId}
+              >
+                <option value="">—</option>
+                {milestones.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.title}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
 
-      {config.github_configured && (
-        <Field label={t("detail.github")}>
-          <input
-            className="field-control"
-            value={githubUrl}
-            onChange={(e) => setGithubUrl(e.target.value)}
-            placeholder="https://github.com/..."
+          <Field label={t("detail.description")} grow>
+            <textarea
+              className="field-control"
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={5}
+            />
+          </Field>
+
+          {config.github_configured && (
+            <Field label={t("detail.github")}>
+              <input
+                className="field-control"
+                value={githubUrl}
+                onChange={(e) =>
+                  setGithubUrl(e.target.value)
+                }
+                placeholder="https://github.com/..."
+              />
+            </Field>
+          )}
+
+          <TagEditor
+            tags={tags}
+            editing={true}
+            onChange={setTags}
+            allTags={config.tags}
           />
-        </Field>
-      )}
+        </div>
+      ) : (
+        <div className="ds-content">
+          <div className="view-hero">
+            <div className="view-hero-title">
+              {task.title}
+            </div>
+            <div className="view-pills">
+              <span
+                className="project-status-pill"
+                style={{
+                  color: sc,
+                  background: hexToRgba(sc, 0.15),
+                }}
+              >
+                {statusLabel(task.status)}
+              </span>
+              <ProjectBadge
+                projectId={task.project}
+                projects={projects}
+              />
+              {activeMilestone && (
+                <span className="view-milestone-chip">
+                  ◆ {activeMilestone.title}
+                </span>
+              )}
+            </div>
+          </div>
 
-      <Field label={t("tasks.tagsLabel", "Tags")}>
-        <TagEditor
-          tags={tags}
-          editing={true}
-          onChange={setTags}
-          allTags={config.tags}
-        />
-      </Field>
-    </Modal>
+          <div className="view-section">
+            {task.customer && (
+              <div className="view-row">
+                <span className="view-row-label">
+                  {t("timer.customer")}
+                </span>
+                <span className="view-row-value">
+                  {task.customer}
+                </span>
+              </div>
+            )}
+            {created && (
+              <div className="view-row">
+                <span className="view-row-label">
+                  {t("detail.created")}
+                </span>
+                <span className="view-row-value">
+                  {created}
+                </span>
+              </div>
+            )}
+            {config.github_configured
+              && task.github_url && (
+              <div className="view-row">
+                <span className="view-row-label">
+                  {t("detail.github")}
+                </span>
+                <a
+                  className="view-row-value detail-link"
+                  href={task.github_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {t("detail.openLink")}
+                </a>
+              </div>
+            )}
+          </div>
+
+          {task.body && (
+            <div>
+              <div className="view-block-label">
+                {t("detail.description")}
+              </div>
+              <div className="view-body">
+                <Markdown>{task.body}</Markdown>
+              </div>
+            </div>
+          )}
+
+          {task.tags && task.tags.length > 0 && (
+            <TagEditor
+              tags={task.tags}
+              editing={false}
+              onChange={() => {}}
+              allTags={config.tags}
+            />
+          )}
+        </div>
+      )}
+    </DetailScreen>
   )
 }
 

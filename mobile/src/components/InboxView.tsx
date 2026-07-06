@@ -16,7 +16,8 @@ import {
 } from "../utils/formatDate"
 import { SearchBar } from "./SearchBar"
 import { SwipeToReveal } from "./SwipeToReveal"
-import { Modal } from "./Modal"
+import { Markdown } from "./Markdown"
+import { DetailScreen } from "./DetailScreen"
 import { Field, FieldRow, Select } from "./Field"
 
 /** Strip markdown syntax for plain-text preview. */
@@ -121,6 +122,7 @@ function InboxDetailSheet({
   customers: Customer[]
 }) {
   const { t } = useTranslation()
+  const [editing, setEditing] = useState(false)
   const [itemType, setItemType] = useState(
     item.type || "NOTE",
   )
@@ -140,6 +142,16 @@ function InboxDetailSheet({
     ? formatFullDate(item.created_at)
     : ""
 
+  function cancelEdit() {
+    setItemType(item.type || "NOTE")
+    setCustomer(item.customer || "")
+    setTitle(item.title)
+    setChannel(item.channel || "")
+    setDirection(item.direction || "in")
+    setBody(item.body || "")
+    setEditing(false)
+  }
+
   function handleSave() {
     onUpdate({
       type: itemType,
@@ -149,93 +161,159 @@ function InboxDetailSheet({
       direction,
       body,
     })
-    onClose()
+    setEditing(false)
   }
 
-  return (
-    <Modal
-      title={t("detail.edit")}
-      subtitle={created
-        ? t("detail.created") + " · " + created
-        : undefined}
-      onClose={onClose}
-      footer={
-        <>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={onClose}
-          >
-            {t("edit.cancel")}
-          </button>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={handleSave}
-          >
-            {t("detail.save")}
-          </button>
-        </>
-      }
+  const navAction = editing ? (
+    <button className="ds-nav-btn" onClick={handleSave}>
+      {t("detail.save")}
+    </button>
+  ) : (
+    <button
+      className="ds-nav-btn"
+      onClick={() => setEditing(true)}
     >
-      <Field label={t("detail.title")}>
-        <input
-          className="field-control"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-      </Field>
+      {t("detail.edit")}
+    </button>
+  )
 
-      <FieldRow>
-        <Field label={t("detail.type")}>
-          <Select value={itemType} onChange={setItemType}>
-            {INBOX_TYPES.map((tp) => (
-              <option key={tp} value={tp}>
-                {tp}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label={t("detail.direction")}>
-          <Select value={direction} onChange={setDirection}>
-            {DIRECTIONS.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </FieldRow>
+  return (
+    <DetailScreen
+      title={item.title}
+      backLabel={t("shell.tab.inbox")}
+      onBack={onClose}
+      action={navAction}
+      leftAction={editing ? (
+        <button className="ds-nav-btn" onClick={cancelEdit}>
+          {t("edit.cancel")}
+        </button>
+      ) : undefined}
+    >
+      {editing ? (
+        <div className="ds-form">
+          <Field label={t("detail.title")}>
+            <input
+              className="field-control"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </Field>
 
-      <Field label={t("timer.customer")}>
-        <Select value={customer} onChange={setCustomer}>
-          <option value="">—</option>
-          {customers.map((c) => (
-            <option key={c.name} value={c.name}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
-      </Field>
+          <FieldRow>
+            <Field label={t("detail.type")}>
+              <Select value={itemType} onChange={setItemType}>
+                {INBOX_TYPES.map((tp) => (
+                  <option key={tp} value={tp}>
+                    {tp}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label={t("detail.direction")}>
+              <Select
+                value={direction}
+                onChange={setDirection}
+              >
+                {DIRECTIONS.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </FieldRow>
 
-      <Field label={t("detail.description")} grow>
-        <textarea
-          className="field-control"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={4}
-        />
-      </Field>
+          <Field label={t("timer.customer")}>
+            <Select value={customer} onChange={setCustomer}>
+              <option value="">—</option>
+              {customers.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-      <Field label={t("detail.channel")}>
-        <input
-          className="field-control"
-          value={channel}
-          onChange={(e) => setChannel(e.target.value)}
-          placeholder="email, phone, chat..."
-        />
-      </Field>
-    </Modal>
+          <Field label={t("detail.description")} grow>
+            <textarea
+              className="field-control"
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={4}
+            />
+          </Field>
+
+          <Field label={t("detail.channel")}>
+            <input
+              className="field-control"
+              value={channel}
+              onChange={(e) => setChannel(e.target.value)}
+              placeholder="email, phone, chat..."
+            />
+          </Field>
+        </div>
+      ) : (
+        <div className="ds-content">
+          <div className="view-hero">
+            <div className="view-hero-title">
+              {item.title}
+            </div>
+            <div className="view-pills">
+              <TypeBadge type={item.type} />
+              {item.customer && (
+                <span className="inbox-customer">
+                  {item.customer}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="view-section">
+            {item.channel && (
+              <div className="view-row">
+                <span className="view-row-label">
+                  {t("detail.channel")}
+                </span>
+                <span className="view-row-value">
+                  {item.channel}
+                </span>
+              </div>
+            )}
+            {item.direction && (
+              <div className="view-row">
+                <span className="view-row-label">
+                  {t("detail.direction")}
+                </span>
+                <span className="view-row-value">
+                  {item.direction}
+                </span>
+              </div>
+            )}
+            {created && (
+              <div className="view-row">
+                <span className="view-row-label">
+                  {t("detail.created")}
+                </span>
+                <span className="view-row-value">
+                  {created}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {item.body && (
+            <div>
+              <div className="view-block-label">
+                {t("detail.description")}
+              </div>
+              <div className="view-body">
+                <Markdown>{item.body}</Markdown>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </DetailScreen>
   )
 }
 

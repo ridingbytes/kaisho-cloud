@@ -1,4 +1,6 @@
 {
+  "common.yes": "Ja",
+  "common.no": "Nein",
   "timer.start": "Timer starten",
   "timer.stop": "Stopp",
   "timer.customer": "Kunde",
@@ -70,6 +72,7 @@
   "edit.label.description": "Beschreibung",
   "edit.label.notes": "Notizen",
   "edit.label.invoiced": "Abgerechnet",
+  "edit.label.date": "Datum",
   "edit.contract.none": "Kein",
   "edit.description_placeholder": "Beschreibung",
   "edit.notes_placeholder": "Freie Notizen",
@@ -226,5 +229,6 @@
   "projects.taskCount": "{{count}} Aufgaben",
   "projects.noteCount": "{{count}} Notizen",
   "projects.showArchived": "Archivierte anzeigen ({{count}})",
-  "projects.hideArchived": "Archivierte ausblenden"
+  "projects.hideArchived": "Archivierte ausblenden",
+  "detail.openLink": "Öffnen"
 }

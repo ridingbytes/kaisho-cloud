@@ -17,7 +17,7 @@ import type { AppConfig } from "../api"
 import { planLabel, isPaidPlan } from "../utils/planLabel"
 import { PixelAvatar } from "./PixelAvatar"
 import { PullToRefresh } from "./PullToRefresh"
-import { Modal } from "./Modal"
+import { DetailScreen } from "./DetailScreen"
 
 type Tab =
   | "timer"
@@ -392,12 +392,14 @@ export function AppShell() {
       </nav>
 
       {profileOpen && (
-        <Modal
+        <DetailScreen
           title={t("shell.tab.profile")}
-          onClose={() => setProfileOpen(false)}
+          onBack={() => setProfileOpen(false)}
         >
-          <ProfileView />
-        </Modal>
+          <div className="ds-content">
+            <ProfileView />
+          </div>
+        </DetailScreen>
       )}
     </div>
   )

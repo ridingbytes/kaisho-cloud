@@ -25,9 +25,10 @@ import {
   statusLabel,
 } from "../utils/projects"
 import { formatMins } from "../utils/time"
-import { Modal } from "./Modal"
+import { DetailScreen } from "./DetailScreen"
 import { Field, FieldRow, Select } from "./Field"
 import { TagEditor } from "./TagEditor"
+import { Markdown } from "./Markdown"
 import { useConfirm } from "./ConfirmDialog"
 
 /** Per-project rollups computed from tasks + entries. */
@@ -195,6 +196,7 @@ function ProjectEditor({
 }) {
   const { t } = useTranslation()
   const isNew = !project
+  const [editing, setEditing] = useState(isNew)
   const [name, setName] = useState(project?.name || "")
   const [status, setStatus] = useState(
     project?.status || "ACTIVE",
@@ -260,10 +262,31 @@ function ProjectEditor({
         tags,
         milestones,
       })
+      setSaving(false)
       onSaved()
+      if (isNew) onClose()
+      else setEditing(false)
     } catch {
       setSaving(false)
     }
+  }
+
+  function cancelEdit() {
+    if (isNew) {
+      onClose()
+      return
+    }
+    setName(project.name)
+    setStatus(project.status)
+    setCustomer(project.customer || "")
+    setContract(project.contract || "")
+    setColor(project.color || "")
+    setStart(project.start || "")
+    setDue(project.due || "")
+    setDescription(project.description || "")
+    setTags(project.tags || [])
+    setMilestones(project.milestones || [])
+    setEditing(false)
   }
 
   async function handleDelete() {
@@ -278,164 +301,304 @@ function ProjectEditor({
     }
   }
 
+  const msDone = milestones.filter((m) => m.done).length
+  const navAction = editing ? (
+    <button
+      className="ds-nav-btn"
+      onClick={handleSave}
+      disabled={saving || !name.trim()}
+    >
+      {saving ? t("edit.saving") : t("edit.save")}
+    </button>
+  ) : (
+    <button
+      className="ds-nav-btn"
+      onClick={() => setEditing(true)}
+    >
+      {t("detail.edit")}
+    </button>
+  )
+
   return (
     <>
-      <Modal
-        title={isNew
-          ? t("projects.new")
-          : t("projects.edit")}
+      <DetailScreen
+        title={isNew ? t("projects.new") : name}
+        backLabel={t("shell.tab.projects")}
+        onBack={onClose}
         accent={effColor}
-        onClose={onClose}
-        footer={
-          <>
-            {project && (
+        action={navAction}
+        leftAction={editing ? (
+          <button className="ds-nav-btn" onClick={cancelEdit}>
+            {t("edit.cancel")}
+          </button>
+        ) : undefined}
+      >
+        {editing ? (
+          <div className="ds-form">
+            <Field label={t("projects.name")}>
+              <input
+                className="field-control"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("projects.namePlaceholder")}
+              />
+            </Field>
+
+            <FieldRow>
+              <Field label={t("detail.status")}>
+                <Select value={status} onChange={setStatus}>
+                  {PROJECT_STATES.map((s) => (
+                    <option key={s} value={s}>
+                      {statusLabel(s)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label={t("timer.customer")}>
+                <Select
+                  value={customer}
+                  onChange={setCustomer}
+                >
+                  <option value="">—</option>
+                  {customers.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </FieldRow>
+
+            {contracts.length > 0 && (
+              <Field label={t("edit.label.contract")}>
+                <Select
+                  value={contract}
+                  onChange={setContract}
+                >
+                  <option value="">
+                    {t("edit.contract.none")}
+                  </option>
+                  {contracts.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
+
+            <Field label={t("projects.color")}>
+              <div className="color-swatches">
+                {PROJECT_PALETTE.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={
+                      "color-swatch" +
+                      (effColor === c
+                        ? " color-swatch--active"
+                        : "")
+                    }
+                    style={{ background: c }}
+                    onClick={() => setColor(c)}
+                    aria-label={c}
+                  />
+                ))}
+              </div>
+            </Field>
+
+            <FieldRow>
+              <Field label={t("projects.start")}>
+                <input
+                  className="field-control"
+                  type="date"
+                  value={start}
+                  onChange={(e) => setStart(e.target.value)}
+                />
+              </Field>
+              <Field label={t("projects.due")}>
+                <input
+                  className="field-control"
+                  type="date"
+                  value={due}
+                  onChange={(e) => setDue(e.target.value)}
+                />
+              </Field>
+            </FieldRow>
+
+            <Field label={t("detail.description")}>
+              <textarea
+                className="field-control"
+                value={description}
+                onChange={(e) =>
+                  setDescription(e.target.value)
+                }
+                rows={4}
+              />
+            </Field>
+
+            <Field label={t("projects.milestones")}>
+              <MilestonesEditor
+                milestones={milestones}
+                onChange={setMilestones}
+              />
+            </Field>
+
+            <TagEditor
+              tags={tags}
+              editing={true}
+              onChange={setTags}
+              allTags={allTags}
+            />
+
+            {!isNew && (
               <button
                 type="button"
-                className="btn-danger"
+                className="btn-danger ds-delete"
                 onClick={handleDelete}
               >
                 {t("detail.delete")}
               </button>
             )}
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={handleSave}
-              disabled={saving || !name.trim()}
-            >
-              {saving ? t("edit.saving") : t("edit.save")}
-            </button>
-          </>
-        }
-      >
-        <Field label={t("projects.name")}>
-          <input
-            className="field-control"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t("projects.namePlaceholder")}
-          />
-        </Field>
+          </div>
+        ) : (
+          <div className="ds-content">
+            <div className="view-hero">
+              <div className="view-hero-title">{name}</div>
+              <div className="view-pills">
+                <span
+                  className="project-status-pill"
+                  style={{
+                    color: statusColor(status),
+                    background: statusColor(status) + "1f",
+                  }}
+                >
+                  {statusLabel(status)}
+                </span>
+                {customer && (
+                  <span className="inbox-customer">
+                    {customer}
+                  </span>
+                )}
+              </div>
+            </div>
 
-        <FieldRow>
-          <Field label={t("detail.status")}>
-            <Select value={status} onChange={setStatus}>
-              {PROJECT_STATES.map((s) => (
-                <option key={s} value={s}>
-                  {statusLabel(s)}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label={t("timer.customer")}>
-            <Select value={customer} onChange={setCustomer}>
-              <option value="">—</option>
-              {customers.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </FieldRow>
+            {milestones.length > 0 && (
+              <div>
+                <div className="view-block-label">
+                  {t("projects.milestones")}
+                  {"  "}
+                  {msDone}/{milestones.length}
+                </div>
+                <div className="view-section">
+                  {milestones.map((m) => (
+                    <div key={m.id} className="view-milestone">
+                      <span
+                        className={
+                          "milestone-dot" +
+                          (m.done
+                            ? " milestone-dot--done"
+                            : "")
+                        }
+                        style={
+                          m.done
+                            ? { background: effColor }
+                            : undefined
+                        }
+                      />
+                      <span
+                        className={
+                          m.done
+                            ? "milestone-title--done"
+                            : ""
+                        }
+                      >
+                        {m.title}
+                      </span>
+                      {m.due && (
+                        <span className="view-milestone-due">
+                          {m.due}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-        {contracts.length > 0 && (
-          <Field label={t("edit.label.contract")}>
-            <Select value={contract} onChange={setContract}>
-              <option value="">
-                {t("edit.contract.none")}
-              </option>
-              {contracts.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        )}
+            {(contract || start || due) && (
+              <div className="view-section">
+                {contract && (
+                  <div className="view-row">
+                    <span className="view-row-label">
+                      {t("edit.label.contract")}
+                    </span>
+                    <span className="view-row-value">
+                      {contract}
+                    </span>
+                  </div>
+                )}
+                {start && (
+                  <div className="view-row">
+                    <span className="view-row-label">
+                      {t("projects.start")}
+                    </span>
+                    <span className="view-row-value">
+                      {start}
+                    </span>
+                  </div>
+                )}
+                {due && (
+                  <div className="view-row">
+                    <span className="view-row-label">
+                      {t("projects.due")}
+                    </span>
+                    <span className="view-row-value">
+                      {due}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
-        <Field label={t("projects.color")}>
-          <div className="color-swatches">
-            {PROJECT_PALETTE.map((c) => (
-              <button
-                key={c}
-                type="button"
-                className={
-                  "color-swatch" +
-                  (effColor === c
-                    ? " color-swatch--active"
-                    : "")
-                }
-                style={{ background: c }}
-                onClick={() => setColor(c)}
-                aria-label={c}
+            {description && (
+              <div>
+                <div className="view-block-label">
+                  {t("detail.description")}
+                </div>
+                <div className="view-body">
+                  <Markdown>{description}</Markdown>
+                </div>
+              </div>
+            )}
+
+            {stats && (
+              <div className="project-linked">
+                <span>
+                  {t("projects.taskCount", {
+                    count: stats.taskCount,
+                  })}
+                </span>
+                <span>
+                  {t("projects.noteCount", {
+                    count: stats.noteCount,
+                  })}
+                </span>
+                <span>{formatMins(stats.minutes)}</span>
+              </div>
+            )}
+
+            {tags.length > 0 && (
+              <TagEditor
+                tags={tags}
+                editing={false}
+                onChange={() => {}}
+                allTags={allTags}
               />
-            ))}
-          </div>
-        </Field>
-
-        <FieldRow>
-          <Field label={t("projects.start")}>
-            <input
-              className="field-control"
-              type="date"
-              value={start}
-              onChange={(e) => setStart(e.target.value)}
-            />
-          </Field>
-          <Field label={t("projects.due")}>
-            <input
-              className="field-control"
-              type="date"
-              value={due}
-              onChange={(e) => setDue(e.target.value)}
-            />
-          </Field>
-        </FieldRow>
-
-        <Field label={t("detail.description")}>
-          <textarea
-            className="field-control"
-            value={description}
-            onChange={(e) =>
-              setDescription(e.target.value)
-            }
-            rows={3}
-          />
-        </Field>
-
-        <Field label={t("projects.milestones")}>
-          <MilestonesEditor
-            milestones={milestones}
-            onChange={setMilestones}
-          />
-        </Field>
-
-        <Field label={t("detail.tags")}>
-          <TagEditor
-            tags={tags}
-            editing={true}
-            onChange={setTags}
-            allTags={allTags}
-          />
-        </Field>
-
-        {stats && !isNew && (
-          <div className="project-linked">
-            <span>
-              {t("projects.taskCount", {
-                count: stats.taskCount,
-              })}
-            </span>
-            <span>
-              {t("projects.noteCount", {
-                count: stats.noteCount,
-              })}
-            </span>
-            <span>{formatMins(stats.minutes)}</span>
+            )}
           </div>
         )}
-      </Modal>
+      </DetailScreen>
       {confirmDialog}
     </>
   )
@@ -653,10 +816,7 @@ export function ProjectsView() {
               : stats.get(editing.id)
           }
           onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null)
-            refresh()
-          }}
+          onSaved={refresh}
           onDeleted={() => {
             setEditing(null)
             refresh()
