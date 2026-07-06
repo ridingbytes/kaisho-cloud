@@ -3076,3 +3076,385 @@ textarea.field-control {
   accent-color: var(--accent);
   flex-shrink: 0;
 }
+
+/* ===================================================== */
+/* Projects                                              */
+/* ===================================================== */
+
+.projects-view {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.projects-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.projects-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--t1);
+  margin: 0;
+}
+
+.projects-new-btn {
+  width: auto;
+  padding: 9px 14px;
+  font-size: 14px;
+  border-radius: 999px;
+}
+
+.projects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.project-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease),
+    border-color var(--dur-fast),
+    box-shadow var(--dur-fast);
+}
+
+.project-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+.project-card:active {
+  transform: scale(0.99);
+}
+
+.project-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.project-card-name {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--t1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-status-pill {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 650;
+  padding: 3px 9px;
+  border-radius: 999px;
+  text-transform: capitalize;
+}
+
+.project-card-customer {
+  font-size: 13px;
+  color: var(--t3);
+}
+
+.project-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--raised);
+  overflow: hidden;
+}
+
+.project-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width var(--dur) var(--ease);
+}
+
+.project-progress-label {
+  font-size: 12px;
+  color: var(--t3);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.project-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+  color: var(--t3);
+}
+
+.project-due {
+  color: var(--t4);
+}
+
+.projects-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--t3);
+}
+
+.projects-empty .btn-secondary {
+  width: auto;
+  padding: 10px 18px;
+}
+
+.projects-archived-toggle {
+  align-self: center;
+  background: none;
+  border: none;
+  color: var(--t3);
+  font-size: 13px;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.projects-archived-toggle:hover {
+  color: var(--t1);
+}
+
+/* -- Project dot / badge (shared) -- */
+
+.project-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--accent);
+}
+
+.project-dot--none {
+  background: var(--t4);
+  opacity: 0.5;
+}
+
+.project-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px 2px 6px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* -- Project picker -- */
+
+.project-picker {
+  position: relative;
+}
+
+.project-picker-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--t1);
+  font-family: var(--font);
+  font-size: 15px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.project-picker-trigger .select-caret {
+  position: static;
+  transform: none;
+  margin-left: auto;
+}
+
+.project-picker-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-picker-placeholder {
+  color: var(--t4);
+}
+
+.project-picker-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.project-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--t1);
+}
+
+.project-picker-item:hover,
+.project-picker-item.active {
+  background: var(--raised);
+}
+
+.project-picker-sub {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--t4);
+}
+
+/* -- Colour swatches -- */
+
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.color-swatch:hover {
+  transform: scale(1.12);
+}
+
+.color-swatch--active {
+  border-color: var(--t1);
+  box-shadow: 0 0 0 2px var(--bg),
+    0 0 0 4px var(--t1);
+}
+
+/* -- Milestones editor -- */
+
+.milestones {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.milestone-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+
+.milestone-check {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border: 2px solid var(--t4);
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--dur-fast),
+    border-color var(--dur-fast);
+}
+
+.milestone-check--done {
+  background: var(--green);
+  border-color: var(--green);
+}
+
+.milestone-title {
+  flex: 1;
+  font-size: 14px;
+  color: var(--t1);
+}
+
+.milestone-title--done {
+  text-decoration: line-through;
+  color: var(--t4);
+}
+
+.milestone-remove {
+  background: none;
+  border: none;
+  color: var(--t4);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.milestone-remove:hover {
+  color: var(--red);
+}
+
+.milestone-add {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.milestone-add-btn {
+  width: auto;
+  flex-shrink: 0;
+  padding: 0 16px;
+}
+
+/* -- Linked summary in the editor -- */
+
+.project-linked {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px 14px;
+  background: var(--raised);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--t2);
+  font-variant-numeric: tabular-nums;
+}

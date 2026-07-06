@@ -4,6 +4,7 @@ import type {
   Customer,
   InboxItem,
   Note,
+  Project,
   SignupResult,
   Task,
   TaskRef,
@@ -241,6 +242,7 @@ export function startTimer(data: {
   description: string
   task_id?: string
   contract?: string
+  project?: string
 }): Promise<ActiveTimer> {
   return request("/clocks/start", {
     method: "POST",
@@ -257,6 +259,7 @@ export function quickBook(data: {
   customer?: string
   description: string
   date?: string
+  project?: string
 }): Promise<ClockEntry> {
   return request("/clocks/quick-book", {
     method: "POST",
@@ -286,6 +289,7 @@ export function updateEntry(
     customer?: string | null
     description?: string
     task_id?: string | null
+    project?: string | null
     contract?: string | null
     notes?: string
     invoiced?: boolean
@@ -629,6 +633,93 @@ export function deleteSyncedNote(
     body: JSON.stringify({
       entries: [{
         ...note,
+        deleted_at: now,
+        updated_at: now,
+      }],
+    }),
+  })
+}
+
+// -- Projects --
+
+/** Mint a desktop-style project id ("P-" + 8 hex). */
+export function newProjectId(): string {
+  return "P-" + crypto.randomUUID().replace(/-/g, "")
+    .slice(0, 8)
+}
+
+/** Mint a desktop-style milestone id ("M-" + 8 hex). */
+export function newMilestoneId(): string {
+  return "M-" + crypto.randomUUID().replace(/-/g, "")
+    .slice(0, 8)
+}
+
+export function getSyncedProjects(): Promise<Project[]> {
+  return request<{ entries: Project[] }>(
+    "/sync/projects/changes?since=1970-01-01T00:00:00Z"
+      + "&limit=500",
+  ).then((d) =>
+    (d.entries || []).filter((e) => !e.deleted_at)
+  )
+}
+
+export function addSyncedProject(data: {
+  name: string
+  customer?: string
+  status?: string
+  color?: string
+  description?: string
+}): Promise<{ inserted: number; id: string }> {
+  const id = newProjectId()
+  const now = new Date().toISOString()
+  return request<{ inserted: number }>(
+    "/sync/projects/apply",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        entries: [{
+          id,
+          name: data.name,
+          customer: data.customer || "",
+          status: data.status || "ACTIVE",
+          color: data.color || "",
+          description: data.description || "",
+          tags: [],
+          milestones: [],
+          created_at: now,
+          updated_at: now,
+        }],
+      }),
+    },
+  ).then((r) => ({ ...r, id }))
+}
+
+export function updateSyncedProject(
+  project: Project,
+  updates: Partial<Project>,
+): Promise<{ updated: number }> {
+  const now = new Date().toISOString()
+  return request("/sync/projects/apply", {
+    method: "POST",
+    body: JSON.stringify({
+      entries: [{
+        ...project,
+        ...updates,
+        updated_at: now,
+      }],
+    }),
+  })
+}
+
+export function deleteSyncedProject(
+  project: Project,
+): Promise<{ updated: number }> {
+  const now = new Date().toISOString()
+  return request("/sync/projects/apply", {
+    method: "POST",
+    body: JSON.stringify({
+      entries: [{
+        ...project,
         deleted_at: now,
         updated_at: now,
       }],

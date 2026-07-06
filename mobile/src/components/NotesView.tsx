@@ -5,13 +5,14 @@ import {
   getCustomers,
   getTasks,
   getSyncedNotes,
+  getSyncedProjects,
   addSyncedNote,
   deleteSyncedNote,
   updateSyncedNote,
 } from "../api"
 import type { AppConfig } from "../api"
 import type {
-  Customer, Note, TaskRef,
+  Customer, Note, Project, TaskRef,
 } from "../types"
 import {
   formatShortDate,
@@ -23,6 +24,7 @@ import { SwipeToReveal } from "./SwipeToReveal"
 import { TagEditor } from "./TagEditor"
 import { Modal } from "./Modal"
 import { Field, Select } from "./Field"
+import { ProjectPicker } from "./ProjectPicker"
 
 function NoteRow({
   note,
@@ -124,6 +126,14 @@ function NoteDetailSheet({
   )
   const [body, setBody] = useState(note.body || "")
   const [tags, setTags] = useState(note.tags || [])
+  const [projectId, setProjectId] = useState(
+    note.project || "",
+  )
+  const [projects, setProjects] = useState<Project[]>([])
+
+  useEffect(() => {
+    getSyncedProjects().then(setProjects).catch(() => {})
+  }, [])
 
   const created = note.created_at
     ? formatFullDate(note.created_at)
@@ -138,6 +148,7 @@ function NoteDetailSheet({
       customer,
       title,
       task_id: taskId || null,
+      project: projectId || null,
       body,
       tags,
     })
@@ -201,6 +212,14 @@ function NoteDetailSheet({
           </Select>
         </Field>
       )}
+
+      <Field label={t("projects.label")}>
+        <ProjectPicker
+          value={projectId}
+          projects={projects}
+          onChange={setProjectId}
+        />
+      </Field>
 
       <Field label={t("detail.description")} grow>
         <textarea

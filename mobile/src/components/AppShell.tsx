@@ -8,6 +8,7 @@ import { EntriesView } from "./EntriesView"
 import { InboxView } from "./InboxView"
 import { TasksView } from "./TasksView"
 import { NotesView } from "./NotesView"
+import { ProjectsView } from "./ProjectsView"
 import { ProfileView } from "./ProfileView"
 import { Logo } from "./Logo"
 import { useAuth } from "../auth"
@@ -21,6 +22,7 @@ import { Modal } from "./Modal"
 type Tab =
   | "timer"
   | "tasks"
+  | "projects"
   | "inbox"
   | "advisor"
   | "notes"
@@ -43,6 +45,7 @@ const TIME_TABS: TabDef[] = [
 
 const ORGANIZE_TABS: TabDef[] = [
   { id: "tasks", icon: "check" },
+  { id: "projects", icon: "folder" },
   { id: "inbox", icon: "inbox" },
   { id: "notes", icon: "edit" },
   { id: "advisor", icon: "ai" },
@@ -163,6 +166,16 @@ function TabIcon({ icon }: { icon: string }) {
           <line x1="3" y1="10" x2="8" y2="10" />
           <line x1="12" y1="10" x2="17" y2="10" />
           <path d="M8 10v1a2 2 0 004 0v-1" />
+        </svg>
+      )
+    case "folder":
+      return (
+        <svg width="20" height="20" viewBox="0 0 20 20"
+          fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round"
+          strokeLinejoin="round">
+          <path d="M2 6a1 1 0 011-1h4l2 2h6a1 1 0
+            011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1z" />
         </svg>
       )
     default:
@@ -326,6 +339,7 @@ export function AppShell() {
         <PullToRefresh className="app-content">
           {tab === "timer" && <TimerView />}
           {tab === "tasks" && <TasksView />}
+          {tab === "projects" && <ProjectsView />}
           {tab === "inbox" && <InboxView />}
           {tab === "notes" && <NotesView />}
           {tab === "dashboard" && <DashboardView />}
