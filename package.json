@@ -1,6 +1,6 @@
 {
   "name": "kaisho-cloud",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "private": true,
   "description": "Kaisho Cloud Sync API",
   "main": "api/server.js",
