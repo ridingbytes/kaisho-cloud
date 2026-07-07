@@ -50,12 +50,16 @@ function orderedStates(states?: TaskState[]): string[] {
     : STATUS_ORDER
 }
 
-function stateLabel(name: string, states?: TaskState[]): string {
+export function stateLabel(
+  name: string, states?: TaskState[],
+): string {
   const st = states?.find((s) => s.name === name)
   return st?.label || statusLabel(name)
 }
 
-function stateColor(name: string, states?: TaskState[]): string {
+export function stateColor(
+  name: string, states?: TaskState[],
+): string {
   const st = states?.find((s) => s.name === name)
   return st?.color || STATUS_COLORS[name] || "#9ca3af"
 }
