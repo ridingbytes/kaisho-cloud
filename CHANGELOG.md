@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- Document the free-vs-paid entitlement boundary [#96](https://github.com/ridingbytes/kaisho-cloud/pull/96)
+
+## 2.2.1
+
+Project detail becomes a real workspace, plus mobile polish
+from live testing.
+
+- Show linked tasks, notes and time in the project detail [#93](https://github.com/ridingbytes/kaisho-cloud/pull/93)
+- Keep detail-screen nav buttons fully visible on narrow screens [#94](https://github.com/ridingbytes/kaisho-cloud/pull/94)
+- Colour the task status in a project's linked-task list [#95](https://github.com/ridingbytes/kaisho-cloud/pull/95)
+
 ## 2.2.0
 
 Projects come to the cloud and the PWA, and the mobile app
