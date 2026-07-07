@@ -36,8 +36,11 @@ import { Field, FieldRow, Select } from "./Field"
 import { TagEditor } from "./TagEditor"
 import { Markdown } from "./Markdown"
 import { useConfirm } from "./ConfirmDialog"
-import { TaskDetailSheet } from "./TasksView"
+import {
+  TaskDetailSheet, stateColor, stateLabel,
+} from "./TasksView"
 import { NoteDetailSheet } from "./NotesView"
+import { hexToRgba } from "../utils/tagColors"
 import { EditEntrySheet } from "./EditEntrySheet"
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -641,8 +644,24 @@ function ProjectEditor({
                       <span className="project-link-title">
                         {task.title}
                       </span>
-                      <span className="project-link-meta">
-                        {task.status}
+                      <span
+                        className="project-link-status"
+                        style={{
+                          color: stateColor(
+                            task.status, config.task_states,
+                          ),
+                          background: hexToRgba(
+                            stateColor(
+                              task.status,
+                              config.task_states,
+                            ),
+                            0.15,
+                          ),
+                        }}
+                      >
+                        {stateLabel(
+                          task.status, config.task_states,
+                        )}
                       </span>
                     </button>
                   ))}

@@ -3157,6 +3157,19 @@ textarea.field-control {
   font-variant-numeric: tabular-nums;
 }
 
+/* Status pill on a linked task row — colour comes inline
+   from the task's status (task_states colour or default). */
+.project-link-status {
+  flex-shrink: 0;
+  margin-left: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
 .entry-project {
   margin-top: 6px;
 }
