@@ -103,7 +103,7 @@ function NoteRow({
   )
 }
 
-function NoteDetailSheet({
+export function NoteDetailSheet({
   note,
   onClose,
   onUpdate,

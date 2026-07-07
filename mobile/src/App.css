@@ -3108,6 +3108,55 @@ textarea.field-control {
   font-variant-numeric: tabular-nums;
 }
 
+.project-links-section {
+  margin-top: 4px;
+}
+
+.project-links {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.project-link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.project-link-row + .project-link-row {
+  border-top: 1px solid var(--border);
+}
+
+.project-link-row:hover {
+  background: var(--raised);
+}
+
+.project-link-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-link-meta {
+  flex-shrink: 0;
+  margin-left: 8px;
+  color: var(--t3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 .entry-project {
   margin-top: 6px;
 }
