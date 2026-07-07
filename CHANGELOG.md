@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Document the free-vs-paid entitlement boundary [#96](https://github.com/ridingbytes/kaisho-cloud/pull/96)
+
 ## 2.2.1
 
 Project detail becomes a real workspace, plus mobile polish
