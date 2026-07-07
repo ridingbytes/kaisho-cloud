@@ -137,7 +137,7 @@ function TaskRow({
   )
 }
 
-function TaskDetailSheet({
+export function TaskDetailSheet({
   task,
   onClose,
   onUpdate,

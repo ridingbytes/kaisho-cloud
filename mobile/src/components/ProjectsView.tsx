@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
+  deleteSyncedNote,
   deleteSyncedProject,
+  deleteSyncedTask,
   getAppConfig,
   getCustomers,
   getEntries,
@@ -10,8 +12,11 @@ import {
   getSyncedTasks,
   newMilestoneId,
   newProjectId,
+  updateSyncedNote,
   updateSyncedProject,
+  updateSyncedTask,
 } from "../api"
+import type { AppConfig } from "../api"
 import type {
   ClockEntry, Customer, Milestone, Note, Project, Task,
 } from "../types"
@@ -25,11 +30,20 @@ import {
   statusLabel,
 } from "../utils/projects"
 import { formatMins } from "../utils/time"
+import { formatShortDate } from "../utils/formatDate"
 import { DetailScreen } from "./DetailScreen"
 import { Field, FieldRow, Select } from "./Field"
 import { TagEditor } from "./TagEditor"
 import { Markdown } from "./Markdown"
 import { useConfirm } from "./ConfirmDialog"
+import { TaskDetailSheet } from "./TasksView"
+import { NoteDetailSheet } from "./NotesView"
+import { EditEntrySheet } from "./EditEntrySheet"
+
+const DEFAULT_CONFIG: AppConfig = {
+  tags: [],
+  github_configured: false,
+}
 
 /** Per-project rollups computed from tasks + entries. */
 interface Stats {
@@ -181,7 +195,10 @@ function ProjectEditor({
   project,
   customers,
   allTags,
-  stats,
+  tasks,
+  notes,
+  entries,
+  config,
   onClose,
   onSaved,
   onDeleted,
@@ -189,13 +206,48 @@ function ProjectEditor({
   project: Project | null
   customers: Customer[]
   allTags: { name: string; color: string }[]
-  stats?: Stats
+  tasks: Task[]
+  notes: Note[]
+  entries: ClockEntry[]
+  config: AppConfig
   onClose: () => void
   onSaved: () => void
   onDeleted: () => void
 }) {
   const { t } = useTranslation()
   const isNew = !project
+  const [drill, setDrill] = useState<
+    { type: "task" | "note" | "entry"; item: any } | null
+  >(null)
+
+  const pid = project?.id || ""
+  const linkedTasks = useMemo(
+    () => tasks.filter((t) => t.project === pid),
+    [tasks, pid],
+  )
+  const linkedNotes = useMemo(
+    () => notes.filter((n) => n.project === pid),
+    [notes, pid],
+  )
+  const linkedEntries = useMemo(() => {
+    const taskPid = new Map<string, string | null | undefined>()
+    for (const task of tasks) taskPid.set(task.id, task.project)
+    return entries
+      .filter(
+        (e) =>
+          e.project === pid ||
+          (e.task_id && taskPid.get(e.task_id) === pid),
+      )
+      .sort((a, b) => b.start.localeCompare(a.start))
+  }, [entries, tasks, pid])
+  const linkedMinutes = useMemo(
+    () =>
+      linkedEntries.reduce(
+        (sum, e) => sum + (e.duration_minutes || 0),
+        0,
+      ),
+    [linkedEntries],
+  )
   const [editing, setEditing] = useState(isNew)
   const [name, setName] = useState(project?.name || "")
   const [status, setStatus] = useState(
@@ -572,19 +624,87 @@ function ProjectEditor({
               </div>
             )}
 
-            {stats && (
-              <div className="project-linked">
-                <span>
-                  {t("projects.taskCount", {
-                    count: stats.taskCount,
-                  })}
-                </span>
-                <span>
-                  {t("projects.noteCount", {
-                    count: stats.noteCount,
-                  })}
-                </span>
-                <span>{formatMins(stats.minutes)}</span>
+            {linkedTasks.length > 0 && (
+              <div className="project-links-section">
+                <div className="view-block-label">
+                  {t("shell.tab.tasks")} · {linkedTasks.length}
+                </div>
+                <div className="project-links">
+                  {linkedTasks.map((task) => (
+                    <button
+                      key={task.id}
+                      className="project-link-row"
+                      onClick={() =>
+                        setDrill({ type: "task", item: task })
+                      }
+                    >
+                      <span className="project-link-title">
+                        {task.title}
+                      </span>
+                      <span className="project-link-meta">
+                        {task.status}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {linkedNotes.length > 0 && (
+              <div className="project-links-section">
+                <div className="view-block-label">
+                  {t("shell.tab.notes")} · {linkedNotes.length}
+                </div>
+                <div className="project-links">
+                  {linkedNotes.map((note) => (
+                    <button
+                      key={note.id}
+                      className="project-link-row"
+                      onClick={() =>
+                        setDrill({ type: "note", item: note })
+                      }
+                    >
+                      <span className="project-link-title">
+                        {note.title}
+                      </span>
+                      <span className="project-link-meta">
+                        {note.created_at
+                          ? formatShortDate(note.created_at)
+                          : ""}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {linkedEntries.length > 0 && (
+              <div className="project-links-section">
+                <div className="view-block-label">
+                  {t("shell.group.time")} ·{" "}
+                  {formatMins(linkedMinutes)}
+                </div>
+                <div className="project-links">
+                  {linkedEntries.map((entry) => (
+                    <button
+                      key={entry.id}
+                      className="project-link-row"
+                      onClick={() =>
+                        setDrill({ type: "entry", item: entry })
+                      }
+                    >
+                      <span className="project-link-title">
+                        {formatShortDate(entry.start)}
+                        {entry.description
+                          ? ` · ${entry.description}`
+                          : ""}
+                      </span>
+                      <span className="project-link-meta">
+                        {formatMins(entry.duration_minutes)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -600,6 +720,51 @@ function ProjectEditor({
         )}
       </DetailScreen>
       {confirmDialog}
+      {drill?.type === "task" && (
+        <TaskDetailSheet
+          task={drill.item}
+          config={config}
+          customers={customers}
+          onClose={() => setDrill(null)}
+          onUpdate={(u) => {
+            updateSyncedTask(drill.item, u)
+            onSaved()
+          }}
+          onDelete={() => {
+            deleteSyncedTask(drill.item)
+            setDrill(null)
+            onSaved()
+          }}
+        />
+      )}
+      {drill?.type === "note" && (
+        <NoteDetailSheet
+          note={drill.item}
+          config={config}
+          customers={customers}
+          tasks={tasks}
+          onClose={() => setDrill(null)}
+          onUpdate={(u) => {
+            updateSyncedNote(drill.item, u)
+            onSaved()
+          }}
+          onDelete={() => {
+            deleteSyncedNote(drill.item)
+            setDrill(null)
+            onSaved()
+          }}
+        />
+      )}
+      {drill?.type === "entry" && (
+        <EditEntrySheet
+          entry={drill.item}
+          onClose={() => setDrill(null)}
+          onSaved={() => {
+            setDrill(null)
+            onSaved()
+          }}
+        />
+      )}
     </>
   )
 }
@@ -697,9 +862,8 @@ export function ProjectsView() {
   const [notes, setNotes] = useState<Note[]>([])
   const [entries, setEntries] = useState<ClockEntry[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
-  const [allTags, setAllTags] = useState<
-    { name: string; color: string }[]
-  >([])
+  const [config, setConfig] =
+    useState<AppConfig>(DEFAULT_CONFIG)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<
     Project | null | "new"
@@ -729,9 +893,11 @@ export function ProjectsView() {
     refresh()
     getCustomers().then(setCustomers).catch(() => {})
     getAppConfig()
-      .then((c) => setAllTags(c.tags))
+      .then(setConfig)
       .catch(() => {})
   }, [])
+
+  const allTags = config.tags
 
   const stats = useMemo(
     () => computeStats(projects, tasks, notes, entries),
@@ -810,11 +976,10 @@ export function ProjectsView() {
           project={editing === "new" ? null : editing}
           customers={customers}
           allTags={allTags}
-          stats={
-            editing === "new"
-              ? undefined
-              : stats.get(editing.id)
-          }
+          tasks={tasks}
+          notes={notes}
+          entries={entries}
+          config={config}
           onClose={() => setEditing(null)}
           onSaved={refresh}
           onDeleted={() => {

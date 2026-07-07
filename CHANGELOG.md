@@ -1,15 +1,21 @@
 # Changelog
 
-## Unreleased
+## 2.2.0
 
 Projects come to the cloud and the PWA, and the mobile app
-gets a native-feeling editor overhaul.
+gets a native-feeling editor overhaul with a full round of
+sync fixes from live testing.
 
 - Add cloud sync support for projects [#83](https://github.com/ridingbytes/kaisho-cloud/pull/83)
 - Unify all editors on a modern Modal + Field kit [#84](https://github.com/ridingbytes/kaisho-cloud/pull/84)
 - Add Projects to the PWA [#85](https://github.com/ridingbytes/kaisho-cloud/pull/85)
 - Assign projects at creation time and show them on rows [#86](https://github.com/ridingbytes/kaisho-cloud/pull/86)
 - Rework editors into stacked view-first detail screens [#87](https://github.com/ridingbytes/kaisho-cloud/pull/87)
+- PWA: don't drop tasks with non-default statuses [#88](https://github.com/ridingbytes/kaisho-cloud/pull/88)
+- PWA: render task statuses in the desktop's configured order [#89](https://github.com/ridingbytes/kaisho-cloud/pull/89)
+- PWA: explicit Delete in every detail editor [#90](https://github.com/ridingbytes/kaisho-cloud/pull/90)
+- Translate projects + delete-confirm strings (es, ru, de) [#91](https://github.com/ridingbytes/kaisho-cloud/pull/91)
+- Drop dead CSS from the editor redesign [#92](https://github.com/ridingbytes/kaisho-cloud/pull/92)
 
 ### Migrations
 
@@ -19,8 +25,8 @@ gets a native-feeling editor overhaul.
 - `022_wipe_projects.sql` — fold `projects` into the
   `wipe_user_sync_state` RPC.
 
-Apply both to the kaisho-cloud Supabase (Dashboard SQL
-Editor) BEFORE deploying this to production.
+Both applied to the kaisho-cloud Supabase before this tag
+was cut.
 
 ## 2.1.0
 
