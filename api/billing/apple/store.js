@@ -86,8 +86,87 @@ async function linkAppleSubscription(userId, grant) {
   return effective
 }
 
+/**
+ * Refresh an Apple grant from a notification (renew, change,
+ * grace). Finds the user by the original transaction id —
+ * the /verify call linked it first — and updates the apple_*
+ * columns, then reconciles.
+ *
+ * @param {object} grant - From interpretNotification().
+ * @returns {Promise<string|null>} Effective plan, or null if
+ *   no user owns this subscription yet.
+ */
+async function refreshAppleGrant(grant) {
+  const userId = await findUserByOriginalTxn(
+    grant.originalTransactionId,
+  )
+  if (!userId) {
+    logger.warn(
+      { originalTransactionId: grant.originalTransactionId },
+      "Apple notification for unknown subscription",
+    )
+    return null
+  }
+
+  const { error } = await supabase
+    .from("users")
+    .update({
+      apple_product_id: grant.productId,
+      apple_plan: grant.plan,
+      apple_expires_at: grant.expiresAt,
+      apple_environment: grant.environment,
+    })
+    .eq("id", userId)
+  if (error) throw error
+
+  const effective = await reconcilePlan(userId)
+  logger.info(
+    { userId, plan: grant.plan, effective },
+    "Apple grant refreshed",
+  )
+  return effective
+}
+
+/**
+ * Revoke an Apple grant (expiry, refund, revoke). Clears the
+ * apple_plan / apple_expires_at so reconciliation drops the
+ * Apple contribution, then reconciles — which keeps any
+ * still-active Stripe plan. The original transaction id and
+ * product are kept for audit and possible re-linking.
+ *
+ * @param {string} originalTransactionId
+ * @returns {Promise<string|null>} Effective plan, or null.
+ */
+async function revokeAppleGrant(originalTransactionId) {
+  const userId = await findUserByOriginalTxn(
+    originalTransactionId,
+  )
+  if (!userId) {
+    logger.warn(
+      { originalTransactionId },
+      "Apple revoke for unknown subscription",
+    )
+    return null
+  }
+
+  const { error } = await supabase
+    .from("users")
+    .update({ apple_plan: null, apple_expires_at: null })
+    .eq("id", userId)
+  if (error) throw error
+
+  const effective = await reconcilePlan(userId)
+  logger.info(
+    { userId, effective },
+    "Apple grant revoked",
+  )
+  return effective
+}
+
 module.exports = {
   AppleLinkConflictError,
   findUserByOriginalTxn,
   linkAppleSubscription,
+  refreshAppleGrant,
+  revokeAppleGrant,
 }

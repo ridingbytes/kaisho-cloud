@@ -89,6 +89,22 @@ const appleVerifySchema = z.object({
     ),
 })
 
+/**
+ * POST /billing/apple/notifications request body. Apple's
+ * App Store Server sends the notification as a signed JWS in
+ * the signedPayload field.
+ * @type {z.ZodObject}
+ */
+const appleNotificationSchema = z.object({
+  signedPayload: z
+    .string()
+    .min(1, "signedPayload is required")
+    .regex(
+      /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,
+      "signedPayload must be a compact JWS",
+    ),
+})
+
 // ── Clock schemas ───────────────────────────────────────
 
 /**
@@ -574,6 +590,7 @@ module.exports = {
   integrationDispatchSchema,
   checkoutSchema,
   appleVerifySchema,
+  appleNotificationSchema,
   clockStartSchema,
   quickBookSchema,
   clockUpdateSchema,
