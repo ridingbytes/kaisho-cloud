@@ -26,6 +26,7 @@ const clockRoutes = require("./routes/clocks")
 const syncRoutes = require("./routes/sync")
 const refRoutes = require("./routes/ref")
 const billingRoutes = require("./routes/billing")
+const appleRoutes = require("./routes/apple")
 const aiRoutes = require("./routes/ai")
 const cloudJobRoutes = require("./routes/cloud-jobs")
 const integrationRoutes = require("./routes/integrations")
@@ -73,6 +74,12 @@ app.use("/clocks", clockRoutes)
 app.use("/sync", syncRoutes)
 app.use("/ref", refRoutes)
 app.use("/billing", billingRoutes)
+// iOS in-app purchases (StoreKit 2). Mounted under /billing
+// so it sits with the other subscription routes, but it is
+// a distinct surface from Stripe — the web PWA never calls
+// it. JSON body is fine: the signedTransaction is itself a
+// JWS verified by Apple's signature, so no raw-body needed.
+app.use("/billing/apple", appleRoutes)
 app.use("/ai", aiRoutes)
 app.use("/cloud", cloudJobRoutes)
 app.use("/integrations", integrationRoutes)

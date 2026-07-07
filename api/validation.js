@@ -70,6 +70,25 @@ const checkoutSchema = z.object({
   yearly: z.boolean().optional(),
 })
 
+/**
+ * POST /billing/apple/verify request body. The iOS app
+ * sends the StoreKit 2 Transaction.jwsRepresentation (a
+ * signed JWS) after a purchase; the server verifies it.
+ * @type {z.ZodObject}
+ */
+const appleVerifySchema = z.object({
+  signedTransaction: z
+    .string()
+    .min(1, "signedTransaction is required")
+    // A JWS is header.payload.signature — three dot-
+    // separated base64url segments. Cheap shape guard;
+    // the real check is the signature verification.
+    .regex(
+      /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,
+      "signedTransaction must be a compact JWS",
+    ),
+})
+
 // ── Clock schemas ───────────────────────────────────────
 
 /**
@@ -554,6 +573,7 @@ module.exports = {
   integrationConnectSchema,
   integrationDispatchSchema,
   checkoutSchema,
+  appleVerifySchema,
   clockStartSchema,
   quickBookSchema,
   clockUpdateSchema,
