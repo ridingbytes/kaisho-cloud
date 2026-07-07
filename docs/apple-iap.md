@@ -178,3 +178,25 @@ The App Store Server API credentials (issuer id, key id, and
 the `.p8` private key) are only needed for server-initiated
 status lookups and the notification path; they are documented
 with the notifications work.
+
+### Production (Docker) provisioning
+
+The cert is git-ignored and not baked into the image, so on
+the VPS it is bind-mounted into the container. `docker-compose
+.prod.yml` mounts `./apple-certs` (i.e. `/home/docker/
+kaisho-cloud/apple-certs` on the host) read-only at
+`/opt/apple-certs` and sets `APPLE_ROOT_CA_PATH=/opt/apple-
+certs`. To provision:
+
+    ssh vps
+    cd /home/docker/kaisho-cloud
+    mkdir -p apple-certs
+    # copy AppleRootCA-G3.cer into apple-certs/ (scp from a
+    # machine that downloaded it from Apple), then:
+    docker compose up -d api
+
+Verify from inside the container:
+
+    docker exec kaisho-cloud ls /opt/apple-certs
+    curl -s -o /dev/null -w '%{http_code}\n' \
+      https://cloud.kaisho.dev/billing/apple/verify   # 401, not 503
