@@ -14,7 +14,7 @@ const {
   TOKEN_PACK_PLAN,
   TOKEN_PACK_SIZE,
 } = require("../config")
-const { clearPlanCache } = require("../middleware")
+const { reconcilePlan } = require("../billing/reconcile")
 const { stripe } = require("../stripe")
 const {
   sendPlanUpgradeEmail,
@@ -54,16 +54,19 @@ async function onCheckoutCompleted(session) {
   const { user_id, plan } = session.metadata || {}
   if (!user_id || !plan) return
 
+  // Record Stripe's grant on its own source column; the
+  // reconciler recomputes users.plan (and clears the cache)
+  // so an Apple grant is never clobbered. See plans.js.
   await supabase
     .from("users")
     .update({
-      plan,
+      stripe_plan: plan,
       stripe_customer_id: session.customer,
       stripe_subscription_id: session.subscription,
     })
     .eq("id", user_id)
 
-  clearPlanCache(user_id)
+  await reconcilePlan(user_id)
 
   const { data: authData } =
     await supabase.auth.admin.getUserById(user_id)
@@ -119,12 +122,12 @@ async function onSubscriptionUpdated(sub) {
   await supabase
     .from("users")
     .update({
-      plan: newPlan,
+      stripe_plan: newPlan,
       stripe_subscription_id: sub.id,
     })
     .eq("stripe_customer_id", sub.customer)
 
-  if (userId) clearPlanCache(userId)
+  if (userId) await reconcilePlan(userId)
 
   logger.info(
     { customer: sub.customer, plan: newPlan },
@@ -161,10 +164,10 @@ async function onInvoicePaid(invoice) {
 
   await supabase
     .from("users")
-    .update({ plan: paidPlan })
+    .update({ stripe_plan: paidPlan })
     .eq("stripe_customer_id", invoice.customer)
 
-  if (userId) clearPlanCache(userId)
+  if (userId) await reconcilePlan(userId)
 
   logger.info(
     { invoice: invoice.id, plan: paidPlan },
@@ -183,22 +186,28 @@ async function onInvoicePaid(invoice) {
 async function onSubscriptionDeleted(sub) {
   const userId = await findUserIdByCustomer(sub.customer)
 
+  // Clear Stripe's grant and reconcile. If the user still
+  // has an active Apple subscription the effective plan
+  // stays paid — so only send the "cancelled" email when
+  // reconciliation actually drops them to free.
   await supabase
     .from("users")
     .update({
-      plan: "free",
+      stripe_plan: null,
       stripe_subscription_id: null,
     })
     .eq("stripe_customer_id", sub.customer)
 
   if (userId) {
-    clearPlanCache(userId)
-    const { data: authData } =
-      await supabase.auth.admin.getUserById(userId)
-    if (authData?.user?.email) {
-      sendPlanCancelledEmail({
-        email: authData.user.email,
-      })
+    const effective = await reconcilePlan(userId)
+    if (effective === "free") {
+      const { data: authData } =
+        await supabase.auth.admin.getUserById(userId)
+      if (authData?.user?.email) {
+        sendPlanCancelledEmail({
+          email: authData.user.email,
+        })
+      }
     }
   }
 
@@ -223,11 +232,11 @@ async function onCustomerDeleted(customerId) {
     .update({
       stripe_customer_id: null,
       stripe_subscription_id: null,
-      plan: "free",
+      stripe_plan: null,
     })
     .eq("stripe_customer_id", customerId)
 
-  if (userId) clearPlanCache(userId)
+  if (userId) await reconcilePlan(userId)
 
   logger.info(
     { customer: customerId },

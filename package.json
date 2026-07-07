@@ -6,6 +6,7 @@
   "main": "api/server.js",
   "scripts": {
     "start": "node api/server.js",
+    "test": "node --test \"test/**/*.test.js\"",
     "dev": "node --env-file=.env api/server.js -v",
     "cron": "node api/workers/cron.js",
     "cron:dev": "node --env-file=.env api/workers/cron.js"

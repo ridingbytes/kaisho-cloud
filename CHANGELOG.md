@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Document the free-vs-paid entitlement boundary [#96](https://github.com/ridingbytes/kaisho-cloud/pull/96)
+- Grant plans from Apple in-app purchases, reconciled with Stripe [#97](https://github.com/ridingbytes/kaisho-cloud/pull/97) (migration `023_apple_iap.sql`)
 
 ## 2.2.1
 
