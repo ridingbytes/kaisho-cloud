@@ -3193,7 +3193,11 @@ textarea.field-control {
 /* Nav bar */
 .ds-nav {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  /* Buttons take their natural width; the title flexes and
+     truncates. This keeps the back / action buttons fully
+     visible on narrow screens (e.g. iPhone SE) instead of
+     the long title cropping them. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
@@ -3220,14 +3224,18 @@ textarea.field-control {
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  max-width: 100%;
-  overflow: hidden;
+}
+
+/* Chevron never shrinks; the label truncates if extreme. */
+.ds-back svg {
+  flex-shrink: 0;
 }
 
 .ds-back span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 34vw;
 }
 
 .ds-title {
@@ -3240,7 +3248,9 @@ textarea.field-control {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 60vw;
+  /* min-width:0 lets the grid cell shrink so the title
+     truncates instead of pushing the buttons out. */
+  min-width: 0;
 }
 
 .ds-action {
