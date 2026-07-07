@@ -9,6 +9,11 @@
 #     present — shared with other apps)
 #   - cp .env.example .env (fill in secrets)
 #   - cp traefik/kaisho-cloud.yml /home/docker/traefik/conf.d/
+#   - mkdir -p apple-certs && drop AppleRootCA-G3.cer inside
+#     (needed for iOS in-app-purchase verification; without
+#     it POST /billing/apple/verify returns 503). The cert
+#     is git-ignored and not in the image, so it is bind-
+#     mounted from the host — see the api service below.
 
 services:
   api:
@@ -16,6 +21,14 @@ services:
     container_name: kaisho-cloud
     restart: unless-stopped
     env_file: .env
+    # Apple's root CA for verifying StoreKit JWS. Mounted
+    # read-only from the host (./apple-certs = /home/docker/
+    # kaisho-cloud/apple-certs) because the cert is
+    # provisioned per deploy, not baked into the image.
+    environment:
+      APPLE_ROOT_CA_PATH: /opt/apple-certs
+    volumes:
+      - ./apple-certs:/opt/apple-certs:ro
     networks:
       - traefik-public
 
