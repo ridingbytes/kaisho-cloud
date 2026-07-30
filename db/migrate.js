@@ -21,6 +21,11 @@ const BASELINE_VERSION = "0001_init"
 const SCHEMA_FILE = path.join(__dirname, "schema.sql")
 const MIGRATIONS_DIR = path.join(__dirname, "migrations")
 
+// Session advisory-lock key so concurrent runners (e.g. the
+// app and the migrate container starting together) serialize
+// instead of racing on CREATE statements.
+const LOCK_KEY = 4915231001
+
 async function ensureMigrationsTable(client) {
   await client.query(
     "CREATE TABLE IF NOT EXISTS schema_migrations (" +
@@ -72,7 +77,7 @@ function migrationFiles() {
     .sort()
 }
 
-async function migrate(client) {
+async function migrateLocked(client) {
   await ensureMigrationsTable(client)
   const done = await appliedVersions(client)
 
@@ -88,6 +93,15 @@ async function migrate(client) {
       path.join(MIGRATIONS_DIR, file), "utf8",
     )
     await applyVersion(client, version, sql)
+  }
+}
+
+async function migrate(client) {
+  await client.query("SELECT pg_advisory_lock($1)", [LOCK_KEY])
+  try {
+    await migrateLocked(client)
+  } finally {
+    await client.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY])
   }
 }
 
