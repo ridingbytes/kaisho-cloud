@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add a plain-PostgreSQL schema and migration runner (de-Supabase step 1) [#103](https://github.com/ridingbytes/kaisho-cloud/pull/103)
 - Open every feature to all accounts; make the AI token cap instance-wide [#102](https://github.com/ridingbytes/kaisho-cloud/pull/102)
 - Close new paid subscriptions for the open-source transition [#101](https://github.com/ridingbytes/kaisho-cloud/pull/101)
 - Document the free-vs-paid entitlement boundary [#96](https://github.com/ridingbytes/kaisho-cloud/pull/96)

@@ -9,7 +9,9 @@
     "test": "node --test \"test/**/*.test.js\"",
     "dev": "node --env-file=.env api/server.js -v",
     "cron": "node api/workers/cron.js",
-    "cron:dev": "node --env-file=.env api/workers/cron.js"
+    "cron:dev": "node --env-file=.env api/workers/cron.js",
+    "migrate": "node db/migrate.js",
+    "migrate:dev": "node --env-file=.env db/migrate.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -21,6 +23,7 @@
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.1.0",
     "node-cron": "^4.2.1",
+    "pg": "^8.22.0",
     "pino": "^9.6.0",
     "pino-http": "^10.4.0",
     "resend": "^4.1.0",
