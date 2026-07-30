@@ -21,11 +21,20 @@ const clientOpts = {
   },
 }
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY,
-  clientOpts,
-)
+// DB_BACKEND selects the data layer:
+//   "supabase" (default) - supabase-js against Supabase Postgres
+//   "postgres"           - the pg query shim against DATABASE_URL
+// Auth (supabaseAuth) still uses Supabase until the self-owned
+// auth lands, so Supabase env stays required for now.
+const DB_BACKEND = process.env.DB_BACKEND || "supabase"
+
+const supabase = DB_BACKEND === "postgres"
+  ? require("./db_pg").createClient()
+  : createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_KEY,
+    clientOpts,
+  )
 
 const supabaseAuth = createClient(
   process.env.SUPABASE_URL,
