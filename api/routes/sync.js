@@ -29,6 +29,7 @@ const {
   syncLimiter, DEFAULT_TASK_STATUS,
 } = require("../config")
 const { requireAuth } = require("../middleware")
+const { getUserEmail } = require("../auth/session")
 // Sync is open to every account. This passthrough keeps the
 // route/factory wiring intact now that there are no plans.
 const requireSync = (_req, _res, next) => next()
@@ -552,18 +553,14 @@ router.get(
       .eq("id", req.userId)
       .single()
 
-    // Fetch email from Supabase Auth
-    const { data: authData } =
-      await supabase.auth.admin.getUserById(
-        req.userId,
-      )
+    const email = await getUserEmail(req.userId)
 
     res.json({
       entry_count: entryCount || 0,
       last_change_at: latest?.updated_at || null,
       active_timer_id: active?.id || null,
       plan: user?.plan || "free",
-      email: authData?.user?.email || null,
+      email: email || null,
     })
   }),
 )

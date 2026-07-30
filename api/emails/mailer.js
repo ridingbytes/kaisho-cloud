@@ -14,7 +14,19 @@ const {
   renderTokenPackPurchased,
 } = require("./token-pack-purchased")
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Email is optional. Without RESEND_API_KEY (common for a
+// self-hosted instance) sends become no-ops instead of throwing
+// at construction, so the server still boots. Callers already
+// treat delivery as best-effort.
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : {
+    emails: {
+      send: async () => {
+        logger.debug("email skipped: RESEND_API_KEY not set")
+      },
+    },
+  }
 const FROM =
   process.env.EMAIL_FROM || "Kaisho <noreply@kaisho.dev>"
 

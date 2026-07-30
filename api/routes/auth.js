@@ -14,6 +14,14 @@ const {
 const {
   supabase, supabaseAuth, invalidateAuthCache,
 } = require("../db")
+const {
+  OWN_AUTH,
+  hashPassword,
+  verifyPassword,
+  signAccess,
+  signRefresh,
+  verifyRefresh,
+} = require("../auth/session")
 const { logger } = require("../logger")
 const { requireJwt } = require("../middleware")
 const {
@@ -31,6 +39,50 @@ const { asyncHandler } = require("../utils/asyncHandler")
 
 const router = Router()
 
+/**
+ * Create a user in Supabase Auth + a users row. Returns the
+ * new user id, or null after sending an error response.
+ */
+async function createSupabaseUser(email, password, res) {
+  const { data, error } = await supabase.auth.admin.createUser({
+    email, password, email_confirm: true,
+  })
+  if (error) {
+    if (error.message.includes("already")) {
+      res.status(409).json({ error: "Email already registered" })
+      return null
+    }
+    res.status(500).json({ error: "Could not create account" })
+    return null
+  }
+  const userId = data.user.id
+  await supabase.from("users").insert({ id: userId, plan: "free" })
+  return userId
+}
+
+/**
+ * Create a self-owned user row (email + bcrypt password_hash).
+ * Returns the new user id, or null after sending an error
+ * response. Unique-violation (23505) means the email is taken.
+ */
+async function createOwnUser(email, password, res) {
+  const passwordHash = await hashPassword(password)
+  const { data, error } = await supabase
+    .from("users")
+    .insert({ email, password_hash: passwordHash, plan: "free" })
+    .select("id")
+    .single()
+  if (error) {
+    if (error.code === "23505") {
+      res.status(409).json({ error: "Email already registered" })
+      return null
+    }
+    res.status(500).json({ error: "Could not create account" })
+    return null
+  }
+  return data.id
+}
+
 // ── POST /auth/signup ───────────────────────────────────
 
 /**
@@ -46,30 +98,10 @@ router.post(
   asyncHandler(async (req, res) => {
     const { email, password } = req.body
 
-    const { data: authData, error: authErr } =
-      await supabase.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-      })
-
-    if (authErr) {
-      if (authErr.message.includes("already")) {
-        return res
-          .status(409)
-          .json({ error: "Email already registered" })
-      }
-      return res
-        .status(500)
-        .json({ error: "Could not create account" })
-    }
-
-    const userId = authData.user.id
-
-    await supabase.from("users").insert({
-      id: userId,
-      plan: "free",
-    })
+    const userId = OWN_AUTH
+      ? await createOwnUser(email, password, res)
+      : await createSupabaseUser(email, password, res)
+    if (!userId) return // helper already sent the response
 
     const apiKey = crypto.randomUUID()
     const keyHash = await bcrypt.hash(apiKey, 10)
@@ -106,6 +138,7 @@ router.post(
   validate(loginSchema),
   asyncHandler(async (req, res) => {
     const { email, password } = req.body
+    if (OWN_AUTH) return loginOwn(email, password, res)
 
     const { data, error } =
       await supabaseAuth.auth.signInWithPassword({
@@ -142,6 +175,33 @@ router.post(
   }),
 )
 
+/**
+ * Self-owned login: verify the bcrypt password_hash on the
+ * users row and issue our own access + refresh JWTs. Same
+ * 401 and wire shape as the Supabase path.
+ */
+async function loginOwn(email, password, res) {
+  const { data: user } = await supabase
+    .from("users")
+    .select("id, email, plan, password_hash")
+    .eq("email", email)
+    .maybeSingle()
+
+  const ok = user &&
+    await verifyPassword(password, user.password_hash)
+  if (!ok) {
+    return res.status(401).json({ error: "Invalid credentials" })
+  }
+
+  res.json({
+    user_id: user.id,
+    email: user.email,
+    plan: user.plan || "free",
+    access_token: signAccess(user.id, user.email),
+    refresh_token: signRefresh(user.id),
+  })
+}
+
 // ── POST /auth/refresh ──────────────────────────────────
 
 /**
@@ -154,6 +214,7 @@ router.post(
   validate(refreshSchema),
   asyncHandler(async (req, res) => {
     const { refresh_token } = req.body
+    if (OWN_AUTH) return refreshOwn(refresh_token, res)
 
     const { data, error } =
       await supabaseAuth.auth.refreshSession({
@@ -172,6 +233,30 @@ router.post(
     })
   }),
 )
+
+/**
+ * Self-owned refresh: verify the refresh JWT, then issue a
+ * fresh access + refresh pair (rotation). The email claim on
+ * the new access token is re-read from the users row.
+ */
+async function refreshOwn(refreshToken, res) {
+  const claim = refreshToken && verifyRefresh(refreshToken)
+  if (!claim) {
+    return res.status(401).json({ error: "Invalid refresh token" })
+  }
+  const { data: user } = await supabase
+    .from("users")
+    .select("email")
+    .eq("id", claim.userId)
+    .maybeSingle()
+  if (!user) {
+    return res.status(401).json({ error: "Invalid refresh token" })
+  }
+  res.json({
+    access_token: signAccess(claim.userId, user.email),
+    refresh_token: signRefresh(claim.userId),
+  })
+}
 
 // ── POST /auth/api-key ──────────────────────────────────
 
@@ -351,10 +436,14 @@ router.post(
       })
     }
 
-    const { error } =
-      await supabase.auth.admin.updateUserById(
+    const error = OWN_AUTH
+      ? (await supabase
+        .from("users")
+        .update({ password_hash: await hashPassword(password) })
+        .eq("id", userId)).error
+      : (await supabase.auth.admin.updateUserById(
         userId, { password },
-      )
+      )).error
 
     if (error) {
       return res.status(500).json({

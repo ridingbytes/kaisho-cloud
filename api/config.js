@@ -9,7 +9,11 @@ const { rateLimit } = require("express-rate-limit")
 
 // ── Env validation ──────────────────────────────────────
 
-const REQUIRED = ["SUPABASE_URL", "SUPABASE_SERVICE_KEY"]
+// postgres mode is fully Supabase-free: it needs the DB URL
+// and a JWT signing secret instead of the Supabase keys.
+const REQUIRED = (process.env.DB_BACKEND || "supabase") === "postgres"
+  ? ["DATABASE_URL", "JWT_SECRET"]
+  : ["SUPABASE_URL", "SUPABASE_SERVICE_KEY"]
 for (const key of REQUIRED) {
   if (!process.env[key]) {
     throw new Error(`Missing required env var: ${key}`)

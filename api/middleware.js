@@ -3,11 +3,11 @@
 const bcrypt = require("bcryptjs")
 const {
   supabase,
-  supabaseAuth,
   getCachedUser,
   cacheUser,
   invalidateAuthCache,
 } = require("./db")
+const { verifyAccess } = require("./auth/session")
 
 // Cache plan lookups to avoid a Supabase round-trip on
 // every request (free tier can be 100-300ms away).
@@ -40,13 +40,13 @@ async function requireJwt(req, res, next) {
   }
   const token = auth.slice(7)
 
-  const { data, error } = await supabaseAuth.auth.getUser(token)
-  if (error || !data?.user) {
+  const session = await verifyAccess(token)
+  if (!session) {
     return res.status(401).json({ error: "Invalid token" })
   }
 
-  req.userId = data.user.id
-  req.userEmail = data.user.email
+  req.userId = session.userId
+  req.userEmail = session.email
   next()
 }
 
@@ -129,12 +129,11 @@ async function requireAuth(req, res, next) {
   // comfortably wide so any minor format drift on either
   // side stays inside the right branch.
   if (token.length > 50) {
-    const { data, error } =
-      await supabaseAuth.auth.getUser(token)
-    if (!error && data?.user) {
-      req.userId = data.user.id
-      req.userEmail = data.user.email
-      const cached = PLAN_CACHE.get(data.user.id)
+    const session = await verifyAccess(token)
+    if (session) {
+      req.userId = session.userId
+      req.userEmail = session.email
+      const cached = PLAN_CACHE.get(session.userId)
       if (
         cached &&
         Date.now() - cached.ts < PLAN_CACHE_TTL
@@ -144,11 +143,11 @@ async function requireAuth(req, res, next) {
         const { data: u } = await supabase
           .from("users")
           .select("plan")
-          .eq("id", data.user.id)
+          .eq("id", session.userId)
           .maybeSingle()
         const plan = u?.plan || "free"
         PLAN_CACHE.set(
-          data.user.id, { plan, ts: Date.now() },
+          session.userId, { plan, ts: Date.now() },
         )
         req.userPlan = plan
       }
