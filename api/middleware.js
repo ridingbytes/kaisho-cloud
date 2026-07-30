@@ -162,69 +162,18 @@ async function requireAuth(req, res, next) {
 // ── Plan enforcement ────────────────────────────────────
 
 /**
- * Require the authenticated user to be on one of the
- * given plans. Returns 403 if not.
- *
- * @param {...string} plans - Allowed plan names.
- * @returns {Function} Express middleware.
- */
-function requirePlan(...plans) {
-  return async (req, res, next) => {
-    const userId = req.userId
-    const cached = PLAN_CACHE.get(userId)
-    if (cached && Date.now() - cached.ts < PLAN_CACHE_TTL) {
-      if (!plans.includes(cached.plan)) {
-        return res.status(403).json({
-          error: "Plan upgrade required",
-          current_plan: cached.plan,
-        })
-      }
-      req.userPlan = cached.plan
-      return next()
-    }
-
-    let { data: user } = await supabase
-      .from("users")
-      .select("plan")
-      .eq("id", userId)
-      .single()
-
-    if (!user) {
-      const { data: created } = await supabase
-        .from("users")
-        .upsert({ id: userId, plan: "free" })
-        .select("plan")
-        .single()
-      user = created
-    }
-
-    const plan = user?.plan || "free"
-    PLAN_CACHE.set(userId, { plan, ts: Date.now() })
-
-    if (!plans.includes(plan)) {
-      return res.status(403).json({
-        error: "Plan upgrade required",
-        current_plan: plan,
-      })
-    }
-    req.userPlan = plan
-    next()
-  }
-}
-
-/**
  * Invalidate every cached copy of a user's plan so a
  * plan change takes effect on the next request.
  *
  * Two caches hold the plan with different lifetimes:
- *   - PLAN_CACHE here (60s), read by requirePlan
+ *   - PLAN_CACHE here (60s), read by requireAuth
  *   - the auth cache in db.js (5min), which stores the
  *     whole user row (incl. plan) keyed by API-key hash
  *     and is read by requireApiKey to skip bcrypt
  *
  * Clearing only the first let a plan change lag up to 5
- * minutes behind. Clear both so an upgrade / downgrade
- * (Stripe webhook, billing) is effective immediately.
+ * minutes behind. Clear both so any change to the cached
+ * user row is effective immediately.
  *
  * @param {string} userId - User UUID.
  */
@@ -237,6 +186,5 @@ module.exports = {
   requireJwt,
   requireApiKey,
   requireAuth,
-  requirePlan,
   clearPlanCache,
 }

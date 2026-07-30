@@ -12,7 +12,7 @@
 
 const { Router } = require("express")
 const { supabase } = require("../db")
-const { requireAuth, requirePlan } = require("../middleware")
+const { requireAuth } = require("../middleware")
 const { apiLimiter } = require("../config")
 const {
   validate,
@@ -25,7 +25,6 @@ const router = Router()
 
 router.use(requireAuth)
 router.use(apiLimiter)
-router.use(requirePlan("companion", "pro", "team"))
 
 // Columns returned to the client. Excludes nothing
 // sensitive today, but listing them keeps the response

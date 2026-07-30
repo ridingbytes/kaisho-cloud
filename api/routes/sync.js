@@ -28,11 +28,10 @@ const { supabase } = require("../db")
 const {
   syncLimiter, DEFAULT_TASK_STATUS,
 } = require("../config")
-const {
-  requireAuth, requirePlan,
-} = require("../middleware")
-// Any paid tier grants sync. Free is gated.
-const requireSync = requirePlan("companion", "pro", "team")
+const { requireAuth } = require("../middleware")
+// Sync is open to every account. This passthrough keeps the
+// route/factory wiring intact now that there are no plans.
+const requireSync = (_req, _res, next) => next()
 const { broadcast } = require("../ws")
 const {
   validate,

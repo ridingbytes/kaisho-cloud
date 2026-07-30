@@ -22,9 +22,7 @@
 
 const { Router } = require("express")
 const { logger } = require("../logger")
-const {
-  requireApiKey, requirePlan,
-} = require("../middleware")
+const { requireApiKey } = require("../middleware")
 const { registerReadTools } = require("../mcp/tools/read")
 const { registerWriteTools } = require("../mcp/tools/write")
 const {
@@ -32,8 +30,6 @@ const {
 } = require("../integrations")
 
 const router = Router()
-const requireCompanion =
-  requirePlan("companion", "pro", "team")
 
 const SERVER_INFO = {
   name: "kaisho-cloud",
@@ -104,7 +100,7 @@ async function handleMcpRequest(req, res) {
 }
 
 router.post(
-  "/", requireApiKey, requireCompanion, handleMcpRequest,
+  "/", requireApiKey, handleMcpRequest,
 )
 
 // Stateless transport: GET (server→client SSE) and DELETE

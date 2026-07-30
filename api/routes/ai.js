@@ -13,9 +13,7 @@
  */
 
 const { Router } = require("express")
-const {
-  requireAuth, requirePlan,
-} = require("../middleware")
+const { requireAuth } = require("../middleware")
 const { apiLimiter } = require("../config")
 const { asyncHandler } = require("../utils/asyncHandler")
 const { logger } = require("../logger")
@@ -51,10 +49,9 @@ const router = Router()
 
 router.use(requireAuth)
 router.use(apiLimiter)
-// Any paid tier grants AI gateway access. The per-plan
-// monthly token quota is enforced separately by
+// The AI gateway is open to every account. The instance-wide
+// monthly token cap is enforced separately by
 // requireTokenQuota below.
-router.use(requirePlan("companion", "pro", "team"))
 
 // ── Guard middleware ───────────────────────────────────
 
@@ -91,7 +88,7 @@ async function requireTokenQuota(req, res, next) {
   try {
     [usage, cap] = await Promise.all([
       getUsage(req.userId, month),
-      resolveCap(req.userId, req.userPlan),
+      resolveCap(req.userId),
     ])
   } catch (err) {
     // Fail closed: if we can't read usage, reject rather
@@ -427,7 +424,7 @@ router.get(
       getUsage(req.userId, month),
       // Pass the plan so the cap reflects the per-plan
       // quota + bonus, not the gateway_config fallback.
-      resolveCap(req.userId, req.userPlan),
+      resolveCap(req.userId),
       getUserOverrides(req.userId),
     ])
     res.json({
