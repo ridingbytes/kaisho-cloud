@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Close new paid subscriptions for the open-source transition [#100](https://github.com/ridingbytes/kaisho-cloud/pull/100)
 - Document the free-vs-paid entitlement boundary [#96](https://github.com/ridingbytes/kaisho-cloud/pull/96)
 - Grant plans from Apple in-app purchases, reconciled with Stripe [#97](https://github.com/ridingbytes/kaisho-cloud/pull/97) (migration `023_apple_iap.sql`)
 - Handle App Store Server Notifications V2 for renew / expire / refund [#98](https://github.com/ridingbytes/kaisho-cloud/pull/98) (migration `024_apple_notifications.sql`)
