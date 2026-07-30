@@ -6,14 +6,11 @@
  */
 
 const crypto = require("crypto")
-const bcrypt = require("bcryptjs")
 const { Router } = require("express")
 const {
   signupLimiter, authLimiter, rotateKeyLimiter,
 } = require("../config")
-const {
-  supabase, supabaseAuth, invalidateAuthCache,
-} = require("../db")
+const { supabase, supabaseAuth } = require("../db")
 const {
   OWN_AUTH,
   hashPassword,
@@ -22,6 +19,14 @@ const {
   signRefresh,
   verifyRefresh,
 } = require("../auth/session")
+const {
+  createAccount, generateApiKey,
+} = require("../services/accounts")
+
+// open  - anyone may POST /auth/signup (self-host default)
+// token - public signup is closed; accounts come only from the
+//         admin provisioning API (our managed instance).
+const SIGNUP_MODE = process.env.SIGNUP_MODE || "open"
 const { logger } = require("../logger")
 const { requireJwt } = require("../middleware")
 const {
@@ -39,55 +44,12 @@ const { asyncHandler } = require("../utils/asyncHandler")
 
 const router = Router()
 
-/**
- * Create a user in Supabase Auth + a users row. Returns the
- * new user id, or null after sending an error response.
- */
-async function createSupabaseUser(email, password, res) {
-  const { data, error } = await supabase.auth.admin.createUser({
-    email, password, email_confirm: true,
-  })
-  if (error) {
-    if (error.message.includes("already")) {
-      res.status(409).json({ error: "Email already registered" })
-      return null
-    }
-    res.status(500).json({ error: "Could not create account" })
-    return null
-  }
-  const userId = data.user.id
-  await supabase.from("users").insert({ id: userId, plan: "free" })
-  return userId
-}
-
-/**
- * Create a self-owned user row (email + bcrypt password_hash).
- * Returns the new user id, or null after sending an error
- * response. Unique-violation (23505) means the email is taken.
- */
-async function createOwnUser(email, password, res) {
-  const passwordHash = await hashPassword(password)
-  const { data, error } = await supabase
-    .from("users")
-    .insert({ email, password_hash: passwordHash, plan: "free" })
-    .select("id")
-    .single()
-  if (error) {
-    if (error.code === "23505") {
-      res.status(409).json({ error: "Email already registered" })
-      return null
-    }
-    res.status(500).json({ error: "Could not create account" })
-    return null
-  }
-  return data.id
-}
-
 // ── POST /auth/signup ───────────────────────────────────
 
 /**
- * Register a new user account. Creates a Supabase auth
- * user, a users row, and generates an API key.
+ * Register a new user account and generate its API key.
+ * Disabled when SIGNUP_MODE=token (accounts are provisioned
+ * by the operator via the admin API instead).
  *
  * @route POST /auth/signup
  */
@@ -96,29 +58,25 @@ router.post(
   signupLimiter,
   validate(signupSchema),
   asyncHandler(async (req, res) => {
+    if (SIGNUP_MODE === "token") {
+      return res.status(403).json({
+        error: "Signups are closed on this server.",
+      })
+    }
     const { email, password } = req.body
 
-    const userId = OWN_AUTH
-      ? await createOwnUser(email, password, res)
-      : await createSupabaseUser(email, password, res)
-    if (!userId) return // helper already sent the response
+    const result = await createAccount({ email, password })
+    if (result.error) {
+      return res
+        .status(result.error.status)
+        .json({ error: result.error.message })
+    }
 
-    const apiKey = crypto.randomUUID()
-    const keyHash = await bcrypt.hash(apiKey, 10)
-    const keyPrefix = apiKey.slice(0, 8)
-
-    await supabase
-      .from("users")
-      .update({
-        api_key_hash: keyHash,
-        api_key_prefix: keyPrefix,
-      })
-      .eq("id", userId)
-
+    const apiKey = await generateApiKey(result.userId)
     sendWelcomeEmail({ email, apiKey })
 
     res.status(201).json({
-      user_id: userId,
+      user_id: result.userId,
       api_key: apiKey,
     })
   }),
@@ -183,7 +141,7 @@ router.post(
 async function loginOwn(email, password, res) {
   const { data: user } = await supabase
     .from("users")
-    .select("id, email, plan, password_hash")
+    .select("id, email, plan, password_hash, disabled_at")
     .eq("email", email)
     .maybeSingle()
 
@@ -191,6 +149,9 @@ async function loginOwn(email, password, res) {
     await verifyPassword(password, user.password_hash)
   if (!ok) {
     return res.status(401).json({ error: "Invalid credentials" })
+  }
+  if (user.disabled_at) {
+    return res.status(403).json({ error: "Account disabled" })
   }
 
   res.json({
@@ -246,10 +207,10 @@ async function refreshOwn(refreshToken, res) {
   }
   const { data: user } = await supabase
     .from("users")
-    .select("email")
+    .select("email, disabled_at")
     .eq("id", claim.userId)
     .maybeSingle()
-  if (!user) {
+  if (!user || user.disabled_at) {
     return res.status(401).json({ error: "Invalid refresh token" })
   }
   res.json({
@@ -270,20 +231,7 @@ router.post(
   "/api-key",
   requireJwt,
   asyncHandler(async (req, res) => {
-    const apiKey = crypto.randomUUID()
-    const keyHash = await bcrypt.hash(apiKey, 10)
-    const keyPrefix = apiKey.slice(0, 8)
-
-    await supabase
-      .from("users")
-      .update({
-        api_key_hash: keyHash,
-        api_key_prefix: keyPrefix,
-      })
-      .eq("id", req.userId)
-
-    invalidateAuthCache(req.userId)
-
+    const apiKey = await generateApiKey(req.userId)
     res.json({ api_key: apiKey })
   }),
 )
