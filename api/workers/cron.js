@@ -153,7 +153,7 @@ async function runJob(job) {
     const month = currentMonth()
     const [usage, cap] = await Promise.all([
       getUsage(job.user_id, month),
-      resolveCap(job.user_id, plan),
+      resolveCap(job.user_id),
     ])
     const used = usage.input_tokens + usage.output_tokens
     if (used >= cap) {

@@ -17,7 +17,6 @@
 
 const crypto = require("crypto")
 const { supabase } = require("../db")
-const { PLAN_QUOTAS } = require("../config")
 const { logger } = require("../logger")
 const { withPriority } = require("./queue")
 
@@ -235,29 +234,30 @@ async function getUserOverrides(userId) {
 /**
  * Resolve the effective monthly token cap for a user.
  *
- * Resolution order:
- *   1. users.monthly_token_cap_override (absolute)
- *   2. PLAN_QUOTAS[plan] + bonus_tokens_remaining
- *   3. gateway_config.monthly_token_cap (fallback)
+ * There are no paid plans: every account shares the same
+ * instance-wide cap. Resolution order:
+ *   1. users.monthly_token_cap_override (absolute, per user)
+ *   2. AI_MONTHLY_TOKEN_CAP env (per instance; unset = fall
+ *      through to the gateway_config row)
+ *   3. gateway_config.monthly_token_cap (per instance)
+ * Self-hosters leave AI_MONTHLY_TOKEN_CAP unset for the
+ * gateway_config default, or set it to control cost.
  *
  * @param {string} userId
- * @param {string} plan
  * @returns {Promise<number>}
  */
-async function resolveCap(userId, plan) {
+async function resolveCap(userId) {
   const overrides = await getUserOverrides(userId)
   if (overrides.monthly_token_cap_override != null) {
     return overrides.monthly_token_cap_override
   }
-  const planQuota = PLAN_QUOTAS[plan]
-  if (planQuota) {
-    return (
-      planQuota.tokens_per_month
-      + (overrides.bonus_tokens_remaining || 0)
-    )
+  const bonus = overrides.bonus_tokens_remaining || 0
+  const envCap = process.env.AI_MONTHLY_TOKEN_CAP
+  if (envCap != null && envCap !== "") {
+    return Number(envCap) + bonus
   }
   const config = await getGatewayConfig()
-  return config.monthly_token_cap
+  return config.monthly_token_cap + bonus
 }
 
 /**

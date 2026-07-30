@@ -14,7 +14,7 @@
  */
 
 const { Router } = require("express")
-const { requireAuth, requirePlan } = require("../middleware")
+const { requireAuth } = require("../middleware")
 const { apiLimiter, oauthCallbackLimiter } = require(
   "../config",
 )
@@ -99,8 +99,7 @@ router.get(
 
 router.use(requireAuth)
 router.use(apiLimiter)
-// Premium integrations are a Pro feature.
-router.use(requirePlan("pro", "team"))
+// Integrations are available to every account.
 
 // ── GET /integrations/:kind/connect ─────────────────────
 

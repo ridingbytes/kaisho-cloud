@@ -10,7 +10,7 @@
 
 const { Router } = require("express")
 const { supabase } = require("../db")
-const { requireAuth, requirePlan } = require("../middleware")
+const { requireAuth } = require("../middleware")
 const { apiLimiter } = require("../config")
 const { broadcast } = require("../ws")
 const {
@@ -31,8 +31,6 @@ const router = Router()
 
 router.use(requireAuth)
 router.use(apiLimiter)
-// Any paid tier grants clocks sync.
-router.use(requirePlan("companion", "pro", "team"))
 
 // ── GET /clocks/active ──────────────────────────────────
 
