@@ -192,7 +192,15 @@ const PORT = process.env.PORT || 3000
 const BASE_URL =
   process.env.BASE_URL || "https://cloud.kaisho.dev"
 
+// Paid subscriptions are closed during the open-source
+// transition. New Stripe checkout and token-pack purchases
+// are refused unless BILLING_ENABLED is explicitly "true".
+// Existing subscriptions and the webhook keep working.
+const BILLING_ENABLED =
+  process.env.BILLING_ENABLED === "true"
+
 module.exports = {
+  BILLING_ENABLED,
   PLAN_PRICES,
   PLAN_QUOTAS,
   TOKEN_PACK_PLAN,

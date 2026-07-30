@@ -10,7 +10,7 @@
 const { Router } = require("express")
 const { requireJwt } = require("../middleware")
 const {
-  BASE_URL, PLAN_PRICES,
+  BASE_URL, PLAN_PRICES, BILLING_ENABLED,
 } = require("../config")
 const { supabase } = require("../db")
 const { logger } = require("../logger")
@@ -25,6 +25,23 @@ const {
 const { asyncHandler } = require("../utils/asyncHandler")
 
 const router = Router()
+
+/**
+ * Refuse new purchases while paid plans are closed for the
+ * open-source transition. Existing subscriptions, the
+ * customer portal, and the Stripe webhook are unaffected.
+ */
+function requireBillingEnabled(_req, res, next) {
+  if (!BILLING_ENABLED) {
+    return res.status(403).json({
+      error: "billing_closed",
+      message:
+        "Kaisho is going fully free and open source. " +
+        "New paid subscriptions are closed.",
+    })
+  }
+  next()
+}
 
 // ── GET /billing/subscription ───────────────────────────
 
@@ -91,6 +108,7 @@ router.get(
 router.post(
   "/checkout",
   requireJwt,
+  requireBillingEnabled,
   validate(checkoutSchema),
   asyncHandler(async (req, res) => {
     const { plan, yearly } = req.body
@@ -225,6 +243,7 @@ router.post(
 router.post(
   "/token-pack",
   requireJwt,
+  requireBillingEnabled,
   asyncHandler(async (req, res) => {
     const priceId = PLAN_PRICES.token_pack
     if (!priceId) {
