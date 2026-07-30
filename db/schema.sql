@@ -45,10 +45,12 @@ CREATE TABLE users (
     apple_plan             TEXT,
     apple_expires_at       TIMESTAMPTZ,
     apple_environment      TEXT,
-    -- Future self-owned auth: email currently sourced from
-    -- Supabase Auth, nullable until the migration lands.
+    -- Self-owned auth: email + bcrypt password hash.
     email                  TEXT UNIQUE,
     password_hash          TEXT,
+    -- Set by the admin provisioning API to revoke access
+    -- (e.g. subscription cancelled). NULL = active.
+    disabled_at            TIMESTAMPTZ,
     CONSTRAINT users_plan_check
         CHECK (plan IN ('free', 'companion', 'pro', 'team')),
     CONSTRAINT users_token_cap_override_range

@@ -7,7 +7,7 @@ const {
   cacheUser,
   invalidateAuthCache,
 } = require("./db")
-const { verifyAccess } = require("./auth/session")
+const { verifyAccess, OWN_AUTH } = require("./auth/session")
 
 // Cache plan lookups to avoid a Supabase round-trip on
 // every request (free tier can be 100-300ms away).
@@ -78,10 +78,15 @@ async function requireApiKey(req, res, next) {
 
   // Look up candidate by prefix (indexed), then verify
   // with a single bcrypt compare instead of scanning all.
+  // disabled_at only exists on the plain-Postgres schema; in
+  // supabase mode the column is absent, so read it only there.
+  const cols = OWN_AUTH
+    ? "id, plan, api_key_hash, api_key_prefix, disabled_at"
+    : "id, plan, api_key_hash, api_key_prefix"
   const prefix = apiKey.slice(0, 8)
   const { data: users } = await supabase
     .from("users")
-    .select("id, plan, api_key_hash, api_key_prefix")
+    .select(cols)
     .eq("api_key_prefix", prefix)
     .limit(5)
 
@@ -91,6 +96,9 @@ async function requireApiKey(req, res, next) {
         apiKey, user.api_key_hash,
       )
       if (match) {
+        if (OWN_AUTH && user.disabled_at) {
+          return res.status(403).json({ error: "Account disabled" })
+        }
         cacheUser(apiKey, user)
         req.userId = user.id
         req.userPlan = user.plan

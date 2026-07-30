@@ -30,6 +30,7 @@ const appleRoutes = require("./routes/apple")
 const aiRoutes = require("./routes/ai")
 const cloudJobRoutes = require("./routes/cloud-jobs")
 const integrationRoutes = require("./routes/integrations")
+const adminRoutes = require("./routes/admin")
 
 const app = express()
 
@@ -83,6 +84,7 @@ app.use("/billing/apple", appleRoutes)
 app.use("/ai", aiRoutes)
 app.use("/cloud", cloudJobRoutes)
 app.use("/integrations", integrationRoutes)
+app.use("/admin", adminRoutes)
 
 // Hosted MCP gateway (Companion+) — opt-in. Disabled by
 // default so deployments without the feature flag set
