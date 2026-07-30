@@ -16,6 +16,9 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --prod
 COPY api/ ./api/
+# Ship the plain-Postgres schema + migration runner so the
+# hosted stack can self-migrate (node db/migrate.js).
+COPY db/ ./db/
 COPY --from=mobile-builder /build/dist ./mobile/dist
 EXPOSE 3000
 CMD ["node", "api/server.js"]

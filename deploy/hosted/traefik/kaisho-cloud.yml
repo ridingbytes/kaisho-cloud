@@ -1,0 +1,39 @@
+# Traefik file-provider config for the hosted kaisho-cloud
+# stack. Copy to /home/docker/traefik/conf.d/ — Traefik
+# hot-reloads it (no restart needed).
+#
+# Routes https://cloud.kaisho.dev to the kaisho-sync container
+# on port 3000 inside the traefik-public network.
+#
+# CUTOVER ONLY: this rule claims cloud.kaisho.dev, which the
+# existing kaisho-cloud stack currently serves. Do not copy
+# this into conf.d until you are cutting over (remove the old
+# kaisho-cloud.yml in the same step). To smoke-test the new
+# stack in parallel beforehand, use a temporary host: change
+# the rule to Host(`cloud-next.kaisho.dev`) and point that DNS
+# record at the VPS.
+
+http:
+  routers:
+    kaisho-sync:
+      rule: "Host(`cloud.kaisho.dev`)"
+      entrypoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+      service: kaisho-sync
+      middlewares:
+        - kaisho-sync-headers
+
+  middlewares:
+    kaisho-sync-headers:
+      headers:
+        stsSeconds: 15552000
+        stsIncludeSubdomains: true
+        stsPreload: true
+
+  services:
+    kaisho-sync:
+      loadBalancer:
+        servers:
+          - url: "http://kaisho-sync:3000"
