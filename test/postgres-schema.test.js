@@ -36,8 +36,8 @@ test("schema applies and is idempotent", {
       " WHERE table_schema = 'public'" +
       " AND table_type = 'BASE TABLE'",
     )
-    // 18 domain tables + schema_migrations.
-    assert.equal(tables.rows[0].n, 19)
+    // 15 domain tables + schema_migrations.
+    assert.equal(tables.rows[0].n, 16)
 
     const uid = await client.query(
       "INSERT INTO users (email, api_key_hash)" +

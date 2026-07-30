@@ -7,12 +7,7 @@
 const { Resend } = require("resend")
 const { logger } = require("../logger")
 const { renderWelcome } = require("./welcome")
-const { renderPlanUpgrade } = require("./plan-upgrade")
-const { renderPlanCancelled } = require("./plan-cancelled")
 const { renderPasswordReset } = require("./password-reset")
-const {
-  renderTokenPackPurchased,
-} = require("./token-pack-purchased")
 
 // Email is optional. Without RESEND_API_KEY (common for a
 // self-hosted instance) sends become no-ops instead of throwing
@@ -61,54 +56,6 @@ async function sendWelcomeEmail({ email, apiKey }) {
  * @param {string} params.apiKey - New API key.
  */
 /**
- * Send a plan upgrade confirmation email.
- *
- * @param {object} params
- * @param {string} params.email - Recipient address.
- * @param {string} params.plan - New plan name.
- */
-async function sendPlanUpgradeEmail({ email, plan }) {
-  try {
-    await resend.emails.send({
-      from: FROM,
-      to: email,
-      subject:
-        `Your Kaisho plan has been upgraded to ${plan}`,
-      html: renderPlanUpgrade({ plan }),
-    })
-  } catch (err) {
-    logger.error(
-      { err, email },
-      "sendPlanUpgradeEmail failed",
-    )
-  }
-}
-
-/**
- * Send a subscription cancellation notice.
- *
- * @param {object} params
- * @param {string} params.email - Recipient address.
- */
-async function sendPlanCancelledEmail({ email }) {
-  try {
-    await resend.emails.send({
-      from: FROM,
-      to: email,
-      subject:
-        "Your Kaisho Cloud subscription " +
-        "has been cancelled",
-      html: renderPlanCancelled(),
-    })
-  } catch (err) {
-    logger.error(
-      { err, email },
-      "sendPlanCancelledEmail failed",
-    )
-  }
-}
-
-/**
  * Send a password reset email with a reset link.
  *
  * @param {object} params
@@ -133,40 +80,7 @@ async function sendPasswordResetEmail({
   }
 }
 
-/**
- * Send a Token Pack purchase confirmation.
- *
- * @param {object} params
- * @param {string} params.email       - Recipient address.
- * @param {number} params.tokens      - Tokens added.
- * @param {number} params.bonusTotal  - New bonus balance.
- */
-async function sendTokenPackPurchasedEmail({
-  email, tokens, bonusTotal,
-}) {
-  try {
-    await resend.emails.send({
-      from: FROM,
-      to: email,
-      subject:
-        `${tokens.toLocaleString("en-US")} ` +
-        "tokens added to your Kaisho account",
-      html: renderTokenPackPurchased({
-        tokens, bonusTotal,
-      }),
-    })
-  } catch (err) {
-    logger.error(
-      { err, email },
-      "sendTokenPackPurchasedEmail failed",
-    )
-  }
-}
-
 module.exports = {
   sendWelcomeEmail,
-  sendPlanUpgradeEmail,
-  sendPlanCancelledEmail,
   sendPasswordResetEmail,
-  sendTokenPackPurchasedEmail,
 }

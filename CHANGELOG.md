@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Remove Stripe + Apple billing; plans move out to the private biller (de-Supabase step 4) [#108](https://github.com/ridingbytes/kaisho-cloud/pull/108)
 - Add the admin provisioning API + SIGNUP_MODE and account disable [#107](https://github.com/ridingbytes/kaisho-cloud/pull/107)
 - Add self-owned JWT + bcrypt auth for postgres mode (de-Supabase step 3) [#106](https://github.com/ridingbytes/kaisho-cloud/pull/106)
 - Add a pg query-shim data layer behind a DB_BACKEND switch (de-Supabase step 2) [#105](https://github.com/ridingbytes/kaisho-cloud/pull/105)

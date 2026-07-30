@@ -22,37 +22,28 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- ─────────────────────────────────────────────────────────
 
 -- ── users ────────────────────────────────────────────────
--- 001 base + 010 prefix + 011 overrides + 012 constraint
--- + 013 plan check + 014 bonus + 023 apple/stripe columns.
--- email / password_hash added for future self-owned auth.
+-- Account + API key + AI overrides. email / password_hash /
+-- disabled_at power the self-owned auth and admin provisioning.
+-- (plan is vestigial: always 'free'; no paid plans.)
 
 CREATE TABLE users (
     id                     UUID PRIMARY KEY
                            DEFAULT gen_random_uuid(),
     api_key_hash           TEXT,
+    -- Vestigial: there are no paid plans. Always 'free'.
+    -- Kept until desktop/mobile clients drop the field.
     plan                   TEXT NOT NULL DEFAULT 'free',
-    stripe_customer_id     TEXT,
-    stripe_subscription_id TEXT,
     created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
     api_key_prefix         TEXT,
     monthly_token_cap_override INT NULL,
     advisor_model_override TEXT NULL,
     cron_model_override    TEXT NULL,
-    bonus_tokens_remaining BIGINT NOT NULL DEFAULT 0,
-    stripe_plan            TEXT,
-    apple_original_transaction_id TEXT,
-    apple_product_id       TEXT,
-    apple_plan             TEXT,
-    apple_expires_at       TIMESTAMPTZ,
-    apple_environment      TEXT,
     -- Self-owned auth: email + bcrypt password hash.
     email                  TEXT UNIQUE,
     password_hash          TEXT,
     -- Set by the admin provisioning API to revoke access
     -- (e.g. subscription cancelled). NULL = active.
     disabled_at            TIMESTAMPTZ,
-    CONSTRAINT users_plan_check
-        CHECK (plan IN ('free', 'companion', 'pro', 'team')),
     CONSTRAINT users_token_cap_override_range
         CHECK (
             monthly_token_cap_override IS NULL
@@ -60,13 +51,7 @@ CREATE TABLE users (
                 monthly_token_cap_override >= 0
                 AND monthly_token_cap_override <= 10000000
             )
-        ),
-    CONSTRAINT users_bonus_tokens_nonneg
-        CHECK (bonus_tokens_remaining >= 0),
-    CONSTRAINT users_stripe_plan_check
-        CHECK (stripe_plan IN ('companion', 'pro', 'team')),
-    CONSTRAINT users_apple_plan_check
-        CHECK (apple_plan IN ('companion', 'pro', 'team'))
+        )
 );
 
 COMMENT ON COLUMN users.monthly_token_cap_override IS
@@ -124,14 +109,6 @@ CREATE TABLE ref_tasks (
     title    TEXT NOT NULL,
     status   TEXT NOT NULL,
     PRIMARY KEY (user_id, task_id)
-);
-
--- ── stripe_events (idempotency) ──────────────────────────
-
-CREATE TABLE stripe_events (
-    id           TEXT PRIMARY KEY,
-    type         TEXT NOT NULL,
-    processed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- ── ai_usage ─────────────────────────────────────────────
@@ -243,19 +220,6 @@ CREATE TABLE gateway_config (
 
 INSERT INTO gateway_config (id) VALUES (1);
 
--- ── token_packs (purchase ledger) ────────────────────────
-
-CREATE TABLE token_packs (
-    id               UUID PRIMARY KEY
-                     DEFAULT gen_random_uuid(),
-    user_id          UUID NOT NULL
-                     REFERENCES users(id) ON DELETE CASCADE,
-    tokens           BIGINT NOT NULL CHECK (tokens > 0),
-    stripe_charge_id TEXT NOT NULL UNIQUE,
-    stripe_price_id  TEXT NOT NULL,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
 -- ── cloud_jobs (hosted cron definitions) ─────────────────
 
 CREATE TABLE cloud_jobs (
@@ -345,15 +309,6 @@ CREATE TABLE cron_health (
 INSERT INTO cron_health (id) VALUES (1)
     ON CONFLICT (id) DO NOTHING;
 
--- ── apple_notifications (idempotency ledger) ─────────────
-
-CREATE TABLE apple_notifications (
-    notification_uuid TEXT PRIMARY KEY,
-    notification_type TEXT,
-    subtype           TEXT,
-    received_at       TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
 -- ─────────────────────────────────────────────────────────
 -- Indexes
 -- ─────────────────────────────────────────────────────────
@@ -362,9 +317,6 @@ CREATE TABLE apple_notifications (
 CREATE INDEX idx_users_api_key_prefix
     ON users (api_key_prefix)
     WHERE api_key_prefix IS NOT NULL;
-CREATE UNIQUE INDEX users_apple_original_txn_id_key
-    ON users (apple_original_transaction_id)
-    WHERE apple_original_transaction_id IS NOT NULL;
 
 -- clock_entries
 CREATE INDEX idx_clock_user_start
@@ -399,10 +351,6 @@ CREATE INDEX idx_notes_user_updated
 CREATE INDEX idx_notes_deleted
     ON notes (user_id, deleted_at)
     WHERE deleted_at IS NOT NULL;
-
--- token_packs
-CREATE INDEX idx_token_packs_user_created
-    ON token_packs (user_id, created_at DESC);
 
 -- cloud_jobs
 CREATE INDEX idx_cloud_jobs_user
@@ -450,40 +398,6 @@ BEGIN
         output_tokens = ai_usage.output_tokens + p_output,
         request_count = ai_usage.request_count + 1,
         updated_at    = now();
-END;
-$$ LANGUAGE plpgsql;
-
--- credit_token_pack: atomic ledger insert + balance bump
--- (016). Returns new balance, or NULL on idempotent
--- redelivery of an already-credited charge.
-CREATE OR REPLACE FUNCTION credit_token_pack(
-    p_user_id   UUID,
-    p_charge_id TEXT,
-    p_price_id  TEXT,
-    p_tokens    BIGINT
-) RETURNS BIGINT AS $$
-DECLARE
-    v_new BIGINT;
-BEGIN
-    INSERT INTO token_packs (
-        user_id, tokens, stripe_charge_id, stripe_price_id
-    ) VALUES (
-        p_user_id, p_tokens, p_charge_id, p_price_id
-    )
-    ON CONFLICT (stripe_charge_id) DO NOTHING;
-
-    -- No row inserted → this charge was already credited.
-    IF NOT FOUND THEN
-        RETURN NULL;
-    END IF;
-
-    UPDATE users
-    SET bonus_tokens_remaining =
-        bonus_tokens_remaining + p_tokens
-    WHERE id = p_user_id
-    RETURNING bonus_tokens_remaining INTO v_new;
-
-    RETURN v_new;
 END;
 $$ LANGUAGE plpgsql;
 
