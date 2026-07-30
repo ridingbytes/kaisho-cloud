@@ -36,11 +36,16 @@ const supabase = DB_BACKEND === "postgres"
     clientOpts,
   )
 
-const supabaseAuth = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY,
-  clientOpts,
-)
+// Only needed in supabase mode (login / refresh / getUser).
+// In postgres mode auth is self-owned, so skip it — the
+// Supabase env is not even present then.
+const supabaseAuth = DB_BACKEND === "postgres"
+  ? null
+  : createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_KEY,
+    clientOpts,
+  )
 
 // ── Auth cache ───────────────────────────────────────────
 // Bcrypt comparison takes ~100 ms. The fast key-hash

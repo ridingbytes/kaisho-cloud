@@ -21,10 +21,10 @@ const bcrypt = require("bcryptjs")
 const { logger } = require("./logger")
 const {
   supabase,
-  supabaseAuth,
   getCachedUser,
   cacheUser,
 } = require("./db")
+const { verifyAccess } = require("./auth/session")
 
 // Per-user connection map: userId -> Set<WebSocket>
 const userSockets = new Map()
@@ -42,10 +42,9 @@ const HEARTBEAT_MS = 30000
 async function authenticate(token, apiKey) {
   // Try JWT first
   if (token) {
-    const { data, error } =
-      await supabaseAuth.auth.getUser(token)
-    if (!error && data?.user) {
-      return data.user.id
+    const session = await verifyAccess(token)
+    if (session) {
+      return session.userId
     }
   }
 
