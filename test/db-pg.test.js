@@ -211,12 +211,6 @@ test("pg shim: rpc functions", opts, async () => {
   })
   assert.equal(found.data, uid)
 
-  const credit = await db.rpc("credit_token_pack", {
-    p_user_id: uid, p_charge_id: "ch_" + Date.now(),
-    p_price_id: "pr", p_tokens: 500000,
-  })
-  assert.equal(Number(credit.data), 500000)
-
   const wiped = await db.rpc("wipe_user_sync_state", {
     p_user_id: uid,
   })

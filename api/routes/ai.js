@@ -38,7 +38,6 @@ const {
   resolveModel,
   currentMonth,
   getUsage,
-  getUserOverrides,
   recordUsage,
   callModel,
   extractText,
@@ -420,12 +419,9 @@ router.get(
   "/usage",
   asyncHandler(async (req, res) => {
     const month = currentMonth()
-    const [usage, cap, overrides] = await Promise.all([
+    const [usage, cap] = await Promise.all([
       getUsage(req.userId, month),
-      // Pass the plan so the cap reflects the per-plan
-      // quota + bonus, not the gateway_config fallback.
       resolveCap(req.userId),
-      getUserOverrides(req.userId),
     ])
     res.json({
       month,
@@ -435,8 +431,6 @@ router.get(
         usage.input_tokens + usage.output_tokens,
       request_count: usage.request_count,
       cap,
-      bonus_tokens_remaining:
-        overrides.bonus_tokens_remaining || 0,
     })
   }),
 )

@@ -54,57 +54,6 @@ const refreshSchema = z.object({
     .min(1, "refresh_token is required"),
 })
 
-// ── Billing schemas ─────────────────────────────────────
-
-/**
- * POST /billing/checkout request body.
- * @type {z.ZodObject}
- */
-const checkoutSchema = z.object({
-  plan: z.enum(
-    ["companion", "pro", "team"],
-    { message: "Unknown plan" },
-  ),
-  // Optional yearly toggle. When true the webhook chooses
-  // the *_YEARLY price ID instead of the monthly one.
-  yearly: z.boolean().optional(),
-})
-
-/**
- * POST /billing/apple/verify request body. The iOS app
- * sends the StoreKit 2 Transaction.jwsRepresentation (a
- * signed JWS) after a purchase; the server verifies it.
- * @type {z.ZodObject}
- */
-const appleVerifySchema = z.object({
-  signedTransaction: z
-    .string()
-    .min(1, "signedTransaction is required")
-    // A JWS is header.payload.signature — three dot-
-    // separated base64url segments. Cheap shape guard;
-    // the real check is the signature verification.
-    .regex(
-      /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,
-      "signedTransaction must be a compact JWS",
-    ),
-})
-
-/**
- * POST /billing/apple/notifications request body. Apple's
- * App Store Server sends the notification as a signed JWS in
- * the signedPayload field.
- * @type {z.ZodObject}
- */
-const appleNotificationSchema = z.object({
-  signedPayload: z
-    .string()
-    .min(1, "signedPayload is required")
-    .regex(
-      /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,
-      "signedPayload must be a compact JWS",
-    ),
-})
-
 // ── Clock schemas ───────────────────────────────────────
 
 /**
@@ -588,9 +537,6 @@ module.exports = {
   cloudJobUpdateSchema,
   integrationConnectSchema,
   integrationDispatchSchema,
-  checkoutSchema,
-  appleVerifySchema,
-  appleNotificationSchema,
   clockStartSchema,
   quickBookSchema,
   clockUpdateSchema,

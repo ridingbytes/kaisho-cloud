@@ -1,6 +1,0 @@
-# Apple root certificate is provisioned per deploy, not
-# committed. Keep the directory (README) but ignore certs.
-*.cer
-*.crt
-*.pem
-*.der

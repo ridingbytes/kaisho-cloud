@@ -5,21 +5,13 @@ const {
   supabase,
   getCachedUser,
   cacheUser,
-  invalidateAuthCache,
 } = require("./db")
 const { verifyAccess, OWN_AUTH } = require("./auth/session")
 
-// Cache plan lookups to avoid a Supabase round-trip on
-// every request (free tier can be 100-300ms away).
-//
-// Consequence of the 60s TTL: a downgrade (Stripe webhook
-// fires, clearPlanCache called) takes effect immediately
-// for the current process, but a delayed webhook means a
-// user can keep hitting paid-plan routes for up to one
-// minute after their subscription ends in Stripe. Accepted
-// trade-off — the per-request DB hit on every paid plan
-// check would dominate latency for the AI gateway, which
-// is the hottest path.
+// Cache the per-user plan for the combined-auth JWT path to
+// avoid a DB round-trip on every request. Everyone is on the
+// free plan now, so this is effectively a constant; the cache
+// stays because the JWT path still reads it.
 const PLAN_CACHE = new Map()
 const PLAN_CACHE_TTL = 60_000
 
@@ -166,32 +158,8 @@ async function requireAuth(req, res, next) {
   return requireApiKey(req, res, next)
 }
 
-// ── Plan enforcement ────────────────────────────────────
-
-/**
- * Invalidate every cached copy of a user's plan so a
- * plan change takes effect on the next request.
- *
- * Two caches hold the plan with different lifetimes:
- *   - PLAN_CACHE here (60s), read by requireAuth
- *   - the auth cache in db.js (5min), which stores the
- *     whole user row (incl. plan) keyed by API-key hash
- *     and is read by requireApiKey to skip bcrypt
- *
- * Clearing only the first let a plan change lag up to 5
- * minutes behind. Clear both so any change to the cached
- * user row is effective immediately.
- *
- * @param {string} userId - User UUID.
- */
-function clearPlanCache(userId) {
-  PLAN_CACHE.delete(userId)
-  invalidateAuthCache(userId)
-}
-
 module.exports = {
   requireJwt,
   requireApiKey,
   requireAuth,
-  clearPlanCache,
 }

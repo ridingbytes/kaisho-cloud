@@ -218,8 +218,7 @@ async function getUserOverrides(userId) {
     .select(
       "monthly_token_cap_override, "
       + "advisor_model_override, "
-      + "cron_model_override, "
-      + "bonus_tokens_remaining",
+      + "cron_model_override",
     )
     .eq("id", userId)
     .maybeSingle()
@@ -227,7 +226,6 @@ async function getUserOverrides(userId) {
     monthly_token_cap_override: null,
     advisor_model_override: null,
     cron_model_override: null,
-    bonus_tokens_remaining: 0,
   }
 }
 
@@ -251,13 +249,12 @@ async function resolveCap(userId) {
   if (overrides.monthly_token_cap_override != null) {
     return overrides.monthly_token_cap_override
   }
-  const bonus = overrides.bonus_tokens_remaining || 0
   const envCap = process.env.AI_MONTHLY_TOKEN_CAP
   if (envCap != null && envCap !== "") {
-    return Number(envCap) + bonus
+    return Number(envCap)
   }
   const config = await getGatewayConfig()
-  return config.monthly_token_cap + bonus
+  return config.monthly_token_cap
 }
 
 /**
