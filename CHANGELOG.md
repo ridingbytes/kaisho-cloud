@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add a self-contained hosted stack (app + dedicated Postgres) for the VPS [#104](https://github.com/ridingbytes/kaisho-cloud/pull/104)
 - Add a plain-PostgreSQL schema and migration runner (de-Supabase step 1) [#103](https://github.com/ridingbytes/kaisho-cloud/pull/103)
 - Open every feature to all accounts; make the AI token cap instance-wide [#102](https://github.com/ridingbytes/kaisho-cloud/pull/102)
 - Close new paid subscriptions for the open-source transition [#101](https://github.com/ridingbytes/kaisho-cloud/pull/101)

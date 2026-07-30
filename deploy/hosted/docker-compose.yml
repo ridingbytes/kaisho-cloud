@@ -1,0 +1,91 @@
+# kaisho-cloud — self-contained hosted stack
+#
+# The managed "sync + AI" server, running the open-source
+# kaisho-cloud image against its OWN PostgreSQL (no Supabase).
+# Modelled on the owncloud stack on the same VPS: an app plus a
+# dedicated postgres:16 on a private internal network, joined
+# to the shared external traefik-public network for ingress.
+#
+# This runs in PARALLEL to the existing Supabase-based
+# kaisho-cloud stack. It becomes the canonical cloud.kaisho.dev
+# at cutover (see README.md); until then route it at a
+# temporary host.
+#
+# NOTE: the app boots on Postgres only once the pg data layer
+# and self-owned auth have landed. The db + migrate services
+# are usable now; api + cron come up at cutover.
+#
+# Prerequisites on the VPS:
+#   - docker network create traefik-public   (already exists)
+#   - cp .env.example .env                    (fill secrets, chmod 600)
+#   - cp traefik/kaisho-cloud.yml /home/docker/traefik/conf.d/
+#     (only at cutover — it claims cloud.kaisho.dev)
+
+services:
+  db:
+    image: postgres:16
+    container_name: kaisho-sync-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - kaisho-sync-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kaisho-sync-internal
+
+  # One-shot schema/migration runner. Same image as the API,
+  # runs db/migrate.js then exits. api waits for it to finish.
+  migrate:
+    image: ghcr.io/ridingbytes/kaisho-cloud:latest
+    restart: "no"
+    env_file: .env
+    command: ["node", "db/migrate.js"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - kaisho-sync-internal
+
+  api:
+    image: ghcr.io/ridingbytes/kaisho-cloud:latest
+    container_name: kaisho-sync
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - traefik-public
+      - kaisho-sync-internal
+
+  # Hosted cron worker. Same image, different entrypoint. No
+  # ingress; joins the internal network for DB access and has
+  # outbound egress for the AI backend.
+  cron:
+    image: ghcr.io/ridingbytes/kaisho-cloud:latest
+    container_name: kaisho-sync-cron
+    restart: unless-stopped
+    env_file: .env
+    command: ["node", "api/workers/cron.js"]
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - kaisho-sync-internal
+
+networks:
+  traefik-public:
+    external: true
+  kaisho-sync-internal:
+
+volumes:
+  kaisho-sync-pg-data:
