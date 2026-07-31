@@ -56,6 +56,9 @@ app.use(httpLogger)
 
 // ── Routes ──────────────────────────────────────────────
 
+// Liveness probe for self-host / monitoring / compose.
+app.get("/healthz", (_req, res) => res.json({ ok: true }))
+
 app.use("/auth", authRoutes)
 app.use("/clocks", clockRoutes)
 app.use("/sync", syncRoutes)
