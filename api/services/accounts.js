@@ -96,8 +96,88 @@ async function setDisabled(userId, disabled) {
   return { found: !!data }
 }
 
+/**
+ * Set (reset) an account's password. Returns { found }.
+ * postgres/own-auth only — supabase mode stores passwords in
+ * Supabase Auth, not on the users row.
+ */
+async function setPassword(userId, password) {
+  const passwordHash = await hashPassword(password)
+  const { data } = await supabase
+    .from("users")
+    .update({ password_hash: passwordHash })
+    .eq("id", userId)
+    .select("id")
+    .maybeSingle()
+  invalidateAuthCache(userId)
+  return { found: !!data }
+}
+
+/**
+ * Delete an account and (via ON DELETE CASCADE) all of its
+ * synced data. Returns { found }.
+ */
+async function deleteAccount(userId) {
+  const { data } = await supabase
+    .from("users")
+    .delete()
+    .eq("id", userId)
+    .select("id")
+    .maybeSingle()
+  invalidateAuthCache(userId)
+  return { found: !!data }
+}
+
+/** Per-account sync stats keyed by user id. postgres only. */
+async function accountStats() {
+  const { rows } = await supabase.raw(
+    "SELECT u.id," +
+    " count(c.id) FILTER (WHERE c.deleted_at IS NULL)" +
+    "   AS clock_entries," +
+    " max(c.updated_at) AS last_change_at," +
+    " (SELECT count(*) FROM tasks t" +
+    "  WHERE t.user_id = u.id AND t.deleted_at IS NULL) AS tasks," +
+    " (SELECT count(*) FROM notes n" +
+    "  WHERE n.user_id = u.id AND n.deleted_at IS NULL) AS notes" +
+    " FROM users u LEFT JOIN clock_entries c ON c.user_id = u.id" +
+    " GROUP BY u.id",
+  )
+  const map = {}
+  for (const r of rows) {
+    map[r.id] = {
+      clock_entries: Number(r.clock_entries),
+      tasks: Number(r.tasks),
+      notes: Number(r.notes),
+      last_change_at: r.last_change_at,
+    }
+  }
+  return map
+}
+
+/**
+ * List accounts for the admin API, enriched with sync stats
+ * (postgres backend). Never includes password hashes or keys.
+ */
+async function listAccounts() {
+  const { data } = await supabase
+    .from("users")
+    .select("id, email, plan, disabled_at, created_at")
+    .order("created_at", { ascending: true })
+  const accounts = data || []
+  if (typeof supabase.raw !== "function") return accounts
+  const stats = await accountStats()
+  return accounts.map((a) => ({
+    ...a,
+    clock_entries: 0, tasks: 0, notes: 0, last_change_at: null,
+    ...(stats[a.id] || {}),
+  }))
+}
+
 module.exports = {
   createAccount,
   generateApiKey,
   setDisabled,
+  setPassword,
+  deleteAccount,
+  listAccounts,
 }
