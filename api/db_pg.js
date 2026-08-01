@@ -420,6 +420,13 @@ class PgClient {
       }
     }
   }
+
+  // Escape hatch for queries the builder can't express (joins,
+  // aggregates). Postgres backend only; used by admin stats.
+  // Returns { rows } or throws.
+  async raw(text, params = []) {
+    return this._pool.query(text, params)
+  }
 }
 
 function createClient(connectionString) {

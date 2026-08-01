@@ -98,6 +98,58 @@ tasks, notes, inbox, and projects sync both ways.
 If your server has AI configured, the desktop offers the hosted
 `kaisho:advisor` / `kaisho:cron` models automatically.
 
+## Managing users
+
+Set `ADMIN_API_KEY` in `.env` (a long random value) to enable admin
+management. This is also how you lock a public server down: set
+`SIGNUP_MODE=token` so `/auth/signup` is closed and accounts exist only
+when you create them.
+
+### Admin console
+
+The easiest way is the built-in web console at
+`https://kaisho.example.com/console`. Enter your `ADMIN_API_KEY` and you
+can add users, reset passwords, disable/enable or delete accounts,
+rotate sync tokens, and see each account's sync status (clock entries,
+tasks, notes, last activity).
+
+### Admin API
+
+The console uses this API; you can also call it directly with
+`Authorization: Bearer <ADMIN_API_KEY>`.
+
+```bash
+BASE=https://kaisho.example.com
+ADMIN="Authorization: Bearer $ADMIN_API_KEY"
+
+# List accounts
+curl -s -H "$ADMIN" $BASE/admin/accounts
+
+# Create an account (returns a sync token for the desktop app)
+curl -s -H "$ADMIN" -H "Content-Type: application/json" \
+  -d '{"email":"me@example.com","password":"a-good-password"}' \
+  $BASE/admin/accounts
+
+# Change / reset a password
+curl -s -H "$ADMIN" -H "Content-Type: application/json" \
+  -d '{"password":"a-new-password"}' \
+  $BASE/admin/accounts/<user_id>/password
+
+# Disable / re-enable an account (revokes sync immediately)
+curl -s -H "$ADMIN" $BASE/admin/accounts/<user_id>/disable
+curl -s -H "$ADMIN" $BASE/admin/accounts/<user_id>/enable
+
+# Rotate an account's sync token (invalidates the old one)
+curl -s -H "$ADMIN" $BASE/admin/accounts/<user_id>/rotate-token
+
+# Delete an account and all of its data
+curl -s -X DELETE -H "$ADMIN" $BASE/admin/accounts/<user_id>
+```
+
+Get `<user_id>` from the list endpoint. Users can also reset their own
+password from the app if you configure email (`RESET_TOKEN_SECRET` +
+`RESEND_API_KEY`); without email, use the admin password endpoint above.
+
 ## Backups
 
 Your data lives in the `kaisho-pg-data` Docker volume. Back it up with

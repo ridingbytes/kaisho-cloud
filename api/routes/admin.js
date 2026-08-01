@@ -16,6 +16,7 @@ const crypto = require("crypto")
 const { Router } = require("express")
 const {
   createAccount, generateApiKey, setDisabled,
+  setPassword, deleteAccount, listAccounts,
 } = require("../services/accounts")
 const { OWN_AUTH } = require("../auth/session")
 const { asyncHandler } = require("../utils/asyncHandler")
@@ -48,6 +49,15 @@ function requireAdmin(req, res, next) {
 const router = Router()
 router.use(requireAdmin)
 
+// ── GET /admin/accounts ─────────────────────────────────
+// List accounts (no secrets).
+router.get(
+  "/accounts",
+  asyncHandler(async (_req, res) => {
+    res.json({ accounts: await listAccounts() })
+  }),
+)
+
 // ── POST /admin/accounts ────────────────────────────────
 // Provision an account. Body: { email, password? }.
 // Returns { user_id, email, sync_token }.
@@ -73,6 +83,24 @@ router.post(
   }),
 )
 
+// ── POST /admin/accounts/:id/password ───────────────────
+// Reset an account's password. Body: { password }.
+router.post(
+  "/accounts/:id/password",
+  asyncHandler(async (req, res) => {
+    const { password } = req.body || {}
+    if (!password || typeof password !== "string" ||
+      password.length < 8) {
+      return res.status(400).json({
+        error: "password must be at least 8 characters",
+      })
+    }
+    const { found } = await setPassword(req.params.id, password)
+    if (!found) return res.status(404).json({ error: "Not found" })
+    res.json({ user_id: req.params.id, password_set: true })
+  }),
+)
+
 // ── POST /admin/accounts/:id/disable ────────────────────
 router.post(
   "/accounts/:id/disable",
@@ -90,6 +118,17 @@ router.post(
     const { found } = await setDisabled(req.params.id, false)
     if (!found) return res.status(404).json({ error: "Not found" })
     res.json({ user_id: req.params.id, disabled: false })
+  }),
+)
+
+// ── DELETE /admin/accounts/:id ──────────────────────────
+// Delete an account and all of its synced data.
+router.delete(
+  "/accounts/:id",
+  asyncHandler(async (req, res) => {
+    const { found } = await deleteAccount(req.params.id)
+    if (!found) return res.status(404).json({ error: "Not found" })
+    res.json({ user_id: req.params.id, deleted: true })
   }),
 )
 

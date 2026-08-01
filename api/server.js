@@ -83,6 +83,14 @@ if (process.env.MCP_GATEWAY_ENABLED === "true") {
   )
 }
 
+// ── Admin console (static) ──────────────────────────────
+// The page is harmless without a key; every /admin API call
+// it makes is guarded by ADMIN_API_KEY. External app.js keeps
+// it within the scriptSrc 'self' CSP.
+app.use("/console", express.static(
+  path.join(__dirname, "admin-ui"),
+))
+
 // ── Mobile SPA ──────────────────────────────────────────
 
 const mobileDir = path.join(
