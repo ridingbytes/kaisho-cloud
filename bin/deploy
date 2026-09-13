@@ -247,7 +247,8 @@ fi
 # here instead of printing success.
 echo "==> full health check"
 if ! REMOTE="${REMOTE}" REMOTE_DIR="${REMOTE_DIR}" \
-        HEALTH_URL="${HEALTH_URL}" ./bin/health; then
+        HEALTH_URL="${HEALTH_URL}" HEALTH_SKIP_REVISION=1 \
+        ./bin/health; then
     echo "ERROR: the stack is not healthy after deploy" >&2
     echo "(.deploy-sha left untouched)" >&2
     exit 1

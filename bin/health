@@ -70,8 +70,16 @@ check "cron: no fatal errors" "log_clean kaisho-cron 'fatal|panic'"
 
 # Honour REMOTE_DIR like bin/deploy does; hardcoding the
 # path meant a staging deploy reported production's sha.
-echo "deployed revision:"
-ssh "${REMOTE}" "cat ${REMOTE_DIR}/.deploy-sha 2>/dev/null" \
-    || echo "  (none recorded)"
+#
+# bin/deploy runs this BEFORE recording the new sha, on
+# purpose, so during a deploy this would print the previous
+# one and read like the deploy did nothing. It passes
+# HEALTH_SKIP_REVISION and prints the sha itself when it is
+# actually true.
+if [[ -z "${HEALTH_SKIP_REVISION:-}" ]]; then
+    echo "deployed revision:"
+    ssh "${REMOTE}" "cat ${REMOTE_DIR}/.deploy-sha 2>/dev/null" \
+        || echo "  (none recorded)"
+fi
 
 exit "${fail}"
