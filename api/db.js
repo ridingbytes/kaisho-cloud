@@ -1,51 +1,18 @@
 "use strict"
 
 const crypto = require("crypto")
-const { createClient } = require("@supabase/supabase-js")
 
-// ── Supabase client ──────────────────────────────────────
+// ── Data layer ───────────────────────────────────────────
 
-// Two clients, because supabase-js tracks the current user
-// session internally on a single client. Calling
-// auth.signInWithPassword() on a shared client causes later
-// .from().select() queries to send the user's JWT (subject to
-// RLS) instead of the service_role key, returning 0 rows.
+// A PostgreSQL-backed client exposing the small query-builder
+// surface the call sites use (.from().select().eq()... plus a
+// few rpc names). See db_pg.js.
 //
-// - supabase:     service-role-only, for DB and auth.admin ops
-// - supabaseAuth: for auth.signInWithPassword and refreshSession
-const clientOpts = {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false,
-  },
-}
-
-// DB_BACKEND selects the data layer:
-//   "supabase" (default) - supabase-js against Supabase Postgres
-//   "postgres"           - the pg query shim against DATABASE_URL
-// Auth (supabaseAuth) still uses Supabase until the self-owned
-// auth lands, so Supabase env stays required for now.
-const DB_BACKEND = process.env.DB_BACKEND || "supabase"
-
-const supabase = DB_BACKEND === "postgres"
-  ? require("./db_pg").createClient()
-  : createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY,
-    clientOpts,
-  )
-
-// Only needed in supabase mode (login / refresh / getUser).
-// In postgres mode auth is self-owned, so skip it — the
-// Supabase env is not even present then.
-const supabaseAuth = DB_BACKEND === "postgres"
-  ? null
-  : createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY,
-    clientOpts,
-  )
+// This was once a switch: DB_BACKEND chose between Supabase
+// and this. Supabase is gone — the hosted instance cut over on
+// 2026-09-13 and the project was deleted — so Postgres is not
+// the default any more, it is the only one.
+const supabase = require("./db_pg").createClient()
 
 // ── Auth cache ───────────────────────────────────────────
 // Bcrypt comparison takes ~100 ms. The fast key-hash
@@ -94,7 +61,6 @@ function invalidateAuthCache(userId) {
 
 module.exports = {
   supabase,
-  supabaseAuth,
   getCachedUser,
   cacheUser,
   invalidateAuthCache,

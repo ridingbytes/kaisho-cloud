@@ -10,9 +10,8 @@ const { Router } = require("express")
 const {
   signupLimiter, authLimiter, rotateKeyLimiter,
 } = require("../config")
-const { supabase, supabaseAuth } = require("../db")
+const { supabase } = require("../db")
 const {
-  OWN_AUTH,
   hashPassword,
   verifyPassword,
   signAccess,
@@ -96,40 +95,7 @@ router.post(
   validate(loginSchema),
   asyncHandler(async (req, res) => {
     const { email, password } = req.body
-    if (OWN_AUTH) return loginOwn(email, password, res)
-
-    const { data, error } =
-      await supabaseAuth.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-    if (error) {
-      return res
-        .status(401)
-        .json({ error: "Invalid credentials" })
-    }
-
-    const { data: user, error: userErr } = await supabase
-      .from("users")
-      .select("plan")
-      .eq("id", data.user.id)
-      .single()
-
-    if (userErr) {
-      req.log.error(
-        { err: userErr, userId: data.user.id },
-        "login: failed to read users.plan",
-      )
-    }
-
-    res.json({
-      user_id: data.user.id,
-      email: data.user.email,
-      plan: user?.plan || "free",
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-    })
+    return loginOwn(email, password, res)
   }),
 )
 
@@ -175,23 +141,7 @@ router.post(
   validate(refreshSchema),
   asyncHandler(async (req, res) => {
     const { refresh_token } = req.body
-    if (OWN_AUTH) return refreshOwn(refresh_token, res)
-
-    const { data, error } =
-      await supabaseAuth.auth.refreshSession({
-        refresh_token,
-      })
-
-    if (error) {
-      return res
-        .status(401)
-        .json({ error: "Invalid refresh token" })
-    }
-
-    res.json({
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-    })
+    return refreshOwn(refresh_token, res)
   }),
 )
 
@@ -384,14 +334,10 @@ router.post(
       })
     }
 
-    const error = OWN_AUTH
-      ? (await supabase
-        .from("users")
-        .update({ password_hash: await hashPassword(password) })
-        .eq("id", userId)).error
-      : (await supabase.auth.admin.updateUserById(
-        userId, { password },
-      )).error
+    const { error } = await supabase
+      .from("users")
+      .update({ password_hash: await hashPassword(password) })
+      .eq("id", userId)
 
     if (error) {
       return res.status(500).json({

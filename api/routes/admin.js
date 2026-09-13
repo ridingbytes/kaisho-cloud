@@ -18,21 +18,15 @@ const {
   createAccount, generateApiKey, setDisabled,
   setPassword, deleteAccount, listAccounts,
 } = require("../services/accounts")
-const { OWN_AUTH } = require("../auth/session")
 const { asyncHandler } = require("../utils/asyncHandler")
 
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY
 
 /**
  * Require the shared admin key. Fails closed: 503 if unset,
- * 501 outside postgres mode, 401 on mismatch (timing-safe).
+ * 401 on mismatch (timing-safe).
  */
 function requireAdmin(req, res, next) {
-  if (!OWN_AUTH) {
-    return res.status(501).json({
-      error: "Admin provisioning requires DB_BACKEND=postgres",
-    })
-  }
   if (!ADMIN_API_KEY) {
     return res.status(503).json({ error: "Admin API not configured" })
   }

@@ -71,6 +71,6 @@ track time. For phone use you need HTTPS — see **self-hosting** below.
 pnpm install
 cd mobile && pnpm install && pnpm build && cd ..
 cp .env.example .env
-DB_BACKEND=postgres pnpm dev     # needs a reachable DATABASE_URL
+pnpm dev                          # needs a reachable DATABASE_URL
 npm test                          # unit tests
 ```

@@ -9,9 +9,10 @@ desktop app, and the mobile PWA. Live at
 - **API**: Node.js / Express (CommonJS), `pino` logger,
   `express-rate-limit`, Zod for input validation.
 - **Mobile PWA**: React 19 + Vite, served by the API at `/m/`.
-- **DB + Auth**: Supabase. All server-side DB writes use the
-  service-role key (`api/db.js` builds two clients — service
-  and auth — to avoid the supabase-js shared-state pitfall).
+- **DB + Auth**: PostgreSQL via the query shim in
+  `api/db_pg.js`, exposed as `api/db.js`. Auth is self-owned:
+  HS256 JWTs signed with `JWT_SECRET`, bcrypt password hashes
+  on the users row.
 - **Billing**: Stripe live mode. Live products + webhook
   endpoint `we_1Tbybo4CP1EJS4RIkUJ3Kvs3` provisioned 2026-05-28.
 - **AI**: OpenRouter via the gateway (`api/routes/ai.js`),
@@ -37,11 +38,11 @@ api/                Express server
                     rate limiters
   validation.js     Zod schemas for every authenticated route
   ws.js             WebSocket fan-out (first-message auth)
-  db.js             Supabase clients (service + auth)
+  db.js             the Postgres client (see db_pg.js)
   config.js         PLAN_QUOTAS, PLAN_PRICES, rate-limit budgets
 mobile/             React 19 PWA (Vite)
-supabase/migrations/  Numbered SQL files (apply via dashboard
-                      or supabase db push)
+db/                 schema.sql + migrate.js (the migration
+                    runner the deploy invokes)
 scripts/            create-stripe-products.js,
                     sync-stripe-webhook.js, audit-stripe.js,
                     dev-login.sh (mint JWT from local API)
@@ -58,7 +59,7 @@ cd mobile && pnpm install && pnpm build && cd ..
 cp .env.example .env   # fill in real secrets
 pnpm dev               # loads .env, runs on :3000
 
-# Mint a Supabase JWT for local API calls
+# Mint an access token for local API calls
 JWT=$(scripts/dev-login.sh)
 curl -H "Authorization: Bearer $JWT" \
   http://localhost:3000/ai/usage
@@ -94,8 +95,6 @@ STRIPE_SECRET_KEY=$(awk -F= \
   `/home/docker/kaisho-cloud.legacy/` and stopped. Its data
   was not migrated; accounts start fresh.
 - **Migrations**: `db/migrate.js`, run on every deploy.
-  Supabase-era migrations under `supabase/migrations/` applied
-  only to the retired stack and are kept for reference.
 
 ## Conventions
 

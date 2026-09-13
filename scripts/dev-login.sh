@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mint a Supabase JWT from the local API using the
+# Mint an access token from the local API using the
 # credentials at ~/.config/ridingbytes/kaisho.env (or
 # $KAISHO_CREDS). Prints the access_token to stdout so it
 # composes:

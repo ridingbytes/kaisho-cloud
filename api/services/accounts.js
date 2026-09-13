@@ -2,9 +2,8 @@
 
 /**
  * Account provisioning shared by public signup and the admin
- * API. Backend-aware via OWN_AUTH: postgres creates a
- * self-owned users row (email + bcrypt password_hash); supabase
- * creates a Supabase Auth user plus a users row.
+ * API. Creates a users row with the email and a bcrypt
+ * password_hash.
  *
  * The "sync token" a user pastes into the desktop app is just
  * the account's API key, minted by generateApiKey().
@@ -13,7 +12,7 @@
 const crypto = require("crypto")
 const bcrypt = require("bcryptjs")
 const { supabase, invalidateAuthCache } = require("../db")
-const { OWN_AUTH, hashPassword } = require("../auth/session")
+const { hashPassword } = require("../auth/session")
 
 /**
  * Create an account. Returns { userId } or
@@ -22,12 +21,6 @@ const { OWN_AUTH, hashPassword } = require("../auth/session")
  * only until the user sets a password).
  */
 async function createAccount({ email, password }) {
-  return OWN_AUTH
-    ? createOwnAccount(email, password)
-    : createSupabaseAccount(email, password)
-}
-
-async function createOwnAccount(email, password) {
   const row = { email, plan: "free" }
   if (password) row.password_hash = await hashPassword(password)
   const { data, error } = await supabase
@@ -39,19 +32,6 @@ async function createOwnAccount(email, password) {
     return failure()
   }
   return { userId: data.id }
-}
-
-async function createSupabaseAccount(email, password) {
-  const { data, error } = await supabase.auth.admin.createUser({
-    email, password, email_confirm: true,
-  })
-  if (error) {
-    if (error.message.includes("already")) return conflict()
-    return failure()
-  }
-  const userId = data.user.id
-  await supabase.from("users").insert({ id: userId, plan: "free" })
-  return { userId }
 }
 
 function conflict() {

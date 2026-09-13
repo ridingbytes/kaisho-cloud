@@ -6,7 +6,7 @@ const {
   getCachedUser,
   cacheUser,
 } = require("./db")
-const { verifyAccess, OWN_AUTH } = require("./auth/session")
+const { verifyAccess } = require("./auth/session")
 
 // Cache the per-user plan for the combined-auth JWT path to
 // avoid a DB round-trip on every request. Everyone is on the
@@ -70,11 +70,8 @@ async function requireApiKey(req, res, next) {
 
   // Look up candidate by prefix (indexed), then verify
   // with a single bcrypt compare instead of scanning all.
-  // disabled_at only exists on the plain-Postgres schema; in
-  // supabase mode the column is absent, so read it only there.
-  const cols = OWN_AUTH
-    ? "id, plan, api_key_hash, api_key_prefix, disabled_at"
-    : "id, plan, api_key_hash, api_key_prefix"
+  const cols =
+    "id, plan, api_key_hash, api_key_prefix, disabled_at"
   const prefix = apiKey.slice(0, 8)
   const { data: users } = await supabase
     .from("users")
@@ -88,7 +85,7 @@ async function requireApiKey(req, res, next) {
         apiKey, user.api_key_hash,
       )
       if (match) {
-        if (OWN_AUTH && user.disabled_at) {
+        if (user.disabled_at) {
           return res.status(403).json({ error: "Account disabled" })
         }
         cacheUser(apiKey, user)
