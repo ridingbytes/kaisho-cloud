@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Take over cloud.kaisho.dev from the Supabase stack [#113](https://github.com/ridingbytes/kaisho-cloud/pull/113)
 - Replace the GitHub Actions deploy with bin/deploy over SSH [#111](https://github.com/ridingbytes/kaisho-cloud/pull/111)
 - Add a one-command self-host stack (Postgres) + self-hosting guide [#109](https://github.com/ridingbytes/kaisho-cloud/pull/109)
 - Add an admin console (web UI) to manage users and see sync status [#110](https://github.com/ridingbytes/kaisho-cloud/pull/110)

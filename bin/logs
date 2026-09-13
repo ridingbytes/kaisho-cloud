@@ -14,11 +14,11 @@ set -euo pipefail
 
 REMOTE="${REMOTE:-vps}"
 
-container="kaisho-sync"
+container="kaisho-cloud"
 case "${1:-}" in
     api)  shift ;;
-    cron) container="kaisho-sync-cron"; shift ;;
-    db)   container="kaisho-sync-db";   shift ;;
+    cron) container="kaisho-cron"; shift ;;
+    db)   container="kaisho-cloud-db";   shift ;;
 esac
 
 if [[ "$#" -eq 0 ]]; then

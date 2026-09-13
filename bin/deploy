@@ -25,9 +25,9 @@
 # Environment:
 #   REMOTE            ssh alias. Default: vps
 #   REMOTE_DIR        stack directory on the VPS.
-#                     Default: /home/docker/kaisho-sync
+#                     Default: /home/docker/kaisho-cloud
 #   HEALTH_URL        URL to probe after the restart.
-#                     Default: https://sync.kaisho.dev/healthz
+#                     Default: https://cloud.kaisho.dev/healthz
 #   DEPLOY_CONFIRM    set to "deploy" to skip the prompt
 #
 # Rollback: there is no image to re-pin, so roll back the
@@ -42,8 +42,11 @@ self="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 cd "$(dirname "$0")/.."
 
 REMOTE="${REMOTE:-vps}"
-REMOTE_DIR="${REMOTE_DIR:-/home/docker/kaisho-sync}"
-HEALTH_URL="${HEALTH_URL:-https://sync.kaisho.dev/healthz}"
+REMOTE_DIR="${REMOTE_DIR:-/home/docker/kaisho-cloud}"
+# Who owns the stack on the host. We connect as root; every
+# file we leave behind belongs to this user.
+REMOTE_USER="${REMOTE_USER:-docker}"
+HEALTH_URL="${HEALTH_URL:-https://cloud.kaisho.dev/healthz}"
 
 dry=0
 check_only=0
@@ -57,6 +60,12 @@ for arg in "$@"; do
         *) echo "unknown arg: ${arg}" >&2; exit 2 ;;
     esac
 done
+
+# --chown, because we connect as root: without it rsync -a
+# writes the workstation's uid (501:staff on macOS) onto
+# every file, leaving the host owning files as a user that
+# does not exist there. The stack runs as docker.
+rsync_chown=(--chown=docker:docker)
 
 # Everything the image does not need, plus everything that
 # must never leave the workstation (.env) or be overwritten
@@ -136,12 +145,12 @@ fi
 # hosted stack's definition, docker-compose.yml at the repo
 # root is the self-host one and must not be shipped.
 echo "==> syncing source"
-rsync_opts=(-az --delete "${rsync_excludes[@]}")
+rsync_opts=(-az --delete "${rsync_chown[@]}" "${rsync_excludes[@]}")
 [[ "${dry}" -eq 1 ]] && rsync_opts+=(-nv --itemize-changes)
 rsync "${rsync_opts[@]}" ./ "${REMOTE}:${REMOTE_DIR}/src/"
 
 echo "==> syncing compose file + backup script"
-compose_opts=(-az)
+compose_opts=(-az "${rsync_chown[@]}")
 [[ "${dry}" -eq 1 ]] && compose_opts+=(-nv --itemize-changes)
 rsync "${compose_opts[@]}" deploy/hosted/docker-compose.yml \
     "${REMOTE}:${REMOTE_DIR}/docker-compose.yml"
@@ -179,6 +188,7 @@ ssh "${REMOTE}" "
     cd ${REMOTE_DIR}
     [[ -f .deploy-sha ]] && cp .deploy-sha .deploy-sha.prev
     echo '${sha}' > .deploy-sha
+    chown ${REMOTE_USER}:${REMOTE_USER} .deploy-sha .deploy-sha.prev
 "
 
 # --- Health ------------------------------------------------
@@ -195,5 +205,5 @@ for i in $(seq 1 30); do
 done
 
 echo "ERROR: ${HEALTH_URL} did not come up within 60s" >&2
-ssh "${REMOTE}" "docker logs kaisho-sync --tail 40" >&2
+ssh "${REMOTE}" "docker logs kaisho-cloud --tail 40" >&2
 exit 1

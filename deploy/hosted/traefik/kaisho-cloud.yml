@@ -2,41 +2,35 @@
 # stack. Copy to /home/docker/traefik/conf.d/ — Traefik
 # hot-reloads it (no restart needed).
 #
-# Routes https://cloud.kaisho.dev to the kaisho-sync container
+# Routes https://cloud.kaisho.dev to the kaisho-cloud container
 # on port 3000 inside the traefik-public network.
-#
-# CUTOVER ONLY: this rule claims cloud.kaisho.dev, which the
-# legacy Supabase stack currently serves. Until cutover the
-# hosted stack answers on sync.kaisho.dev (kaisho-sync.yml next
-# to this file). At cutover the two swap: the legacy route goes
-# away and this one takes its place, in one step so the host is
-# never unrouted.
 #
 # The authoritative copy of every route lives in the traefik
 # repo's conf.d/; this copy is the app-side record, per the
-# convention in traefik/CLAUDE.md. bin/deploy does NOT ship it.
+# convention in traefik/CLAUDE.md. bin/deploy does NOT ship
+# it, so a route change is two repos in one change.
 
 http:
   routers:
-    kaisho-sync:
+    kaisho-cloud:
       rule: "Host(`cloud.kaisho.dev`)"
       entrypoints:
         - websecure
       tls:
         certResolver: letsencrypt
-      service: kaisho-sync
+      service: kaisho-cloud
       middlewares:
-        - kaisho-sync-headers
+        - kaisho-cloud-headers
 
   middlewares:
-    kaisho-sync-headers:
+    kaisho-cloud-headers:
       headers:
         stsSeconds: 15552000
         stsIncludeSubdomains: true
         stsPreload: true
 
   services:
-    kaisho-sync:
+    kaisho-cloud:
       loadBalancer:
         servers:
-          - url: "http://kaisho-sync:3000"
+          - url: "http://kaisho-cloud:3000"

@@ -15,14 +15,14 @@
 #
 # Environment:
 #   REMOTE      ssh alias. Default: vps
-#   REMOTE_DIR  stack directory. Default: /home/docker/kaisho-sync
+#   REMOTE_DIR  stack directory. Default: /home/docker/kaisho-cloud
 #   LOCAL_DIR   where to put fetched dumps. Default: ./backups
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 REMOTE="${REMOTE:-vps}"
-REMOTE_DIR="${REMOTE_DIR:-/home/docker/kaisho-sync}"
+REMOTE_DIR="${REMOTE_DIR:-/home/docker/kaisho-cloud}"
 LOCAL_DIR="${LOCAL_DIR:-backups}"
 
 fetch=1

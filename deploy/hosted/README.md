@@ -20,8 +20,7 @@ deploy/hosted/
   docker-compose.yml       db + migrate + api + cron
   backup                   pg_dump + rotation; runs on the VPS
   .env.example             copy to .env on the host, fill, 600
-  traefik/kaisho-sync.yml  sync.kaisho.dev route (live today)
-  traefik/kaisho-cloud.yml cloud.kaisho.dev route (cutover)
+  traefik/kaisho-cloud.yml cloud.kaisho.dev route
 ```
 
 All three app services share one build and one image tag
@@ -33,17 +32,17 @@ apart.
 ```bash
 # On the VPS, once:
 ssh vps
-mkdir -p /home/docker/kaisho-sync
-chown -R docker:docker /home/docker/kaisho-sync
+mkdir -p /home/docker/kaisho-cloud
+chown -R docker:docker /home/docker/kaisho-cloud
 # .env from .env.example, real secrets:
-chmod 600 /home/docker/kaisho-sync/.env
+chmod 600 /home/docker/kaisho-cloud/.env
 
 # From the repo:
 bin/deploy
 ```
 
 `bin/deploy` runs the tests, asks for confirmation, rsyncs
-the work tree to `/home/docker/kaisho-sync/src`, builds,
+the work tree to `/home/docker/kaisho-cloud/src`, builds,
 migrates, restarts and probes the health endpoint.
 
 The route is not shipped by `bin/deploy`. Routes are
@@ -51,23 +50,20 @@ authoritative in the traefik repo's `conf.d/` and go out with
 that repo's own `bin/deploy`; the copies here are the
 app-side record.
 
-## Cutover to cloud.kaisho.dev
+## The retired Supabase stack
 
-The legacy Supabase stack in `/home/docker/kaisho-cloud`
-still serves `cloud.kaisho.dev`. To take the host over, swap
-the two routes in the traefik repo in one commit — delete
-`conf.d/kaisho-cloud.yml`'s old body and replace it with
-`traefik/kaisho-cloud.yml` from here, drop
-`conf.d/kaisho-sync.yml` — deploy that repo, then stop the
-legacy stack:
+Until 2026-09-13 `cloud.kaisho.dev` was served by the
+original Supabase + Stripe stack out of the same directory
+this one now occupies. It is stopped and archived at
+`/home/docker/kaisho-cloud.legacy/`, its containers removed
+and its Traefik route gone. Its data was not migrated:
+accounts on this stack start fresh.
 
-```bash
-ssh vps 'cd /home/docker/kaisho-cloud && docker compose down'
-```
-
-Traefik hot-reloads `conf.d/`, so the swap has no window in
-which the host is unrouted. Afterwards set `BASE_URL` and
-`HEALTH_URL` to the new host.
+Nothing depends on it any more. When the Supabase project and
+the Stripe account are closed out (open-source plan, phase
+5), the archive directory can go too — it holds only the old
+compose file and a `.env` whose secrets are due for rotation
+regardless.
 
 ## Operating
 
@@ -76,7 +72,7 @@ bin/health            # containers, db, endpoint, log scan
 bin/logs cron         # or api / db
 bin/backup            # dump on the VPS, fetch a copy here
 bin/restore --list
-ssh vps 'docker exec -it kaisho-sync-db psql -U kaisho kaisho'
+ssh vps 'docker exec -it kaisho-cloud-db psql -U kaisho kaisho'
 ```
 
 Backups run from the docker user's crontab on the VPS; see
