@@ -9,6 +9,14 @@ const { rateLimit } = require("express-rate-limit")
 
 // ── Env validation ──────────────────────────────────────
 
+// AGPL-3.0 section 13: a network user must be able to get
+// the source of the instance they are using. Operators who
+// run a modified build MUST point this at their fork —
+// leaving it at ours would offer source that is not the
+// source of the running program.
+const SOURCE_URL = process.env.SOURCE_URL
+  || "https://github.com/ridingbytes/kaisho-cloud"
+
 const REQUIRED = ["DATABASE_URL", "JWT_SECRET"]
 for (const key of REQUIRED) {
   if (!process.env[key]) {
@@ -131,4 +139,5 @@ module.exports = {
   oauthCallbackLimiter,
   PORT,
   BASE_URL,
+  SOURCE_URL,
 }

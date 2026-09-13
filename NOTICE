@@ -1,0 +1,34 @@
+Kaisho Cloud
+Copyright (c) 2026 RIDING BYTES GmbH
+
+Licensed under the GNU Affero General Public License v3.0 or
+later. See LICENSE.
+
+About the hosted service
+------------------------
+
+RIDING BYTES GmbH runs one instance of this software at
+https://cloud.kaisho.dev and may charge for accounts on it.
+That is a service, not a different product: the instance runs
+this code, from this repository, with no private additions.
+Billing lives in a separate service that provisions accounts
+through the documented admin API and is not part of this
+program.
+
+You are under no obligation to use it. Self-hosting is a
+first-class path, documented in docs/self-hosting.md, and the
+desktop and mobile clients let you point at any server URL.
+
+If you run a modified version of this software as a network
+service, section 13 of the AGPL requires you to offer its
+source to your users. Set SOURCE_URL to your own repository
+so the offer at GET / leads to the code you are actually
+running.
+
+Trademarks
+----------
+
+The licence covers the code. "Kaisho", the Kaisho logo and
+the wordmarks are trademarks of RIDING BYTES GmbH and are not
+licensed by it. Run, fork and modify this software freely,
+but under a name and mark of your own.

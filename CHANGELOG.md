@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- License the server under AGPL-3.0 [#116](https://github.com/ridingbytes/kaisho-cloud/pull/116)
 - Remove the Supabase backend [#115](https://github.com/ridingbytes/kaisho-cloud/pull/115)
 - Take over cloud.kaisho.dev from the Supabase stack [#113](https://github.com/ridingbytes/kaisho-cloud/pull/113)
 - Replace the GitHub Actions deploy with bin/deploy over SSH [#111](https://github.com/ridingbytes/kaisho-cloud/pull/111)
