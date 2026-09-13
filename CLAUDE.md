@@ -46,8 +46,8 @@ db/                 schema.sql + migrate.js (the migration
 scripts/            create-stripe-products.js,
                     sync-stripe-webhook.js, audit-stripe.js,
                     dev-login.sh (mint JWT from local API)
-docs/               development.md (Stripe testing, dev-login),
-                    saas-setup.md, deployment.md
+docs/               development.md, self-hosting.md,
+                    deployment.md, architecture.md
 ```
 
 ## Dev commands
