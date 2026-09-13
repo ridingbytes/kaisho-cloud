@@ -1,81 +1,83 @@
 # Hosted kaisho-cloud stack
 
-Self-contained deployment of the open-source kaisho-cloud as
-our managed "sync + AI" server: the app image plus its own
+Our managed "sync + AI" server: kaisho-cloud plus its own
 PostgreSQL, no Supabase. It mirrors the owncloud stack on the
-same VPS (app + dedicated `postgres:16` on a private internal
-network, joined to the shared external `traefik-public`
-network for ingress).
+same VPS (app plus a dedicated `postgres:16` on a private
+internal network, joined to the shared external
+`traefik-public` network for ingress).
 
-This stack runs in **parallel** to the current Supabase-based
-`kaisho-cloud` stack and becomes the canonical
-`cloud.kaisho.dev` at cutover.
+This directory is the stack's definition. It is **not** run
+from here: `bin/deploy` at the repo root ships it to the VPS
+and builds it there. Read `docs/deployment.md` first.
 
-## Status / dependency
-
-The `db` and `migrate` services work today. The `api` and
-`cron` services boot on Postgres only once the pg data layer
-and self-owned auth have landed (they still require Supabase
-env until then). Bring `db` up early if you like; bring
-`api` + `cron` up at cutover.
+The self-host stack for everyone else is `docker-compose.yml`
+at the repo root, documented in `docs/self-hosting.md`.
 
 ## Layout
 
 ```
 deploy/hosted/
-  docker-compose.yml        db + migrate + api + cron
-  .env.example              copy to .env, fill secrets
-  traefik/kaisho-cloud.yml  file-provider route (cutover only)
+  docker-compose.yml       db + migrate + api + cron
+  backup                   pg_dump + rotation; runs on the VPS
+  .env.example             copy to .env on the host, fill, 600
+  traefik/kaisho-sync.yml  sync.kaisho.dev route (live today)
+  traefik/kaisho-cloud.yml cloud.kaisho.dev route (cutover)
 ```
 
-## First deploy (target: /home/docker/kaisho-sync on the VPS)
+All three app services share one build and one image tag
+(`kaisho-cloud:local`), so api, cron and migrate cannot drift
+apart.
+
+## First deploy
 
 ```bash
-# 1. Files
+# On the VPS, once:
+ssh vps
 mkdir -p /home/docker/kaisho-sync
-# copy deploy/hosted/* into it (compose, .env.example, traefik/)
+chown -R docker:docker /home/docker/kaisho-sync
+# .env from .env.example, real secrets:
+chmod 600 /home/docker/kaisho-sync/.env
 
-# 2. Secrets
-cp .env.example .env && chmod 600 .env
-# set POSTGRES_PASSWORD + a matching DATABASE_URL, INTEGRATION_KEY
-# (openssl rand -hex 32), INTEGRATION_STATE_SECRET, RESET_TOKEN_SECRET,
-# OPENROUTER_API_KEY, BASE_URL.
-
-# 3. Database first (safe now)
-docker compose up -d db
-docker compose run --rm migrate     # applies db/schema.sql
-
-# 4. App (cutover, once the image boots on Postgres)
-docker compose up -d api cron
+# From the repo:
+bin/deploy
 ```
+
+`bin/deploy` runs the tests, asks for confirmation, rsyncs
+the work tree to `/home/docker/kaisho-sync/src`, builds,
+migrates, restarts and probes the health endpoint.
+
+The route is not shipped by `bin/deploy`. Routes are
+authoritative in the traefik repo's `conf.d/` and go out with
+that repo's own `bin/deploy`; the copies here are the
+app-side record.
 
 ## Cutover to cloud.kaisho.dev
 
-`traefik/kaisho-cloud.yml` claims `cloud.kaisho.dev`, which the
-old stack currently serves. To cut over atomically:
+The legacy Supabase stack in `/home/docker/kaisho-cloud`
+still serves `cloud.kaisho.dev`. To take the host over, swap
+the two routes in the traefik repo in one commit — delete
+`conf.d/kaisho-cloud.yml`'s old body and replace it with
+`traefik/kaisho-cloud.yml` from here, drop
+`conf.d/kaisho-sync.yml` — deploy that repo, then stop the
+legacy stack:
 
 ```bash
-# remove the old route, add the new one, in one step
-rm /home/docker/traefik/conf.d/kaisho-cloud.yml         # old stack
-cp traefik/kaisho-cloud.yml /home/docker/traefik/conf.d/ # this stack
-# Traefik hot-reloads; then stop the old stack
-cd /home/docker/kaisho-cloud && docker compose down
+ssh vps 'cd /home/docker/kaisho-cloud && docker compose down'
 ```
 
-To smoke-test in parallel **before** cutover, edit the rule in
-`traefik/kaisho-cloud.yml` to `Host(\`cloud-next.kaisho.dev\`)`,
-point that DNS record at the VPS, and copy it into `conf.d/`
-alongside the existing route.
+Traefik hot-reloads `conf.d/`, so the swap has no window in
+which the host is unrouted. Afterwards set `BASE_URL` and
+`HEALTH_URL` to the new host.
 
 ## Operating
 
 ```bash
-docker compose ps
-docker compose logs -f api
-docker compose run --rm migrate      # re-run after schema changes
-docker compose exec db psql -U kaisho kaisho
+bin/health            # containers, db, endpoint, log scan
+bin/logs cron         # or api / db
+bin/backup            # dump on the VPS, fetch a copy here
+bin/restore --list
+ssh vps 'docker exec -it kaisho-sync-db psql -U kaisho kaisho'
 ```
 
-Backups: the Postgres data lives in the `kaisho-sync-pg-data`
-named volume. Add it to the VPS backup routine (pg_dump) the
-same way the other stacks are handled.
+Backups run from the docker user's crontab on the VPS; see
+`docs/deployment.md`.

@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Back up the hosted stack. Runs ON THE VPS, next to the
+# compose file; bin/deploy ships it there. Intended for cron
+# as the docker user, alongside the other stacks:
+#   30 5 * * * /home/docker/kaisho-sync/backup \
+#       >> /home/docker/kaisho-sync/backups/cron.log 2>&1
+#
+# The database is the only state this stack has: no uploads,
+# no volumes besides Postgres. A pg_dump is therefore a
+# complete backup. Dumps are --clean --if-exists so a restore
+# can run against a non-empty database.
+#
+# Keeps BACKUP_KEEP (default 14) dumps and prunes the rest.
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+set -a
+# shellcheck disable=SC1091
+. .env
+set +a
+
+keep="${BACKUP_KEEP:-14}"
+db="$(docker ps -q -f name=^kaisho-sync-db$ -f status=running)"
+if [[ -z "${db}" ]]; then
+    echo "kaisho-sync-db is not running" >&2
+    exit 1
+fi
+
+mkdir -p backups
+stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+out="backups/${stamp}.sql.zst"
+
+echo "==> dumping ${POSTGRES_DB}"
+docker exec -i "${db}" \
+    pg_dump -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+    --no-owner --clean --if-exists \
+    | zstd -q -T0 > "${out}.part"
+mv "${out}.part" "${out}"
+
+# A dump that decompresses to nothing is worse than no dump:
+# it looks like a backup in the listing. Fail loudly instead.
+if ! zstd -qt "${out}"; then
+    echo "ERROR: ${out} failed its integrity check" >&2
+    rm -f "${out}"
+    exit 1
+fi
+size="$(wc -c < "${out}")"
+if [[ "${size}" -lt 1024 ]]; then
+    echo "ERROR: ${out} is only ${size} bytes" >&2
+    rm -f "${out}"
+    exit 1
+fi
+
+echo "wrote ${out} (${size} bytes)"
+
+# shellcheck disable=SC2012
+ls -1 backups/*.sql.zst | sort -r | tail -n +"$((keep + 1))" \
+    | while read -r old; do
+        echo "==> pruning ${old}"
+        rm -f "${old}"
+    done

@@ -1,8 +1,14 @@
 # SaaS Setup Guide
 
-This document covers the one-time setup of Supabase, Stripe, and
-Resend for the Kaisho Cloud service. Follow these steps when setting
-up a new environment from scratch.
+**Legacy.** This describes the original Supabase + Stripe
+deployment, which still serves `cloud.kaisho.dev` until the
+cutover. It is kept for operating that stack, not for building
+a new one.
+
+For a new deployment use `self-hosting.md` (plain PostgreSQL,
+no Supabase, no billing) or `deployment.md` (our managed
+instance). Billing lives in the separate private
+`kaisho-billing` service.
 
 ---
 

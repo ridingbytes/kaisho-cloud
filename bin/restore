@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Restore a database dump into the hosted stack.
+#
+# Destructive: the dump is --clean --if-exists, so it drops
+# and recreates everything it contains. The API and cron
+# worker are stopped for the duration so nothing writes into
+# a half-restored schema.
+#
+# Usage:
+#   bin/restore                     restore the newest dump
+#                                   on the VPS
+#   bin/restore 20260913T050000Z    restore that dump
+#   bin/restore --file dump.sql.zst upload a local dump and
+#                                   restore it
+#   bin/restore --list              list the dumps on the VPS
+#
+# Environment:
+#   REMOTE           ssh alias. Default: vps
+#   REMOTE_DIR       stack directory.
+#                    Default: /home/docker/kaisho-sync
+#   RESTORE_CONFIRM  set to "restore" to skip the prompt
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+REMOTE="${REMOTE:-vps}"
+REMOTE_DIR="${REMOTE_DIR:-/home/docker/kaisho-sync}"
+
+remote_ls="ls -1 ${REMOTE_DIR}/backups/*.sql.zst | sort -r"
+
+upload=""
+stamp=""
+case "${1:-}" in
+    --list) exec ssh "${REMOTE}" "ls -lh ${REMOTE_DIR}/backups/" ;;
+    --file)
+        upload="${2:-}"
+        [[ -f "${upload}" ]] || { echo "no such file: ${upload}" >&2; exit 2; }
+        ;;
+    "") ;;
+    -*) echo "unknown arg: $1" >&2; exit 2 ;;
+    *)  stamp="$1" ;;
+esac
+
+if [[ -n "${upload}" ]]; then
+    target="${REMOTE_DIR}/backups/uploaded-$(basename "${upload}")"
+    echo "==> uploading $(basename "${upload}")"
+    ssh "${REMOTE}" "mkdir -p ${REMOTE_DIR}/backups"
+    scp -q "${upload}" "${REMOTE}:${target}"
+elif [[ -n "${stamp}" ]]; then
+    target="${REMOTE_DIR}/backups/${stamp}.sql.zst"
+    ssh "${REMOTE}" "test -f ${target}" \
+        || { echo "no such dump: ${target}" >&2; exit 1; }
+else
+    target="$(ssh "${REMOTE}" "${remote_ls} | head -1")"
+    [[ -n "${target}" ]] || { echo "no dumps on the VPS" >&2; exit 1; }
+fi
+
+echo "restoring: ${target}"
+echo "into:      ${REMOTE}:${REMOTE_DIR} (kaisho-sync-db)"
+echo
+echo "This DROPS and recreates every object in the dump."
+
+answer="${RESTORE_CONFIRM:-}"
+if [[ -z "${answer}" ]]; then
+    read -rp 'Type "restore" to continue: ' answer
+fi
+[[ "${answer}" == "restore" ]] || { echo "Aborted."; exit 1; }
+
+echo "==> stopping api + cron"
+ssh "${REMOTE}" "cd ${REMOTE_DIR} && docker compose stop api cron"
+
+echo "==> restoring"
+# Read the credentials from the host's .env rather than
+# assuming the defaults; psql -v ON_ERROR_STOP=1 so a broken
+# dump fails the script instead of leaving a partial schema.
+ssh "${REMOTE}" "
+    set -euo pipefail
+    cd ${REMOTE_DIR}
+    set -a; . ./.env; set +a
+    zstd -dc '${target}' \
+        | docker exec -i kaisho-sync-db \
+            psql -v ON_ERROR_STOP=1 -q \
+            -U \"\${POSTGRES_USER}\" -d \"\${POSTGRES_DB}\"
+"
+
+echo "==> starting api + cron"
+ssh "${REMOTE}" "cd ${REMOTE_DIR} && docker compose up -d api cron"
+
+echo "==> done; run bin/health to verify"

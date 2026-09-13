@@ -1,128 +1,157 @@
 # Deployment
 
-## VPS deployment with Docker
+Two audiences use this repo:
 
-### Prerequisites
+- **Self-hosters** run the stack at the repo root with
+  `docker compose up --build`. See `self-hosting.md`; nothing
+  on this page is required.
+- **We** run one managed instance on the Hostinger VPS, from
+  `deploy/hosted/`. That is what this page covers.
 
-- Docker and Docker Compose on the VPS
-- Traefik (or another reverse proxy) for TLS termination
-- DNS pointing `cloud.kaisho.dev` to the VPS IP
+## How the managed deploy works
 
-### Setup
+There is no CI and no registry in this path. The repo is the
+source of truth and the VPS is a mirror:
 
-1. Clone the repository on the VPS:
-
-   ```bash
-   cd /home/docker
-   git clone git@github.com:ridingbytes/kaisho-cloud.git
-   cd kaisho-cloud
-   ```
-
-2. Create `.env` from `.env.example` with production values
-   (see `saas-setup.md`):
-
-   ```bash
-   cp .env.example .env
-   chmod 600 .env
-   ```
-
-3. The production compose file (`docker-compose.prod.yml`)
-   pulls a pre-built image from GHCR and connects to the
-   shared `traefik-public` network. Traefik routing is
-   configured via a file provider (`traefik/kaisho-cloud.yml`)
-   rather than Docker labels. The deploy workflow copies this
-   file to `/home/docker/traefik/conf.d/` automatically.
-
-4. Start:
-
-   ```bash
-   docker compose up -d
-   ```
-
-5. Verify:
-
-   ```bash
-   curl https://cloud.kaisho.dev/health
-   # {"status":"ok"}
-   ```
-
-### Updates
-
-Once the GitHub Actions workflow (see below) is set up,
-every push to the `production` branch builds a fresh
-image and redeploys automatically. For manual updates:
-
-```bash
-cd /home/docker/kaisho-cloud
-git pull
-docker compose up --build -d
+```
+work tree  --rsync-->  vps:/home/docker/kaisho-sync/src
+                            |
+                            +-- docker compose build   (on the host)
+                            +-- docker compose run migrate
+                            +-- docker compose up -d db api cron
 ```
 
-### Logs
+`bin/deploy` does all of it. Building on the host rather than
+locally avoids emulating `linux/amd64` on an arm64 Mac and
+keeps a deploy to one rsync plus a build.
+
+`${REMOTE_DIR}/src` is a throwaway mirror. Nothing is edited
+there by hand; `bin/deploy --check` reports it when someone
+did anyway.
+
+## Deploying
 
 ```bash
-docker logs kaisho-cloud --tail 100 -f
+bin/deploy --check      # does the VPS still match the repo?
+bin/deploy --dry-run    # what would ship
+bin/deploy              # tests, confirm, ship, build, migrate,
+                        # restart, health probe
 ```
 
-## GitHub Actions deployment
+The script refuses to finish silently: it runs `pnpm test`
+first, asks for the literal word `deploy`, and probes
+`HEALTH_URL` afterwards, dumping the API log and exiting
+non-zero if the endpoint stays down for 60 seconds.
 
-The workflow at `.github/workflows/deploy.yml` triggers on
-every push to the `production` branch. It builds the API
-image, pushes it to `ghcr.io/ridingbytes/kaisho-cloud`,
-SCPs `docker-compose.prod.yml` to the VPS and runs
-`docker compose pull && docker compose up -d`.
+Overridable by environment: `REMOTE` (ssh alias, default
+`vps`), `REMOTE_DIR` (default `/home/docker/kaisho-sync`),
+`HEALTH_URL` (default `https://sync.kaisho.dev/healthz`),
+`DEPLOY_CONFIRM=deploy` to skip the prompt.
 
-### Repository secrets
+### Rollback
 
-In **Settings > Secrets and variables > Actions**, set:
-
-| Secret          | Value                                         |
-|-----------------|-----------------------------------------------|
-| `VPS_HOST`      | VPS IP or hostname                            |
-| `VPS_USER`      | `docker`                                      |
-| `VPS_SSH_KEY`   | Contents of `~/.ssh/github_actions_deploy`    |
-
-`VPS_SSH_KEY` is the private half of the ed25519 key pair
-whose public key (`github-actions-deploy`) sits in
-`/home/docker/.ssh/authorized_keys` on the VPS. The
-**same private key is used for the senaity repo** -- one
-shared deploy key, one authorised_keys line.
-
-### VPS one-time prep
+There is no image tag to re-pin, so roll back the way you
+rolled forward: check out the previous commit and deploy it
+again. The VPS records what shipped in `.deploy-sha`, and the
+one before it in `.deploy-sha.prev`.
 
 ```bash
-sudo mkdir -p /home/docker/kaisho-cloud
-sudo chown docker:docker /home/docker/kaisho-cloud
+ssh vps cat /home/docker/kaisho-sync/.deploy-sha.prev
+git checkout <that-sha>
+bin/deploy
+```
 
-# Copy the production .env into place (NOT committed to git):
-sudo -u docker vim /home/docker/kaisho-cloud/.env
-sudo chmod 600 /home/docker/kaisho-cloud/.env
+Roll back the database separately if a migration is at fault,
+with `bin/restore` and the pre-deploy dump.
 
-# Ensure the shared Traefik network exists (same one
-# SENAITY uses):
+## The other scripts
+
+| Script | Runs | Does |
+|---|---|---|
+| `bin/deploy` | locally | ships, builds, migrates, restarts |
+| `bin/health` | locally | containers, Postgres, endpoint, log scan |
+| `bin/logs` | locally | `bin/logs [api\|cron\|db] [flags]` |
+| `bin/backup` | locally | triggers the host dump, fetches it |
+| `bin/restore` | locally | restores a dump, stops api+cron first |
+| `deploy/hosted/backup` | on the VPS | the dump itself; what cron runs |
+| `bin/dev` | locally | local dev server, unrelated to deploys |
+
+## Backups
+
+The database is the only state the stack has, so a `pg_dump`
+is a complete backup. `deploy/hosted/backup` is shipped to
+`/home/docker/kaisho-sync/backup` by every deploy and runs
+from the docker user's crontab on the VPS, alongside the
+other stacks:
+
+```cron
+30 5 * * * /home/docker/kaisho-sync/backup \
+    >> /home/docker/kaisho-sync/backups/cron.log 2>&1
+```
+
+It keeps `BACKUP_KEEP` dumps (default 14), verifies each one
+decompresses, and fails loudly on a suspiciously small dump
+rather than leaving something that merely looks like a backup
+in the listing.
+
+## Traefik
+
+Routing is a file-provider config, not Docker labels. The
+authoritative copy of every route lives in the **traefik**
+repo under `conf.d/`, and goes out with that repo's own
+`bin/deploy`. `deploy/hosted/traefik/` holds the app-side
+record of ours:
+
+- `kaisho-sync.yml` — `sync.kaisho.dev`, live today.
+- `kaisho-cloud.yml` — `cloud.kaisho.dev`, for the cutover
+  off the legacy Supabase stack.
+
+A route change is therefore two repos in one change:
+`deploy/hosted/traefik/` here, `conf.d/` there.
+
+## VPS layout
+
+```
+/home/docker/kaisho-sync/
+  docker-compose.yml     shipped by bin/deploy; do not edit here
+  backup                 shipped by bin/deploy; run from cron
+  .env                   ONLY on the host, mode 600, never shipped
+  .deploy-sha[.prev]     what is running
+  src/                   the rsynced work tree (build context)
+  backups/               dumps + cron.log
+```
+
+Containers: `kaisho-sync` (api), `kaisho-sync-cron`,
+`kaisho-sync-db`. Networks: `traefik-public` (external,
+ingress) and the stack's own `internal` (db access).
+
+### One-time prep
+
+```bash
+ssh vps
+mkdir -p /home/docker/kaisho-sync
+chown -R docker:docker /home/docker/kaisho-sync
 docker network inspect traefik-public >/dev/null 2>&1 \
   || docker network create traefik-public
+# .env from deploy/hosted/.env.example, filled in:
+chmod 600 /home/docker/kaisho-sync/.env
 ```
 
-The GHCR package is private by default; either make it
-public under **Packages > kaisho-cloud > Settings >
-Visibility**, or run `docker login ghcr.io` on the VPS
-with a read-scoped PAT.
+The `.env` is never shipped and never committed. When a
+variable is added to `.env.example`, add it on the host by
+hand in the same change, before deploying code that needs it.
 
-### Traefik routing
+## Why not GitHub Actions
 
-Routing is handled by a Traefik file provider config
-(`traefik/kaisho-cloud.yml`), not Docker labels. The
-deploy workflow SCPs this file into
-`/home/docker/traefik/conf.d/` on every push. Traefik
-hot-reloads file provider configs, so no manual copy or
-restart is needed. The config routes
-`cloud.kaisho.dev` to the `kaisho-cloud` container on
-port 3000 inside the `traefik-public` network.
+The workflow that used to live at `.github/workflows/deploy.yml`
+built an image on a GitHub runner, pushed it to GHCR and ran
+`docker compose pull` on the VPS over an SSH deploy key. It
+was removed: it needed a deploy key and registry credentials
+in CI, it hid the deploy behind a push to a `production`
+branch, and it wrote to `/home/docker/kaisho-cloud` — the
+legacy stack's directory — so deploying could silently
+resurrect the stack we are retiring.
 
-### Image pinning
-
-The deploy workflow pins the image to the exact Git SHA
-instead of `:latest`. It writes the SHA to `.deploy-sha`
-and keeps the previous value in `.deploy-sha.prev` for
-rollback reference.
+The desktop app (`kaisho`) is the one repo that keeps its
+workflows: its release builds are multi-platform and cannot
+be produced from one workstation.

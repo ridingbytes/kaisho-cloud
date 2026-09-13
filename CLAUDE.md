@@ -77,17 +77,24 @@ STRIPE_SECRET_KEY=$(awk -F= \
 
 ## Deploy
 
-- **Workflow**: `.github/workflows/deploy.yml` triggers on push
-  to `production` only (not master). Master is staging-ready;
-  shipping requires `git checkout production && git merge --ff
-  master && git push`.
+- **`bin/deploy`**, over SSH, from a workstation. No CI, no
+  registry: it rsyncs the work tree to the VPS, builds the
+  image there, runs the migrations and restarts. Read
+  `docs/deployment.md` before touching it. There is no
+  `production` branch in this flow and no GitHub Actions
+  workflow; `bin/deploy --check` tells you whether the host
+  still matches the repo.
 - **VPS**: `srv1390042.hstgr.cloud` (SSH alias `vps`, user
-  `root`, sudo nopasswd). App lives at
-  `/home/docker/kaisho-cloud/`, runs as `docker` user via
-  Docker Compose. `.env` is at the same path, mode 600.
-- **Supabase migrations**: apply via the Dashboard SQL Editor
-  (or `supabase db push` if linked locally). Apply BEFORE
-  merging the PR that uses them.
+  `root`, sudo nopasswd). The managed stack lives at
+  `/home/docker/kaisho-sync/` (api `kaisho-sync`, worker
+  `kaisho-sync-cron`, db `kaisho-sync-db`). `.env` is at the
+  same path, mode 600, and is never shipped.
+- **Legacy stack**: `/home/docker/kaisho-cloud/` still serves
+  `cloud.kaisho.dev` on Supabase + Stripe until the cutover.
+  Do not deploy into it.
+- **Migrations**: `db/migrate.js`, run by the `migrate` service
+  on every deploy. Supabase-era migrations under
+  `supabase/migrations/` apply only to the legacy stack.
 
 ## Conventions
 
