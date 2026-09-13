@@ -58,6 +58,13 @@ log_clean() {
     local container="$1"
     local pattern="$2"
     local out
+    # The sentinel tells "scan found nothing" from "host
+    # unreachable", but not from "container does not
+    # exist": docker logs on a missing container writes to
+    # stderr and the pipeline still prints the sentinel, so
+    # a container that never started reported a clean log.
+    ssh "${REMOTE}" "docker ps -q -f name=^${container}\$ \
+        | grep -q ." || return 1
     out="$(ssh "${REMOTE}" "docker logs --since 15m ${container} \
         2>&1 | grep -iE '${pattern}'; echo __SCAN_OK__")" || return 1
     [[ "${out}" == *"__SCAN_OK__"* ]] || return 1
