@@ -122,12 +122,12 @@ The four kaisho repos ship together as the Track AI product:
 - `kaisho` — desktop app (Python/FastAPI sidecar + React/TS
   frontend + Tauri shell). Auto-updater. Released as v2.x
   GitHub releases on `v*` tag push.
-- `kaisho-cloud` — cloud API (Express + Supabase + Stripe live
-  + Resend + OpenRouter) plus the mobile PWA. Deployed via
-  Docker to the VPS on push to the `production` branch; master
-  is staging-ready.
-- `kaisho-website` — marketing site (kaisho.dev). Auto-deploys
-  on push to `master` and `production`.
+- `kaisho-cloud` — cloud API (Express + PostgreSQL + Resend +
+  OpenRouter) plus the mobile PWA. Deployed by `bin/deploy`
+  over SSH, which builds the image on the VPS.
+- `kaisho-website` — marketing site (kaisho.dev). Deployed by
+  its own `bin/deploy` over SSH; nothing publishes
+  automatically.
 - `kaisho-mode` — Emacs Lisp client. Loaded directly from local
   checkout by Doom config via `:local-repo`. No package registry.
 

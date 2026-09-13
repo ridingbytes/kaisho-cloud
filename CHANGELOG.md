@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Replace the GitHub Actions deploy with bin/deploy over SSH [#111](https://github.com/ridingbytes/kaisho-cloud/pull/111)
 - Add a one-command self-host stack (Postgres) + self-hosting guide [#109](https://github.com/ridingbytes/kaisho-cloud/pull/109)
 - Add an admin console (web UI) to manage users and see sync status [#110](https://github.com/ridingbytes/kaisho-cloud/pull/110)
 - Remove Stripe + Apple billing; plans move out to the private biller (de-Supabase step 4) [#108](https://github.com/ridingbytes/kaisho-cloud/pull/108)
