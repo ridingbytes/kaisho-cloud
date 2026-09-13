@@ -1,4 +1,4 @@
-# kaisho-cloud — self-contained hosted stack
+# kaisho-cloud: self-contained hosted stack
 #
 # The managed "sync + AI" server, running kaisho-cloud against
 # its OWN PostgreSQL (no Supabase). Modelled on the owncloud
@@ -12,7 +12,7 @@
 # api, cron and migrate can never drift apart.
 #
 # This file is deployed to ${REMOTE_DIR}/docker-compose.yml by
-# bin/deploy. Do not edit it on the host — the next deploy
+# bin/deploy. Do not edit it on the host: the next deploy
 # overwrites it.
 #
 # Prerequisites on the VPS:
