@@ -14,7 +14,7 @@ There is no CI and no registry in this path. The repo is the
 source of truth and the VPS is a mirror:
 
 ```
-work tree  --rsync-->  vps:/home/docker/kaisho-sync/src
+work tree  --rsync-->  vps:/home/docker/kaisho-cloud/src
                             |
                             +-- docker compose build   (on the host)
                             +-- docker compose run migrate
@@ -44,8 +44,8 @@ first, asks for the literal word `deploy`, and probes
 non-zero if the endpoint stays down for 60 seconds.
 
 Overridable by environment: `REMOTE` (ssh alias, default
-`vps`), `REMOTE_DIR` (default `/home/docker/kaisho-sync`),
-`HEALTH_URL` (default `https://sync.kaisho.dev/healthz`),
+`vps`), `REMOTE_DIR` (default `/home/docker/kaisho-cloud`),
+`HEALTH_URL` (default `https://cloud.kaisho.dev/healthz`),
 `DEPLOY_CONFIRM=deploy` to skip the prompt.
 
 ### Rollback
@@ -56,7 +56,7 @@ again. The VPS records what shipped in `.deploy-sha`, and the
 one before it in `.deploy-sha.prev`.
 
 ```bash
-ssh vps cat /home/docker/kaisho-sync/.deploy-sha.prev
+ssh vps cat /home/docker/kaisho-cloud/.deploy-sha.prev
 git checkout <that-sha>
 bin/deploy
 ```
@@ -80,13 +80,13 @@ with `bin/restore` and the pre-deploy dump.
 
 The database is the only state the stack has, so a `pg_dump`
 is a complete backup. `deploy/hosted/backup` is shipped to
-`/home/docker/kaisho-sync/backup` by every deploy and runs
+`/home/docker/kaisho-cloud/backup` by every deploy and runs
 from the docker user's crontab on the VPS, alongside the
 other stacks:
 
 ```cron
-30 5 * * * /home/docker/kaisho-sync/backup \
-    >> /home/docker/kaisho-sync/backups/cron.log 2>&1
+30 5 * * * /home/docker/kaisho-cloud/backup \
+    >> /home/docker/kaisho-cloud/backups/cron.log 2>&1
 ```
 
 It keeps `BACKUP_KEEP` dumps (default 14), verifies each one
@@ -102,9 +102,7 @@ repo under `conf.d/`, and goes out with that repo's own
 `bin/deploy`. `deploy/hosted/traefik/` holds the app-side
 record of ours:
 
-- `kaisho-sync.yml` — `sync.kaisho.dev`, live today.
-- `kaisho-cloud.yml` — `cloud.kaisho.dev`, for the cutover
-  off the legacy Supabase stack.
+- `kaisho-cloud.yml` — `cloud.kaisho.dev`.
 
 A route change is therefore two repos in one change:
 `deploy/hosted/traefik/` here, `conf.d/` there.
@@ -112,7 +110,7 @@ A route change is therefore two repos in one change:
 ## VPS layout
 
 ```
-/home/docker/kaisho-sync/
+/home/docker/kaisho-cloud/
   docker-compose.yml     shipped by bin/deploy; do not edit here
   backup                 shipped by bin/deploy; run from cron
   .env                   ONLY on the host, mode 600, never shipped
@@ -121,20 +119,20 @@ A route change is therefore two repos in one change:
   backups/               dumps + cron.log
 ```
 
-Containers: `kaisho-sync` (api), `kaisho-sync-cron`,
-`kaisho-sync-db`. Networks: `traefik-public` (external,
+Containers: `kaisho-cloud` (api), `kaisho-cron`,
+`kaisho-cloud-db`. Networks: `traefik-public` (external,
 ingress) and the stack's own `internal` (db access).
 
 ### One-time prep
 
 ```bash
 ssh vps
-mkdir -p /home/docker/kaisho-sync
-chown -R docker:docker /home/docker/kaisho-sync
+mkdir -p /home/docker/kaisho-cloud
+chown -R docker:docker /home/docker/kaisho-cloud
 docker network inspect traefik-public >/dev/null 2>&1 \
   || docker network create traefik-public
 # .env from deploy/hosted/.env.example, filled in:
-chmod 600 /home/docker/kaisho-sync/.env
+chmod 600 /home/docker/kaisho-cloud/.env
 ```
 
 The `.env` is never shipped and never committed. When a

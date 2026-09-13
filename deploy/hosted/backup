@@ -2,8 +2,8 @@
 # Back up the hosted stack. Runs ON THE VPS, next to the
 # compose file; bin/deploy ships it there. Intended for cron
 # as the docker user, alongside the other stacks:
-#   30 5 * * * /home/docker/kaisho-sync/backup \
-#       >> /home/docker/kaisho-sync/backups/cron.log 2>&1
+#   30 5 * * * /home/docker/kaisho-cloud/backup \
+#       >> /home/docker/kaisho-cloud/backups/cron.log 2>&1
 #
 # The database is the only state this stack has: no uploads,
 # no volumes besides Postgres. A pg_dump is therefore a
@@ -21,9 +21,9 @@ set -a
 set +a
 
 keep="${BACKUP_KEEP:-14}"
-db="$(docker ps -q -f name=^kaisho-sync-db$ -f status=running)"
+db="$(docker ps -q -f name=^kaisho-cloud-db$ -f status=running)"
 if [[ -z "${db}" ]]; then
-    echo "kaisho-sync-db is not running" >&2
+    echo "kaisho-cloud-db is not running" >&2
     exit 1
 fi
 

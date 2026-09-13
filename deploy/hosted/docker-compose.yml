@@ -18,19 +18,19 @@
 # Prerequisites on the VPS:
 #   - docker network create traefik-public   (already exists)
 #   - cp .env.example .env                    (fill secrets, chmod 600)
-#   - cp traefik/kaisho-sync.yml /home/docker/traefik/conf.d/
+#   - cp traefik/kaisho-cloud.yml /home/docker/traefik/conf.d/
 
 services:
   db:
     image: postgres:16
-    container_name: kaisho-sync-db
+    container_name: kaisho-cloud-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - kaisho-sync-pg:/var/lib/postgresql/data
+      - kaisho-cloud-pg:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
@@ -56,7 +56,7 @@ services:
   api:
     build: ./src
     image: kaisho-cloud:local
-    container_name: kaisho-sync
+    container_name: kaisho-cloud
     restart: unless-stopped
     env_file: .env
     depends_on:
@@ -74,7 +74,7 @@ services:
   cron:
     build: ./src
     image: kaisho-cloud:local
-    container_name: kaisho-sync-cron
+    container_name: kaisho-cron
     restart: unless-stopped
     env_file: .env
     command: ["node", "api/workers/cron.js"]
@@ -90,4 +90,4 @@ networks:
   internal:
 
 volumes:
-  kaisho-sync-pg:
+  kaisho-cloud-pg:

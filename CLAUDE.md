@@ -86,15 +86,16 @@ STRIPE_SECRET_KEY=$(awk -F= \
   still matches the repo.
 - **VPS**: `srv1390042.hstgr.cloud` (SSH alias `vps`, user
   `root`, sudo nopasswd). The managed stack lives at
-  `/home/docker/kaisho-sync/` (api `kaisho-sync`, worker
-  `kaisho-sync-cron`, db `kaisho-sync-db`). `.env` is at the
+  `/home/docker/kaisho-cloud/` (api `kaisho-cloud`, worker
+  `kaisho-cron`, db `kaisho-cloud-db`). `.env` is at the
   same path, mode 600, and is never shipped.
-- **Legacy stack**: `/home/docker/kaisho-cloud/` still serves
-  `cloud.kaisho.dev` on Supabase + Stripe until the cutover.
-  Do not deploy into it.
-- **Migrations**: `db/migrate.js`, run by the `migrate` service
-  on every deploy. Supabase-era migrations under
-  `supabase/migrations/` apply only to the legacy stack.
+- **Legacy stack**: retired 2026-09-13. The Supabase + Stripe
+  stack that used to serve `cloud.kaisho.dev` is archived at
+  `/home/docker/kaisho-cloud.legacy/` and stopped. Its data
+  was not migrated; accounts start fresh.
+- **Migrations**: `db/migrate.js`, run on every deploy.
+  Supabase-era migrations under `supabase/migrations/` applied
+  only to the retired stack and are kept for reference.
 
 ## Conventions
 

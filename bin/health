@@ -9,11 +9,11 @@
 # Environment:
 #   REMOTE      ssh alias. Default: vps
 #   HEALTH_URL  public endpoint to probe.
-#               Default: https://sync.kaisho.dev/healthz
+#               Default: https://cloud.kaisho.dev/healthz
 set -euo pipefail
 
 REMOTE="${REMOTE:-vps}"
-HEALTH_URL="${HEALTH_URL:-https://sync.kaisho.dev/healthz}"
+HEALTH_URL="${HEALTH_URL:-https://cloud.kaisho.dev/healthz}"
 
 fail=0
 
@@ -34,13 +34,13 @@ running() {
 }
 
 echo "containers:"
-check "api running"  "$(running kaisho-sync)"
-check "cron running" "$(running kaisho-sync-cron)"
-check "db running"   "$(running kaisho-sync-db)"
+check "api running"  "$(running kaisho-cloud)"
+check "cron running" "$(running kaisho-cron)"
+check "db running"   "$(running kaisho-cloud-db)"
 
 echo "database:"
 check "postgres accepting connections" \
-    "ssh ${REMOTE} 'docker exec kaisho-sync-db pg_isready -q'"
+    "ssh ${REMOTE} 'docker exec kaisho-cloud-db pg_isready -q'"
 
 echo "endpoint:"
 check "${HEALTH_URL} returns ok" \
@@ -56,11 +56,11 @@ log_clean() {
 }
 
 echo "log scan (last 15 minutes):"
-check "api: no fatal errors"  "log_clean kaisho-sync 'fatal|panic'"
-check "cron: no fatal errors" "log_clean kaisho-sync-cron 'fatal|panic'"
+check "api: no fatal errors"  "log_clean kaisho-cloud 'fatal|panic'"
+check "cron: no fatal errors" "log_clean kaisho-cron 'fatal|panic'"
 
 echo "deployed revision:"
-ssh "${REMOTE}" "cat /home/docker/kaisho-sync/.deploy-sha 2>/dev/null" \
+ssh "${REMOTE}" "cat /home/docker/kaisho-cloud/.deploy-sha 2>/dev/null" \
     || echo "  (none recorded)"
 
 exit "${fail}"
