@@ -13,6 +13,7 @@
 set -euo pipefail
 
 REMOTE="${REMOTE:-vps}"
+REMOTE_DIR="${REMOTE_DIR:-/home/docker/kaisho-cloud}"
 HEALTH_URL="${HEALTH_URL:-https://cloud.kaisho.dev/healthz}"
 
 fail=0
@@ -46,21 +47,31 @@ echo "endpoint:"
 check "${HEALTH_URL} returns ok" \
     "curl -fsS --max-time 10 '${HEALTH_URL}' | grep -q '\"ok\":true'"
 
-# Helper: true when the remote pipeline produces no output.
-# Avoids the "grep on empty input exits 1" trap.
+# True when the remote log scan produces no output.
+#
+# The subtlety: an unreachable host also produces no output,
+# so a plain emptiness test reports "ok, no fatal errors" for
+# a server that is simply gone. Print a sentinel after the
+# grep and require it, which separates "scan ran and found
+# nothing" from "scan never ran".
 log_clean() {
     local container="$1"
     local pattern="$2"
-    [[ -z "$(ssh "${REMOTE}" "docker logs --since 15m ${container} \
-        2>&1 | grep -iE '${pattern}'")" ]]
+    local out
+    out="$(ssh "${REMOTE}" "docker logs --since 15m ${container} \
+        2>&1 | grep -iE '${pattern}'; echo __SCAN_OK__")" || return 1
+    [[ "${out}" == *"__SCAN_OK__"* ]] || return 1
+    [[ "$(echo "${out}" | grep -v '__SCAN_OK__')" == "" ]]
 }
 
 echo "log scan (last 15 minutes):"
 check "api: no fatal errors"  "log_clean kaisho-cloud 'fatal|panic'"
 check "cron: no fatal errors" "log_clean kaisho-cron 'fatal|panic'"
 
+# Honour REMOTE_DIR like bin/deploy does; hardcoding the
+# path meant a staging deploy reported production's sha.
 echo "deployed revision:"
-ssh "${REMOTE}" "cat /home/docker/kaisho-cloud/.deploy-sha 2>/dev/null" \
+ssh "${REMOTE}" "cat ${REMOTE_DIR}/.deploy-sha 2>/dev/null" \
     || echo "  (none recorded)"
 
 exit "${fail}"

@@ -31,7 +31,7 @@
 #   DEPLOY_CONFIRM    set to "deploy" to skip the prompt
 #
 # Rollback: there is no image to re-pin, so roll back the
-# way you rolled forward — check out the previous commit
+# way you rolled forward: check out the previous commit
 # (.deploy-sha.prev on the VPS names it) and run bin/deploy
 # again.
 set -euo pipefail
@@ -56,7 +56,10 @@ for arg in "$@"; do
         --dry-run) dry=1 ;;
         --check)   check_only=1 ;;
         --no-test) run_tests=0 ;;
-        -h|--help) sed -n '2,37p' "${self}" | sed 's/^#\{0,1\} \{0,1\}//'; exit 0 ;;
+        -h|--help)
+            sed -n '2,35p' "${self}" \
+                | sed 's/^#\{0,1\} \{0,1\}//'
+            exit 0 ;;
         *) echo "unknown arg: ${arg}" >&2; exit 2 ;;
     esac
 done
@@ -100,24 +103,53 @@ echo
 # dry run is also the honest answer to "does the host still
 # match the repo".
 if [[ "${check_only}" -eq 1 ]]; then
+    # -a, not -r: the real sync preserves permissions, times
+    # and symlinks, so a check that drops them reports "in
+    # sync" for a file that was chmod-ed or replaced by a
+    # link on the host.
     echo "==> comparing ${REMOTE_DIR}/src against the work tree"
-    out="$(rsync -rn --checksum --delete --itemize-changes \
-        "${rsync_excludes[@]}" \
+    out="$(rsync -an --checksum --delete --itemize-changes \
+        "${rsync_chown[@]}" "${rsync_excludes[@]}" \
         ./ "${REMOTE}:${REMOTE_DIR}/src/")"
     if [[ -z "${out}" ]]; then
         echo "in sync"
     else
         echo "${out}"
     fi
+
+    # The compose file is the one this script tells people not
+    # to edit on the host, so it is the one worth checking.
+    echo "==> comparing ${REMOTE_DIR}/docker-compose.yml"
+    if ssh "${REMOTE}" "cat ${REMOTE_DIR}/docker-compose.yml" \
+            2>/dev/null | diff -q - deploy/hosted/docker-compose.yml \
+            >/dev/null; then
+        echo "in sync"
+    else
+        ssh "${REMOTE}" "cat ${REMOTE_DIR}/docker-compose.yml" \
+            2>/dev/null \
+            | diff -u - deploy/hosted/docker-compose.yml || true
+    fi
     exit 0
 fi
 
 # --- Preflight ---------------------------------------------
+# Both of these are refusals rather than warnings, because
+# what they protect is .deploy-sha: the file that answers
+# "what is running". A dirty tree ships content no commit
+# describes, an unpushed HEAD names a commit nobody else can
+# resolve, and either way the recorded sha is a lie: which
+# takes the documented rollback with it.
 if [[ -n "${dirty}" ]]; then
-    echo "WARNING: the work tree has uncommitted changes." >&2
-    echo "They will ship. Commit first unless that is what" >&2
-    echo "you mean to do." >&2
-    echo
+    echo "working tree is dirty; commit or stash first:" >&2
+    git status --short >&2
+    exit 1
+fi
+
+git fetch -q origin
+if [[ "$(git rev-parse HEAD)" != \
+      "$(git rev-parse "origin/${branch}" 2>/dev/null)" ]]; then
+    echo "HEAD differs from origin/${branch}; push first" >&2
+    exit 1
 fi
 
 if [[ "${run_tests}" -eq 1 && "${dry}" -eq 0 ]]; then
@@ -183,27 +215,57 @@ echo "==> restarting api + cron"
 ssh "${REMOTE}" "cd ${REMOTE_DIR} && \
     docker compose up -d --no-deps api cron"
 
-# --- Record what shipped -----------------------------------
-ssh "${REMOTE}" "
-    cd ${REMOTE_DIR}
-    [[ -f .deploy-sha ]] && cp .deploy-sha .deploy-sha.prev
-    echo '${sha}' > .deploy-sha
-    chown ${REMOTE_USER}:${REMOTE_USER} .deploy-sha .deploy-sha.prev
-"
-
 # --- Health ------------------------------------------------
+# Before recording anything. A failed deploy that has already
+# written .deploy-sha claims a version that is not serving,
+# and has overwritten .deploy-sha.prev: the one value the
+# documented rollback needs: with the version that just
+# failed. Two bad deploys in a row and the last good sha is
+# gone entirely.
 echo "==> waiting for health (up to 60s)"
+healthy=0
 for i in $(seq 1 30); do
     if curl -fsS --max-time 5 "${HEALTH_URL}" >/dev/null 2>&1; then
-        echo "==> healthy on attempt ${i}"
-        curl -fsS "${HEALTH_URL}"
-        echo
-        echo "==> deployed ${sha}"
-        exit 0
+        echo "==> endpoint up on attempt ${i}"
+        healthy=1
+        break
     fi
     sleep 2
 done
 
-echo "ERROR: ${HEALTH_URL} did not come up within 60s" >&2
-ssh "${REMOTE}" "docker logs kaisho-cloud --tail 40" >&2
-exit 1
+if [[ "${healthy}" -eq 0 ]]; then
+    echo "ERROR: ${HEALTH_URL} did not come up within 60s" >&2
+    echo "(.deploy-sha left untouched; it still names the" >&2
+    echo " previous deploy)" >&2
+    ssh "${REMOTE}" "docker logs kaisho-cloud --tail 40" >&2
+    exit 1
+fi
+
+# The endpoint answering only proves something is listening.
+# bin/health also checks the cron worker and the database, so
+# a deploy where api is up but cron is crash-looping fails
+# here instead of printing success.
+echo "==> full health check"
+if ! REMOTE="${REMOTE}" REMOTE_DIR="${REMOTE_DIR}" \
+        HEALTH_URL="${HEALTH_URL}" ./bin/health; then
+    echo "ERROR: the stack is not healthy after deploy" >&2
+    echo "(.deploy-sha left untouched)" >&2
+    exit 1
+fi
+
+# --- Record what shipped -----------------------------------
+# .deploy-sha.prev only exists from the second deploy on, so
+# chown takes the files that are actually there. Getting this
+# wrong failed the whole script on a fresh host, after a
+# deploy that had in fact succeeded.
+ssh "${REMOTE}" "
+    cd ${REMOTE_DIR}
+    [[ -f .deploy-sha ]] && cp .deploy-sha .deploy-sha.prev
+    echo '${sha}' > .deploy-sha
+    chown ${REMOTE_USER}:${REMOTE_USER} .deploy-sha
+    [[ -f .deploy-sha.prev ]] \
+        && chown ${REMOTE_USER}:${REMOTE_USER} .deploy-sha.prev
+    true
+"
+
+echo "==> deployed ${sha}"
