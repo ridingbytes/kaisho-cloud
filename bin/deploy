@@ -89,7 +89,16 @@ rsync_excludes=(
 )
 
 sha="$(git rev-parse --short HEAD)"
-branch="$(git rev-parse --abbrev-ref HEAD)"
+# --show-current, not rev-parse --abbrev-ref: the latter
+# returns the string "HEAD" on a detached checkout, and
+# "origin/HEAD" resolves to the default branch, so the
+# push check below could pass while comparing something
+# else entirely.
+branch="$(git branch --show-current)"
+if [[ -z "${branch}" ]]; then
+    echo "detached HEAD; check out a branch first" >&2
+    exit 1
+fi
 dirty=""
 [[ -n "$(git status --porcelain)" ]] && dirty=" (dirty)"
 
