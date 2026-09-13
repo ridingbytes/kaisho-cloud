@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Delete the guides for systems that no longer exist [#117](https://github.com/ridingbytes/kaisho-cloud/pull/117)
 - License the server under AGPL-3.0 [#116](https://github.com/ridingbytes/kaisho-cloud/pull/116)
 - Remove the Supabase backend [#115](https://github.com/ridingbytes/kaisho-cloud/pull/115)
 - Take over cloud.kaisho.dev from the Supabase stack [#113](https://github.com/ridingbytes/kaisho-cloud/pull/113)

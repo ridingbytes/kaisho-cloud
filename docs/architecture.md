@@ -26,15 +26,15 @@ Runs `kai serve` on port 8766 (dev) or 8765 (desktop).
 
 **Cloud server**: Node.js/Express on a VPS. Handles
 authentication, bidirectional sync (clocks, inbox, tasks,
-notes), mobile PWA serving, Stripe billing, and AI gateway
+notes), mobile PWA serving, and AI gateway
 proxying.
 
 **Mobile PWA**: React SPA served by the cloud server. Provides
 timer, entries, book, tasks, inbox, notes, dashboard, and AI
 features on mobile.
 
-**Supabase**: Managed Postgres database for user accounts, clock
-entries, reference data, Stripe events, and AI usage tracking.
+**PostgreSQL**: In-stack database for user accounts, clock
+entries, reference data, and AI usage tracking.
 
 **OpenRouter**: AI inference gateway. Provides access to Claude,
 Gemini, GPT-4 and other models through a single API.
@@ -53,8 +53,8 @@ Mobile -> POST /auth/login { email, password }
        -> POST /auth/refresh when 401 received
 ```
 
-JWTs are issued by Supabase Auth. The cloud server validates
-them via `supabase.auth.getUser(token)`. The user ID from the
+JWTs are issued and verified by this server (HS256, signed
+with `JWT_SECRET`); there is no network call. The user ID from the
 JWT is used for all database queries.
 
 ### Desktop App (API Key)
@@ -316,7 +316,7 @@ Thin client            Cloud Advisor (/ai/advisor)      OpenRouter
      |                        |                              |
      |-- messages ----------->|--- model call (w/ tools) --->|
      |                        |<-- tool_calls ---------------|
-     |                        | run tool (Supabase /         |
+     |                        | run tool (Postgres /         |
      |                        |   integration dispatch)      |
      |                        |--- results + tools --------->|
      |                        |<-- final answer -------------|
@@ -427,52 +427,26 @@ app through the normal sync cycle.
 | GET /ai/usage | -- | Current month token stats |
 
 
-## Plans and Billing
-
-### Plan Tiers
-
-| Plan | Price | Features |
-|------|-------|----------|
-| Free | 0 | Desktop app, CLI, all storage backends |
-| Cloud Sync | 9/mo | Bidirectional sync, mobile PWA |
-| Sync + AI | 19/mo | Everything + Kaisho AI, 200K tokens |
-
-### Plan Cache
-
-The `requirePlan` middleware caches Supabase plan lookups
-for 60 seconds per user to avoid a database round-trip on
-every authenticated request. The cache is an in-memory Map
-keyed by user ID with a TTL timestamp. Cache entries are
-refreshed on expiry, not evicted proactively.
-
-### Stripe Integration
-
-Subscriptions are managed through Stripe Checkout. The flow:
-
-1. User clicks upgrade in the mobile PWA
-2. `POST /billing/checkout` creates a Stripe session
-3. User completes payment on Stripe
-4. Webhook `POST /billing/webhook` updates the `users.plan`
-5. Plan change takes effect immediately
-
-Event deduplication via the `stripe_events` table.
-
-
 ## Database Schema
 
 ### Tables
 
 | Table | Purpose |
 |-------|---------|
-| `users` | Extends Supabase Auth with plan, Stripe IDs, API key hash |
+| `users` | Account: email, bcrypt password hash, API key hash |
 | `clock_entries` | Synced time entries (TIMESTAMPTZ, soft-delete) |
+| `projects` | Synced projects (LWW, soft-delete) |
+| `cloud_jobs` | Scheduled AI jobs |
+| `cloud_job_runs` | Per-run record for those jobs |
+| `cron_health` | Heartbeat from the cron worker |
+| `gateway_config` | Single-row AI gateway settings |
+| `user_integrations` | Encrypted OAuth credentials |
 | `inbox_entries` | Synced inbox items (LWW, soft-delete) |
 | `tasks` | Synced tasks (LWW, soft-delete) |
 | `notes` | Synced notes (LWW, soft-delete) |
 | `ref_customers` | Read-only customer snapshots from local app |
 | `ref_tasks` | Read-only task snapshots from local app |
 | `ref_config` | Synced settings: tags, avatar, user_name, feature flags |
-| `stripe_events` | Webhook event IDs for idempotency |
 | `ai_usage` | Per-user per-month token counters |
 
 All tables have RLS enabled with deny-all policies. The API
@@ -488,7 +462,7 @@ config (`traefik/kaisho-cloud.yml`) routes
 pins images to the exact Git SHA for reproducible deploys.
 
 Environment variables configure all external services
-(Supabase, Stripe, Resend, OpenRouter). See
+(Resend, OpenRouter). See
 [deployment.md](deployment.md) for the full setup and
-[saas-setup.md](saas-setup.md) for third-party service
+[self-hosting.md](self-hosting.md) for the third-party service
 configuration.
