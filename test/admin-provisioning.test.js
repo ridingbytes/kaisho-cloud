@@ -1,9 +1,8 @@
 "use strict"
 
-// Admin provisioning service against real Postgres. Requires
-// postgres-mode env; gated on TEST_DATABASE_URL.
+// Admin provisioning service against real Postgres. Gated on
+// TEST_DATABASE_URL.
 const url = process.env.TEST_DATABASE_URL
-process.env.DB_BACKEND = "postgres"
 process.env.JWT_SECRET = process.env.JWT_SECRET || "admin-test-secret"
 process.env.DATABASE_URL =
   url || process.env.DATABASE_URL || "postgres://localhost/none"

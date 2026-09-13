@@ -1,9 +1,8 @@
 "use strict"
 
-// Self-owned auth (postgres mode). Set env before requiring
-// the module so it initializes in OWN_AUTH mode. No DB needed:
-// the pg pool is constructed but never queried here.
-process.env.DB_BACKEND = "postgres"
+// Self-owned auth. Set env before requiring the module: it
+// throws without JWT_SECRET. No DB needed — the pg pool is
+// constructed but never queried here.
 process.env.DATABASE_URL =
   process.env.DATABASE_URL || "postgres://localhost/none"
 process.env.JWT_SECRET = "unit-test-secret"
@@ -12,7 +11,6 @@ const { test } = require("node:test")
 const assert = require("node:assert/strict")
 
 const {
-  OWN_AUTH,
   signAccess,
   signRefresh,
   verifyAccess,
@@ -20,10 +18,6 @@ const {
   hashPassword,
   verifyPassword,
 } = require("../api/auth/session")
-
-test("runs in own-auth mode", () => {
-  assert.equal(OWN_AUTH, true)
-})
 
 test("access token round-trips with claims", async () => {
   const token = signAccess("user-1", "a@b.com")

@@ -15,8 +15,8 @@ app, the Kaisho Cloud server, and the mobile PWA.
         |                        |
         v                        v
    Local files            +------------+     +-------------+
-   (org/md/json)          |  Supabase  |     |  OpenRouter  |
-                          |  (Postgres)|     |  (AI proxy)  |
+   (org/md/json)          | PostgreSQL |     |  OpenRouter  |
+                          |  (in-stack)|     |  (AI proxy)  |
                           +------------+     +-------------+
 ```
 

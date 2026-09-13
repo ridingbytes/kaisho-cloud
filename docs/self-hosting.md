@@ -40,8 +40,8 @@ Edit `.env` and set at least:
   (`postgres://kaisho:<password>@db:5432/kaisho`),
 - `JWT_SECRET` (e.g. `openssl rand -hex 32`).
 
-Leave `DB_BACKEND=postgres` and `SIGNUP_MODE=open`. Optionally set
-`OPENROUTER_API_KEY` for AI.
+Leave `SIGNUP_MODE=open`. Optionally set `OPENROUTER_API_KEY`
+for AI.
 
 ```bash
 docker compose up --build -d

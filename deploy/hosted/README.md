@@ -59,11 +59,11 @@ this one now occupies. It is stopped and archived at
 and its Traefik route gone. Its data was not migrated:
 accounts on this stack start fresh.
 
-Nothing depends on it any more. When the Supabase project and
-the Stripe account are closed out (open-source plan, phase
-5), the archive directory can go too — it holds only the old
-compose file and a `.env` whose secrets are due for rotation
-regardless.
+Nothing depends on it any more, and the Supabase project
+itself was deleted on 2026-09-13. Once the Stripe account is
+closed out (open-source plan, phase 5), the archive directory
+can go too — it holds only the old compose file and a `.env`
+whose remaining secrets are due for rotation regardless.
 
 ## Operating
 
