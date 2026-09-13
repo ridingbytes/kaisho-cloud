@@ -84,43 +84,6 @@ services:
     networks:
       - internal
 
-  # Read-only database browser at db.kaisho.dev, the
-  # equivalent of what Supabase Studio used to provide.
-  #
-  # --readonly is deliberate. A browser tab with write access
-  # to the production database, reachable in one click and
-  # with no undo, is a worse trade than occasionally falling
-  # back to psql. Drop the flag if that changes.
-  #
-  # Two gates, like every other admin UI on this host: the
-  # Traefik route restricts it to the VPN, and basic auth
-  # sits behind that. pgweb has no auth of its own, so
-  # without the second gate anyone already on the VPN would
-  # have the whole database.
-  pgweb:
-    image: sosedoff/pgweb:0.17.0
-    container_name: kaisho-pgweb
-    restart: unless-stopped
-    environment:
-      PGWEB_DATABASE_URL: ${DATABASE_URL}
-    # --ssl=disable because the connection never leaves the
-    # stack's private network: pgweb defaults to requiring
-    # TLS and exits with "SSL is not enabled on the server",
-    # while this Postgres has no certificate and needs none.
-    # Set as a flag rather than appended to DATABASE_URL, so
-    # the two do not have to agree about query strings.
-    command:
-      - "--bind=0.0.0.0"
-      - "--listen=8081"
-      - "--readonly"
-      - "--ssl=disable"
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - traefik-public
-      - internal
-
 networks:
   traefik-public:
     external: true
