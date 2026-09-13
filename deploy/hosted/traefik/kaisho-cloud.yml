@@ -6,12 +6,15 @@
 # on port 3000 inside the traefik-public network.
 #
 # CUTOVER ONLY: this rule claims cloud.kaisho.dev, which the
-# existing kaisho-cloud stack currently serves. Do not copy
-# this into conf.d until you are cutting over (remove the old
-# kaisho-cloud.yml in the same step). To smoke-test the new
-# stack in parallel beforehand, use a temporary host: change
-# the rule to Host(`cloud-next.kaisho.dev`) and point that DNS
-# record at the VPS.
+# legacy Supabase stack currently serves. Until cutover the
+# hosted stack answers on sync.kaisho.dev (kaisho-sync.yml next
+# to this file). At cutover the two swap: the legacy route goes
+# away and this one takes its place, in one step so the host is
+# never unrouted.
+#
+# The authoritative copy of every route lives in the traefik
+# repo's conf.d/; this copy is the app-side record, per the
+# convention in traefik/CLAUDE.md. bin/deploy does NOT ship it.
 
 http:
   routers:

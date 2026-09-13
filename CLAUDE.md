@@ -77,17 +77,24 @@ STRIPE_SECRET_KEY=$(awk -F= \
 
 ## Deploy
 
-- **Workflow**: `.github/workflows/deploy.yml` triggers on push
-  to `production` only (not master). Master is staging-ready;
-  shipping requires `git checkout production && git merge --ff
-  master && git push`.
+- **`bin/deploy`**, over SSH, from a workstation. No CI, no
+  registry: it rsyncs the work tree to the VPS, builds the
+  image there, runs the migrations and restarts. Read
+  `docs/deployment.md` before touching it. There is no
+  `production` branch in this flow and no GitHub Actions
+  workflow; `bin/deploy --check` tells you whether the host
+  still matches the repo.
 - **VPS**: `srv1390042.hstgr.cloud` (SSH alias `vps`, user
-  `root`, sudo nopasswd). App lives at
-  `/home/docker/kaisho-cloud/`, runs as `docker` user via
-  Docker Compose. `.env` is at the same path, mode 600.
-- **Supabase migrations**: apply via the Dashboard SQL Editor
-  (or `supabase db push` if linked locally). Apply BEFORE
-  merging the PR that uses them.
+  `root`, sudo nopasswd). The managed stack lives at
+  `/home/docker/kaisho-sync/` (api `kaisho-sync`, worker
+  `kaisho-sync-cron`, db `kaisho-sync-db`). `.env` is at the
+  same path, mode 600, and is never shipped.
+- **Legacy stack**: `/home/docker/kaisho-cloud/` still serves
+  `cloud.kaisho.dev` on Supabase + Stripe until the cutover.
+  Do not deploy into it.
+- **Migrations**: `db/migrate.js`, run by the `migrate` service
+  on every deploy. Supabase-era migrations under
+  `supabase/migrations/` apply only to the legacy stack.
 
 ## Conventions
 
@@ -115,12 +122,12 @@ The four kaisho repos ship together as the Track AI product:
 - `kaisho` — desktop app (Python/FastAPI sidecar + React/TS
   frontend + Tauri shell). Auto-updater. Released as v2.x
   GitHub releases on `v*` tag push.
-- `kaisho-cloud` — cloud API (Express + Supabase + Stripe live
-  + Resend + OpenRouter) plus the mobile PWA. Deployed via
-  Docker to the VPS on push to the `production` branch; master
-  is staging-ready.
-- `kaisho-website` — marketing site (kaisho.dev). Auto-deploys
-  on push to `master` and `production`.
+- `kaisho-cloud` — cloud API (Express + PostgreSQL + Resend +
+  OpenRouter) plus the mobile PWA. Deployed by `bin/deploy`
+  over SSH, which builds the image on the VPS.
+- `kaisho-website` — marketing site (kaisho.dev). Deployed by
+  its own `bin/deploy` over SSH; nothing publishes
+  automatically.
 - `kaisho-mode` — Emacs Lisp client. Loaded directly from local
   checkout by Doom config via `:local-repo`. No package registry.
 

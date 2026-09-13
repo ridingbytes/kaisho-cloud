@@ -1,0 +1,196 @@
+#!/usr/bin/env bash
+# Ship kaisho-cloud to the VPS over SSH and build it there.
+#
+# There is no registry and no CI in this path. The repo is
+# the source of truth, the VPS is a mirror: rsync the work
+# tree into ${REMOTE_DIR}/src, build the image on the host,
+# run the migrations, recreate the containers.
+#
+# Building on the VPS rather than locally avoids emulating
+# linux/amd64 on an arm64 Mac and keeps the deploy to one
+# rsync plus a build. The cost is that the source lives on
+# the server; ${REMOTE_DIR}/src is therefore a throwaway
+# mirror, never edited by hand (bin/deploy --check tells you
+# when someone did anyway).
+#
+# Usage:
+#   bin/deploy              build + migrate + restart
+#   bin/deploy --dry-run    show what would ship, change
+#                           nothing
+#   bin/deploy --check      diff the VPS mirror against the
+#                           work tree and exit
+#   bin/deploy --no-test    skip the local test run (only
+#                           when tests are known green)
+#
+# Environment:
+#   REMOTE            ssh alias. Default: vps
+#   REMOTE_DIR        stack directory on the VPS.
+#                     Default: /home/docker/kaisho-sync
+#   HEALTH_URL        URL to probe after the restart.
+#                     Default: https://sync.kaisho.dev/healthz
+#   DEPLOY_CONFIRM    set to "deploy" to skip the prompt
+#
+# Rollback: there is no image to re-pin, so roll back the
+# way you rolled forward — check out the previous commit
+# (.deploy-sha.prev on the VPS names it) and run bin/deploy
+# again.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+REMOTE="${REMOTE:-vps}"
+REMOTE_DIR="${REMOTE_DIR:-/home/docker/kaisho-sync}"
+HEALTH_URL="${HEALTH_URL:-https://sync.kaisho.dev/healthz}"
+
+dry=0
+check_only=0
+run_tests=1
+for arg in "$@"; do
+    case "${arg}" in
+        --dry-run) dry=1 ;;
+        --check)   check_only=1 ;;
+        --no-test) run_tests=0 ;;
+        -h|--help) sed -n '2,37p' "$0" | sed 's/^# \?//'; exit 0 ;;
+        *) echo "unknown arg: ${arg}" >&2; exit 2 ;;
+    esac
+done
+
+# Everything the image does not need, plus everything that
+# must never leave the workstation (.env) or be overwritten
+# on the host. mobile/dist is built inside the Dockerfile,
+# so the local copy would only shadow a fresh build.
+rsync_excludes=(
+    --exclude='.git'
+    --exclude='.github'
+    --exclude='.claude'
+    --exclude='node_modules'
+    --exclude='mobile/node_modules'
+    --exclude='mobile/dist'
+    --exclude='.env'
+    --exclude='.env.*'
+    --exclude='.DS_Store'
+    --exclude='*.log'
+    --exclude='supabase/.temp'
+)
+
+sha="$(git rev-parse --short HEAD)"
+branch="$(git rev-parse --abbrev-ref HEAD)"
+dirty=""
+[[ -n "$(git status --porcelain)" ]] && dirty=" (dirty)"
+
+echo "repo:    ${branch} @ ${sha}${dirty}"
+echo "target:  ${REMOTE}:${REMOTE_DIR}"
+echo "health:  ${HEALTH_URL}"
+echo
+
+# --- Drift check -------------------------------------------
+# --delete is part of the real sync, so an --itemize-changes
+# dry run is also the honest answer to "does the host still
+# match the repo".
+if [[ "${check_only}" -eq 1 ]]; then
+    echo "==> comparing ${REMOTE_DIR}/src against the work tree"
+    out="$(rsync -rn --checksum --delete --itemize-changes \
+        "${rsync_excludes[@]}" \
+        ./ "${REMOTE}:${REMOTE_DIR}/src/")"
+    if [[ -z "${out}" ]]; then
+        echo "in sync"
+    else
+        echo "${out}"
+    fi
+    exit 0
+fi
+
+# --- Preflight ---------------------------------------------
+if [[ -n "${dirty}" ]]; then
+    echo "WARNING: the work tree has uncommitted changes." >&2
+    echo "They will ship. Commit first unless that is what" >&2
+    echo "you mean to do." >&2
+    echo
+fi
+
+if [[ "${run_tests}" -eq 1 && "${dry}" -eq 0 ]]; then
+    echo "==> running tests"
+    pnpm test
+    echo
+fi
+
+# --- Confirmation ------------------------------------------
+if [[ "${dry}" -eq 0 ]]; then
+    answer="${DEPLOY_CONFIRM:-}"
+    if [[ -z "${answer}" ]]; then
+        read -rp 'Type "deploy" to ship to production: ' answer
+    fi
+    if [[ "${answer}" != "deploy" ]]; then
+        echo "Aborted."
+        exit 1
+    fi
+    echo
+fi
+
+# --- Ship the stack files ----------------------------------
+# The compose file and the Traefik route live in the repo;
+# the .env lives only on the host. deploy/hosted is the
+# hosted stack's definition, docker-compose.yml at the repo
+# root is the self-host one and must not be shipped.
+echo "==> syncing source"
+rsync_opts=(-az --delete "${rsync_excludes[@]}")
+[[ "${dry}" -eq 1 ]] && rsync_opts+=(-nv --itemize-changes)
+rsync "${rsync_opts[@]}" ./ "${REMOTE}:${REMOTE_DIR}/src/"
+
+echo "==> syncing compose file + backup script"
+compose_opts=(-az)
+[[ "${dry}" -eq 1 ]] && compose_opts+=(-nv --itemize-changes)
+rsync "${compose_opts[@]}" deploy/hosted/docker-compose.yml \
+    "${REMOTE}:${REMOTE_DIR}/docker-compose.yml"
+rsync "${compose_opts[@]}" deploy/hosted/backup \
+    "${REMOTE}:${REMOTE_DIR}/backup"
+
+if [[ "${dry}" -eq 1 ]]; then
+    echo "==> dry run; not building, migrating or restarting"
+    exit 0
+fi
+
+# --- Build, migrate, restart -------------------------------
+# db first, then migrate to completion, then the app. The
+# final up uses --no-deps: api depends_on migrate
+# (service_completed_successfully), which is what a
+# self-hoster's `docker compose up` needs, but here migrate
+# has just run and --no-deps keeps it from running twice.
+# db/migrate.js is idempotent either way, so a no-op deploy
+# is cheap.
+echo "==> building on the host"
+ssh "${REMOTE}" "cd ${REMOTE_DIR} && docker compose build"
+
+echo "==> starting db"
+ssh "${REMOTE}" "cd ${REMOTE_DIR} && docker compose up -d db"
+
+echo "==> migrating"
+ssh "${REMOTE}" "cd ${REMOTE_DIR} && docker compose run --rm migrate"
+
+echo "==> restarting api + cron"
+ssh "${REMOTE}" "cd ${REMOTE_DIR} && \
+    docker compose up -d --no-deps api cron"
+
+# --- Record what shipped -----------------------------------
+ssh "${REMOTE}" "
+    cd ${REMOTE_DIR}
+    [[ -f .deploy-sha ]] && cp .deploy-sha .deploy-sha.prev
+    echo '${sha}' > .deploy-sha
+"
+
+# --- Health ------------------------------------------------
+echo "==> waiting for health (up to 60s)"
+for i in $(seq 1 30); do
+    if curl -fsS --max-time 5 "${HEALTH_URL}" >/dev/null 2>&1; then
+        echo "==> healthy on attempt ${i}"
+        curl -fsS "${HEALTH_URL}"
+        echo
+        echo "==> deployed ${sha}"
+        exit 0
+    fi
+    sleep 2
+done
+
+echo "ERROR: ${HEALTH_URL} did not come up within 60s" >&2
+ssh "${REMOTE}" "docker logs kaisho-sync --tail 40" >&2
+exit 1

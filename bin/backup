@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Trigger a backup of the hosted stack and, by default, pull
+# the dump down to this machine.
+#
+# The dump itself is made by the on-host script that
+# bin/deploy ships to ${REMOTE_DIR}/backup, which is also
+# what cron runs. This wrapper exists so an ad-hoc backup
+# before a risky change is one command, and so a copy can
+# live off the VPS.
+#
+# Usage:
+#   bin/backup              dump on the VPS, fetch it here
+#   bin/backup --no-fetch   dump on the VPS only
+#   bin/backup --list       list the dumps on the VPS
+#
+# Environment:
+#   REMOTE      ssh alias. Default: vps
+#   REMOTE_DIR  stack directory. Default: /home/docker/kaisho-sync
+#   LOCAL_DIR   where to put fetched dumps. Default: ./backups
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+REMOTE="${REMOTE:-vps}"
+REMOTE_DIR="${REMOTE_DIR:-/home/docker/kaisho-sync}"
+LOCAL_DIR="${LOCAL_DIR:-backups}"
+
+fetch=1
+case "${1:-}" in
+    --no-fetch) fetch=0 ;;
+    --list)
+        exec ssh "${REMOTE}" "ls -lh ${REMOTE_DIR}/backups/"
+        ;;
+    "") ;;
+    *) echo "unknown arg: $1" >&2; exit 2 ;;
+esac
+
+echo "==> running ${REMOTE_DIR}/backup"
+ssh "${REMOTE}" "cd ${REMOTE_DIR} && ./backup"
+
+[[ "${fetch}" -eq 0 ]] && exit 0
+
+newest="$(ssh "${REMOTE}" \
+    "ls -1 ${REMOTE_DIR}/backups/*.sql.zst | sort -r | head -1")"
+if [[ -z "${newest}" ]]; then
+    echo "ERROR: no dump found on the VPS" >&2
+    exit 1
+fi
+
+mkdir -p "${LOCAL_DIR}"
+echo "==> fetching $(basename "${newest}")"
+scp -q "${REMOTE}:${newest}" "${LOCAL_DIR}/"
+ls -lh "${LOCAL_DIR}/$(basename "${newest}")"
