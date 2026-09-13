@@ -211,9 +211,24 @@ ssh "${REMOTE}" "cd ${REMOTE_DIR} && docker compose up -d db"
 echo "==> migrating"
 ssh "${REMOTE}" "cd ${REMOTE_DIR} && docker compose run --rm migrate"
 
-echo "==> restarting api + cron"
-ssh "${REMOTE}" "cd ${REMOTE_DIR} && \
-    docker compose up -d --no-deps api cron"
+# Every service except migrate, derived from the compose
+# file rather than listed here. The list used to be a literal
+# "api cron", so adding pgweb deployed its definition and
+# never started it: the deploy reported success while the new
+# container did not exist. A service added tomorrow would
+# have gone the same way.
+#
+# migrate is excluded because it has just run above;
+# --no-deps then keeps compose from pulling it back in.
+echo "==> restarting services"
+ssh "${REMOTE}" "
+    cd ${REMOTE_DIR}
+    services=\$(docker compose config --services \
+        | grep -vx migrate | tr '\n' ' ')
+    echo \"    \${services}\"
+    # shellcheck disable=SC2086
+    docker compose up -d --no-deps \${services}
+"
 
 # --- Health ------------------------------------------------
 # Before recording anything. A failed deploy that has already
