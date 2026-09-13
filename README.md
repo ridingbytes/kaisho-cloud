@@ -74,3 +74,21 @@ cp .env.example .env
 pnpm dev                          # needs a reachable DATABASE_URL
 npm test                          # unit tests
 ```
+
+## License
+
+AGPL-3.0-or-later, see [LICENSE](./LICENSE).
+Copyright (c) 2026 RIDING BYTES GmbH.
+
+The desktop app, the iOS app and the website are MIT. This
+repo is the server, and it is copyleft on purpose: anyone may
+run it, self-host it and change it, but offering a modified
+version to others over a network means publishing those
+changes. Using it unmodified, hosted for yourself or your
+team, carries no such obligation.
+
+Section 13 is the reason `GET /` reports `license` and
+`source`. If you run a modified build as a service, point
+`SOURCE_URL` at your fork, so the offer of source actually
+leads to the code you are running.
+

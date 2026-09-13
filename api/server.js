@@ -5,6 +5,10 @@
  *
  * Entry point. Wires up middleware, route modules, and
  * error handling.
+ *
+ * Copyright (c) 2026 RIDING BYTES GmbH
+ * Licensed under the GNU Affero General Public License v3
+ * or later. See LICENSE.
  */
 
 const path = require("path")
@@ -13,7 +17,7 @@ const express = require("express")
 const helmet = require("helmet")
 const cors = require("cors")
 const cookieParser = require("cookie-parser")
-const { PORT, BASE_URL } = require("./config")
+const { PORT, BASE_URL, SOURCE_URL } = require("./config")
 const { logger, httpLogger } = require("./logger")
 
 const authRoutes = require("./routes/auth")
@@ -112,6 +116,10 @@ app.get("/m/*", (_req, res) => {
 
 // ── Health ──────────────────────────────────────────────
 
+// AGPL-3.0 section 13: anyone interacting with this server
+// over a network must be offered the source of the version
+// they are talking to. That is what `source` is for, and
+// why it must keep pointing at the actual running code.
 /** @route GET / */
 app.get("/", (_req, res) => {
   res.json({
@@ -119,6 +127,8 @@ app.get("/", (_req, res) => {
     status: "ok",
     mobile: "/m/",
     docs: "https://kaisho.dev",
+    license: "AGPL-3.0-or-later",
+    source: SOURCE_URL,
   })
 })
 
