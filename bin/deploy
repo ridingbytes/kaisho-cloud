@@ -221,13 +221,17 @@ ssh "${REMOTE}" "cd ${REMOTE_DIR} && docker compose run --rm migrate"
 # migrate is excluded because it has just run above;
 # --no-deps then keeps compose from pulling it back in.
 echo "==> restarting services"
+# The service list is substituted remotely and left unquoted
+# so the shell splits it into arguments. An earlier attempt
+# built it into a variable first and passed "$services",
+# which reached docker as the single argument
+# "db api cron pgweb" and failed with "no such service".
 ssh "${REMOTE}" "
     cd ${REMOTE_DIR}
-    services=\$(docker compose config --services \
-        | grep -vx migrate | tr '\n' ' ')
-    echo \"    \${services}\"
-    # shellcheck disable=SC2086
-    docker compose up -d --no-deps \${services}
+    docker compose config --services | grep -vx migrate \
+        | sed 's/^/    /'
+    docker compose up -d --no-deps \
+        \$(docker compose config --services | grep -vx migrate)
 "
 
 # --- Health ------------------------------------------------
