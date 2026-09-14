@@ -18,7 +18,7 @@
 const crypto = require("crypto")
 const { supabase } = require("../db")
 const { logger } = require("../logger")
-const { withPriority } = require("./queue")
+const { withLimit } = require("./queue")
 
 // ── Backend defaults ────────────────────────────────────
 //
@@ -395,8 +395,6 @@ async function recordUsage(
  * @param {object} [opts.backend] - Pre-resolved backend.
  * @param {AbortSignal} [opts.signal] - Abort the request
  *   (e.g. on a caller-side timeout).
- * @param {string} [opts.plan] - Caller's plan; sets the
- *   priority-queue ordering (pro/team jump the queue).
  * @returns {Promise<object>} OpenAI-format response.
  */
 async function callModel(opts) {
@@ -416,9 +414,7 @@ async function callModel(opts) {
   }
 
   const backend = opts.backend || await getBackend()
-  // Concurrency-limited + plan-prioritised: under load,
-  // pro/team requests reach the backend before companion.
-  const res = await withPriority(opts.plan, () => fetch(
+  const res = await withLimit(() => fetch(
     backend.url, {
       method: "POST",
       headers: {

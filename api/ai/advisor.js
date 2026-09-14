@@ -278,7 +278,6 @@ async function runRoundTools(calls, handlers, conversation, toolsUsed) {
  *
  * @param {object} opts
  * @param {string} opts.userId
- * @param {string} [opts.plan] - Queue priority.
  * @param {object} [opts.backend] - Pre-resolved backend.
  * @param {string} opts.model
  * @param {string} [opts.system] - Base prompt override.
@@ -314,7 +313,6 @@ async function runAdvisor(opts) {
 
     const result = await callModel({
       backend: opts.backend,
-      plan: opts.plan,
       model: opts.model,
       system,
       messages: conversation,
