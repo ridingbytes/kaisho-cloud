@@ -216,3 +216,77 @@ test("pg shim: rpc functions", opts, async () => {
   })
   assert.equal(typeof Number(wiped.data), "number")
 })
+
+test("pg shim: counts", opts, async () => {
+  const db = createClient(url)
+  const uid = await freshUser(db, "f" + Date.now())
+  const t = new Date().toISOString()
+
+  // end_at on every row: idx_one_active is a unique index
+  // over (user_id) WHERE end_at IS NULL, so a second
+  // running timer would be rejected, not counted.
+  for (let i = 0; i < 3; i++) {
+    const r = await db.from("clock_entries")
+      .insert({ user_id: uid, start_at: t, end_at: t })
+    assert.equal(r.error, null)
+  }
+  const gone = await db.from("clock_entries").insert({
+    user_id: uid, start_at: t, end_at: t, deleted_at: t,
+  })
+  assert.equal(gone.error, null)
+
+  // head count: the number, no rows. This is the call
+  // /sync/stats makes; it used to come back undefined and
+  // surface to the client as entry_count 0.
+  const live = await db
+    .from("clock_entries")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", uid)
+    .is("deleted_at", null)
+  assert.equal(live.count, 3)
+  assert.equal(live.data, null)
+  assert.equal(live.error, null)
+
+  // no matches is 0, not undefined
+  const empty = await db
+    .from("clock_entries")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", uid)
+    .eq("description", "nothing matches this")
+  assert.equal(empty.count, 0)
+
+  // an update reports the rows it touched, which is what
+  // /sync/ack answers with
+  const upd = await db
+    .from("clock_entries")
+    .update({ notes: "n" }, { count: "exact" })
+    .eq("user_id", uid)
+    .is("deleted_at", null)
+  assert.equal(upd.count, 3)
+  assert.equal(upd.error, null)
+
+  const noop = await db
+    .from("clock_entries")
+    .update({ notes: "n" }, { count: "exact" })
+    .eq("user_id", uid)
+    .eq("description", "nothing matches this")
+  assert.equal(noop.count, 0)
+
+  const del = await db
+    .from("clock_entries")
+    .delete({ count: "exact" })
+    .eq("user_id", uid)
+  assert.equal(del.count, 4)
+
+  // a write that was not asked for a count does not grow
+  // one: the other call sites deepEqual their result
+  const plain = await db
+    .from("clock_entries").delete().eq("user_id", uid)
+  assert.deepEqual(plain, { data: null, error: null })
+
+  // the rows-plus-total form is not implemented, and says so
+  assert.throws(
+    () => db.from("clock_entries").select("*", { count: "exact" }),
+    /head:true/,
+  )
+})

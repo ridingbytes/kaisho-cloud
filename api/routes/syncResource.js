@@ -247,9 +247,14 @@ function _mountAck(router, opts, deps) {
         })
       }
       const now = new Date().toISOString()
+      // count:"exact" is what makes the data layer report
+      // the affected rows. Without it `count` is absent,
+      // and the old `?? ids.length` fallback then told the
+      // client every id it sent was acked -- including ids
+      // that had no row, or a row already acked.
       const { error, count } = await supabase
         .from(table)
-        .update({ synced_at: now })
+        .update({ synced_at: now }, { count: "exact" })
         .eq("user_id", req.userId)
         .in("id", ids.slice(0, 500))
         .is("synced_at", null)
@@ -258,7 +263,11 @@ function _mountAck(router, opts, deps) {
           .status(500)
           .json({ error: "Failed to ack" })
       }
-      res.json({ acked: count ?? ids.length })
+      // No ?? ids.length fallback: the data layer now
+      // reports the affected rows, and guessing the
+      // request size instead told a client that ids it
+      // never had rows for were acked.
+      res.json({ acked: count })
     }),
   )
 }
