@@ -3,7 +3,7 @@
 /**
  * @module integrations/google
  *
- * Google Calendar premium integration (Pro tier).
+ * Google Calendar integration.
  * Connected via OAuth (see oauth.js). Google access tokens
  * expire (~1h), so this module exports ``refresh()`` — the
  * gateway union calls it and persists the new token before

@@ -3,9 +3,8 @@
 /**
  * @module routes/clocks
  *
- * Clock entry routes — start, stop, book, list, update,
- * and delete time entries. All routes require JWT auth
- * and any paid plan (companion / pro / team).
+ * Clock entry routes: start, stop, book, list, update,
+ * and delete time entries. All routes require auth.
  */
 
 const { Router } = require("express")
