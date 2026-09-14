@@ -33,7 +33,8 @@ const userSockets = new Map()
 const HEARTBEAT_MS = 30000
 
 /**
- * Authenticate a WebSocket connection from query params.
+ * Authenticate a WebSocket connection from the auth
+ * message's token or api_key.
  *
  * @param {string} token - JWT access token.
  * @param {string} apiKey - API key (alternative).
@@ -48,30 +49,39 @@ async function authenticate(token, apiKey) {
     }
   }
 
-  // Try API key (prefix-based lookup)
+  // Try API key
   if (apiKey) {
+    // Keyed by the key alone, so this lookup does not
+    // depend on the candidate query and runs before it.
+    // It used to be called as getCachedUser(user.id,
+    // apiKey) from inside the loop, which cached the key
+    // under a hash of the user id and stored the key
+    // string as the "user". The next connect read that
+    // string back, found no .id on it, and closed the
+    // socket with 4001 while the very same key still
+    // worked over HTTP.
+    const cached = getCachedUser(apiKey)
+    if (cached) return cached.id
+
     const prefix = apiKey.slice(0, 8)
     const { data: users } = await supabase
       .from("users")
-      .select("id, plan, api_key_hash")
+      .select("id, plan, api_key_hash, disabled_at")
       .eq("api_key_prefix", prefix)
       .limit(5)
 
-    if (users) {
-      for (const user of users) {
-        const cached = getCachedUser(
-          user.id, apiKey,
-        )
-        if (cached) return cached.id
-
-        const match = await bcrypt.compare(
-          apiKey, user.api_key_hash,
-        )
-        if (match) {
-          cacheUser(user.id, apiKey, user)
-          return user.id
-        }
-      }
+    for (const user of users || []) {
+      const match = await bcrypt.compare(
+        apiKey, user.api_key_hash,
+      )
+      if (!match) continue
+      // Same rule as requireApiKey, which answers 403 for
+      // a disabled account. Without this the HTTP API goes
+      // silent on a disabled key while its realtime feed
+      // keeps delivering.
+      if (user.disabled_at) return null
+      cacheUser(apiKey, user)
+      return user.id
     }
   }
 
@@ -219,4 +229,8 @@ function broadcast(userId, event, data = {}) {
 module.exports = {
   setupWebSocket,
   broadcast,
+  // Exported for the auth regression test: the bug it
+  // covers only shows on the second call, which a test
+  // cannot reach through a live socket handshake.
+  authenticate,
 }
