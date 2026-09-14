@@ -89,29 +89,24 @@ pushing state changes to connected clients in real time.
 
 ### Connection and Auth
 
-Two auth mechanisms are supported:
-
-**First-message auth** (preferred): the client connects
-without credentials in the URL and sends a JSON message
-as its first frame:
+The client connects without credentials in the URL and
+sends a JSON message as its first frame:
 
 ```
 ws.send({"type": "auth", "token": "<jwt>"})
+ws.send({"type": "auth", "api_key": "<key>"})
 ```
 
 The server waits up to 5 seconds for this message. If no
 valid auth message arrives, the connection is closed with
 code 4001.
 
-**Query-string auth** (legacy): credentials are passed as
-URL parameters:
+Query-string auth (`?token=` / `?api_key=`) was removed:
+access logs and Traefik captured the secret in the URL. A
+connection that supplies credentials that way and nothing
+else is closed with 4001 once the five seconds are up.
 
-```
-wss://cloud.kaisho.dev/ws?token=<jwt>
-wss://cloud.kaisho.dev/ws?api_key=<key>
-```
-
-Both paths use the same JWT/API-key validation as HTTP
+Both token types use the same validation as the HTTP
 routes. Each authenticated connection is registered in a
 per-user socket map (`userId -> Set<WebSocket>`).
 
@@ -127,6 +122,7 @@ per-user socket map (`userId -> Set<WebSocket>`).
 | `inbox:changed` | `{ count }` | POST /sync/inbox/apply |
 | `tasks:changed` | `{ count }` | POST /sync/tasks/apply |
 | `notes:changed` | `{ count }` | POST /sync/notes/apply |
+| `projects:changed` | `{ count }` | POST /sync/projects/apply |
 
 ### Heartbeat and Reconnect
 
@@ -189,11 +185,17 @@ The local app runs a sync cycle periodically (default: every
 6. NOTES — GET /sync/notes/changes, POST /sync/notes/apply
            Pull and push notes (same LWW protocol).
 
-7. CONFIG PULL — GET /ref/config
+7. PROJECTS — GET /sync/projects/changes,
+           POST /sync/projects/apply
+           Pull and push projects. Best-effort: projects
+           live outside the pluggable backend, so a file
+           that cannot be resolved skips the step.
+
+8. CONFIG PULL — GET /ref/config
            Pull user_name changes from the PWA and
            update local user.yaml.
 
-8. SNAPSHOT — POST /sync/push-snapshot
+9. SNAPSHOT — POST /sync/push-snapshot
            Push customer/task reference data, tags,
            avatar_seed, and user_name so the mobile
            PWA has dropdown options and synced settings.
@@ -217,7 +219,7 @@ The `/sync/apply` endpoint processes batches efficiently:
    query to build an `existingMap` for merge decisions.
 2. **Batch INSERT**: new entries are inserted in a single query.
 3. **Individual UPDATE**: existing entries are updated one at a
-   time (each needs its own `WHERE user_id = ?` for RLS safety).
+   time, each scoped with its own `WHERE user_id = ?`.
 
 This reduces the N+1 query pattern to 1 + 1 + U queries (where
 U is the number of updates), compared to 2N before.
@@ -324,11 +326,10 @@ Thin client            Cloud Advisor (/ai/advisor)      OpenRouter
 ```
 
 - **Toolset**: harvested from the same registrars the MCP
-  gateway uses, so there is one definition per tool. Read +
-  write kaisho tools for every paid plan; the user's
-  connected premium integrations (`google_*`, `slack_*`,
-  `linear_*`, `github_*`) only for `pro` / `team`, matching
-  the MCP gateway's plan gate.
+  gateway uses, so there is one definition per tool. Read
+  and write kaisho tools, plus whichever integrations the
+  user has connected (`google_*`, `slack_*`, `linear_*`,
+  `github_*`). There is no plan gate on any of it.
 - **Args validation**: tool args from the model are validated
   against each tool's Zod schema before the handler runs
   (the MCP SDK does this on the wire; the internal loop does
@@ -379,18 +380,30 @@ have no local toolset of their own.
 
 ### Models
 
-| Use Case | Model | Config |
+Calls that name a `mode` (advisor, cron, default) resolve
+their model through `gateway_config`, overridable per user
+for advisor and cron. The fixed-model endpoints below use
+the env constant directly.
+
+| Use case | Model | Config |
 |----------|-------|--------|
-| Fast parsing (NLP booking) | gemini-2.0-flash-lite | AI_MODEL_FAST |
-| Summaries and advisor | claude-sonnet-4 | AI_MODEL_DEFAULT |
+| Fast parsing (NLP booking) | gemini-2.0-flash-lite | `AI_MODEL_FAST` |
+| Summaries | claude-sonnet-4 | `AI_MODEL_DEFAULT` |
+| Advisor | claude-haiku-4.5 | `AI_MODEL_ADVISOR` |
+| Cron jobs | gemma-4-31b-it | `AI_MODEL_CRON` |
 
 ### Token Metering
 
 Usage is tracked per user per month in the `ai_usage` table.
 The `increment_ai_usage` Postgres function provides atomic
-counter updates. Each `/ai/complete` call records input and
-output tokens. Monthly soft cap: 200,000 tokens (returns 429
-when exceeded).
+counter updates. Every metered call records input and output
+tokens.
+
+The monthly cap is resolved per request: the user's
+`monthly_token_cap_override`, then `AI_MONTHLY_TOKEN_CAP`,
+then `gateway_config.monthly_token_cap` (250,000 on the
+managed instance). Exceeding it returns 429. See
+[ai-gateway-config.md](ai-gateway-config.md).
 
 ### Kaisho AI Toggle
 
@@ -402,29 +415,28 @@ when exceeded).
 
 ### Mobile PWA Tool Calling
 
-The PWA's AI advisor also supports tool calling. Unlike the
-local app (which has 32 tools), the PWA exposes three tools
-that create entities via the sync API:
+There is none in the browser any more. `aiAdvisor()` in
+`mobile/src/api.ts` posts the conversation to `/ai/advisor`
+and returns the answer; the loop, the tools and the
+validation all run on the server, which is the point of the
+endpoint above.
 
-| Tool | Action |
-|------|--------|
-| `add_task` | Creates a task via POST /sync/tasks/apply |
-| `add_inbox_item` | Creates an inbox item via POST /sync/inbox/apply |
-| `add_note` | Creates a note via POST /sync/notes/apply |
-
-The agentic loop runs client-side in `api.ts` (up to 5 turns).
-Tool calls are executed locally in the browser using the
-existing sync API functions. Created items sync to the desktop
-app through the normal sync cycle.
+The PWA ran its own three-tool loop client-side until
+commit ea8a993 moved it to the server.
 
 ### Mobile AI Endpoints
 
+What the PWA actually calls:
+
 | Endpoint | Model | Purpose |
 |----------|-------|---------|
+| POST /ai/advisor | ADVISOR | The whole agentic loop |
 | POST /ai/parse-booking | FAST | NLP time entry parsing |
 | POST /ai/summarize | DEFAULT | Weekly/monthly summaries |
-| POST /ai/complete | DEFAULT | General completion + tools |
 | GET /ai/usage | -- | Current month token stats |
+
+`POST /ai/complete` is still served, but the desktop app is
+its only caller.
 
 
 ## Database Schema
@@ -449,8 +461,12 @@ app through the normal sync cycle.
 | `ref_config` | Synced settings: tags, avatar, user_name, feature flags |
 | `ai_usage` | Per-user per-month token counters |
 
-All tables have RLS enabled with deny-all policies. The API
-server uses the service role key to bypass RLS.
+There are no row-level security policies. Isolation is the
+API's job: every query filters on `user_id`, and the
+database is reachable only from inside the stack's own
+Docker network, which publishes no port. RLS and a service
+role key belonged to the Supabase deployment and went with
+it.
 
 
 ## Deployment
@@ -458,8 +474,11 @@ server uses the service role key to bypass RLS.
 The cloud server runs as a Docker container on a VPS behind
 Traefik with automatic TLS (Let's Encrypt). A file provider
 config (`traefik/kaisho-cloud.yml`) routes
-`cloud.kaisho.dev` to the container. The deploy workflow
-pins images to the exact Git SHA for reproducible deploys.
+`cloud.kaisho.dev` to the container.
+
+There is no CI, no registry and no image tag: `bin/deploy`
+rsyncs the work tree to the VPS and builds there. What
+shipped is recorded in `.deploy-sha` on the host.
 
 Environment variables configure all external services
 (Resend, OpenRouter). See
