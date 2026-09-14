@@ -8,13 +8,8 @@
  * like Claude Code, Cursor and Claude Desktop can reach
  * a tenant's data when the laptop is closed.
  *
- * This file is the scaffold: the wire works end-to-end,
- * but the tool registry is empty. Read tools land in a
- * follow-up PR (#31), write tools in #32.
- *
  * Endpoint:    POST /mcp
  * Auth:        Authorization: Bearer <kaisho-api-key>
- * Plan gate:   companion | pro | team
  * Transport:   Streamable HTTP (stateless)
  *
  * Gated behind MCP_GATEWAY_ENABLED=true at server start.
@@ -65,12 +60,9 @@ async function handleMcpRequest(req, res) {
   registerReadTools(server, req.userId)
   registerWriteTools(server, req.userId)
 
-  // Premium integration tools (Linear, GitHub, …) — Pro
-  // and Team only, and only for the integrations the user
-  // has actually connected.
-  if (["pro", "team"].includes(req.userPlan)) {
-    await registerIntegrationTools(server, req.userId)
-  }
+  // Integration tools (Linear, GitHub, Slack, Google),
+  // for the integrations the user has actually connected.
+  await registerIntegrationTools(server, req.userId)
 
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,

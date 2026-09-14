@@ -3,9 +3,9 @@
 /**
  * @module integrations
  *
- * Registry of premium integration modules and the helper
- * that unions a Pro user's connected-integration tools
- * into an MCP server, alongside the core kaisho tools.
+ * Registry of integration modules and the helper that
+ * unions a user's connected-integration tools into an MCP
+ * server, alongside the core kaisho tools.
  *
  * Each module exports ``KIND``, ``validate``, ``tools()``
  * and ``dispatch(tool, args, credentials)``. Tools are
@@ -106,9 +106,6 @@ async function runIntegrationTool(userId, kind, toolName, args) {
  * connected onto the given MCP server. Each tool's handler
  * decrypts the stored credentials at call time and routes
  * to the owning module's ``dispatch``.
- *
- * Intended for Pro / Team users only — the caller gates on
- * plan before invoking this.
  *
  * @param {import("@modelcontextprotocol/sdk/server/mcp.js").McpServer} server
  * @param {string} userId

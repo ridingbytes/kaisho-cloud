@@ -9,8 +9,8 @@
  * server so thin clients (the PWA) get the same
  * capability the desktop advisor has from its local
  * loop: the model can call kaisho data tools and the
- * user's connected premium-integration tools (Pro), read
- * the results, then answer — instead of being limited to
+ * user's connected integration tools, read the results,
+ * then answer -- instead of being limited to
  * a single shot over a fixed, pre-baked context block.
  *
  * The toolset is harvested from the very same registrars
@@ -48,10 +48,6 @@ const MAX_STEPS = 6
 // because the advisor multiplies it by up to MAX_STEPS.
 const DEFAULT_MAX_TOKENS = 2048
 const MAX_TOKENS_LIMIT = 4096
-
-// Premium integrations are gated to these plans, matching
-// the MCP gateway (see routes/mcp.js).
-const INTEGRATION_PLANS = ["pro", "team"]
 
 const ADVISOR_SYSTEM =
   "You are the Kaisho AI advisor. You help the user "
@@ -110,18 +106,14 @@ function shapeToParameters(shape) {
  * collector that captures each ``registerTool`` call
  * instead of wiring a transport.
  *
- * Read + write tools are always included so the advisor
- * can both look up and act (create events, add tasks).
- * Integration tools are added only for Pro/Team plans,
- * matching the MCP gateway's plan gate — never for
- * companion users, even if integration rows linger from a
- * prior Pro subscription.
+ * Read, write and integration tools are all included, so
+ * the advisor can look up, act, and reach whatever the
+ * user has connected.
  *
  * @param {string} userId
- * @param {string} [plan] - Caller's plan.
  * @returns {Promise<{tools: Array, handlers: object}>}
  */
-async function collectTools(userId, plan) {
+async function collectTools(userId) {
   const tools = []
   const handlers = {}
   const collector = {
@@ -142,9 +134,7 @@ async function collectTools(userId, plan) {
   }
   registerReadTools(collector, userId)
   registerWriteTools(collector, userId)
-  if (INTEGRATION_PLANS.includes(plan)) {
-    await registerIntegrationTools(collector, userId)
-  }
+  await registerIntegrationTools(collector, userId)
   return { tools, handlers }
 }
 
@@ -288,7 +278,7 @@ async function runRoundTools(calls, handlers, conversation, toolsUsed) {
  *
  * @param {object} opts
  * @param {string} opts.userId
- * @param {string} [opts.plan] - Gates integrations + queue.
+ * @param {string} [opts.plan] - Queue priority.
  * @param {object} [opts.backend] - Pre-resolved backend.
  * @param {string} opts.model
  * @param {string} [opts.system] - Base prompt override.
@@ -303,7 +293,7 @@ async function runRoundTools(calls, handlers, conversation, toolsUsed) {
  */
 async function runAdvisor(opts) {
   const { tools, handlers } =
-    await collectTools(opts.userId, opts.plan)
+    await collectTools(opts.userId)
   const system = buildSystem(opts.system, opts.context)
   const conversation = [...opts.messages]
   const toolsUsed = []
