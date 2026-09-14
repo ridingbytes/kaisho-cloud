@@ -96,24 +96,20 @@ in the listing.
 
 ## Looking at the data
 
-`https://db.kaisho.dev` is pgweb, read-only, against the
-same Postgres. It replaces what the Supabase dashboard used
-to provide: the database publishes no port, so without it
-inspecting a row means ssh plus docker exec plus psql.
+The browsers are not in this repo. They live in
+**ridingbytes-pgweb** and serve every database on the host,
+not just this one:
 
-Two gates, and both are load-bearing. The Traefik route
-restricts it to the VPN, and basic auth sits behind that;
-pgweb has no authentication of its own and holds every row,
-so the allowlist alone would give any VPN peer the whole
-database.
+- `https://db.ridingbytes.com` — Adminer, writes enabled.
+- `https://sql.ridingbytes.com` — pgweb, read-only.
 
-Read-only is a deliberate default, not caution: a browser
-tab with write access to production, one click away and with
-no undo, is a worse trade than falling back to psql
-occasionally. `--readonly` in the compose file is the line to
-drop if that stops being true. It is enforced by pgweb, not
-by the database user, so a write attempt returns "query
-contains keywords not allowed in read-only mode".
+Both are VPN-only plus basic auth. Pick this stack's
+database from the server dropdown; `bin/credentials kaisho`
+in that repo prints the login and puts the password on the
+clipboard.
+
+They used to run here as a `kaisho-pgweb` service on
+`db.kaisho.dev`. That host no longer resolves.
 
 For a shell instead:
 
@@ -130,8 +126,6 @@ repo under `conf.d/`, and goes out with that repo's own
 record of ours:
 
 - `kaisho-cloud.yml` — `cloud.kaisho.dev`.
-- `kaisho-pgweb.yml` — `db.kaisho.dev`, VPN-only plus basic
-  auth.
 
 A route change is therefore two repos in one change:
 `deploy/hosted/traefik/` here, `conf.d/` there.
@@ -149,9 +143,11 @@ A route change is therefore two repos in one change:
 ```
 
 Containers: `kaisho-cloud` (api), `kaisho-cron`,
-`kaisho-cloud-db`, `kaisho-pgweb`. Networks: `traefik-public`
-(external, ingress) and the stack's own `internal` (db
-access).
+`kaisho-cloud-db`. Networks: `traefik-public` (external,
+ingress) and the stack's own `internal` (db access). The
+database browsers join `kaisho-cloud_internal` from their
+own stack, which is how they reach this database without it
+publishing a port.
 
 `bin/deploy` starts every service the compose file defines,
 derived from `docker compose config --services` rather than
