@@ -3,10 +3,10 @@
 /**
  * @module routes/integrations
  *
- * Manage a user's premium integrations (Pro tier):
- * connect (store credentials), list connected, disconnect.
- * The integration tools themselves are exposed through the
- * MCP gateway, not here.
+ * Manage a user's integrations: connect (store
+ * credentials), list connected, disconnect. The tools
+ * themselves are reached through the MCP gateway or
+ * POST /integrations/dispatch, not here.
  *
  * API-key / PAT providers (Linear, GitHub) connect by
  * POSTing their token. OAuth providers (Google, Slack)
