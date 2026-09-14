@@ -14,7 +14,6 @@ import { Logo } from "./Logo"
 import { useAuth } from "../auth"
 import { getAppConfig } from "../api"
 import type { AppConfig } from "../api"
-import { planLabel, isPaidPlan } from "../utils/planLabel"
 import { PixelAvatar } from "./PixelAvatar"
 import { PullToRefresh } from "./PullToRefresh"
 import { DetailScreen } from "./DetailScreen"
@@ -193,20 +192,8 @@ function tabFromHash(): Tab | "profile" {
 export function AppShell() {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const isPaid = isPaidPlan(user?.plan)
   const [profileOpen, setProfileOpen] = useState(false)
   const [tab, setTab] = useState<Tab>(() => {
-    const params = new URLSearchParams(
-      window.location.search,
-    )
-    if (params.get("upgraded") === "true") {
-      window.history.replaceState(
-        {}, "", window.location.pathname + "#timer",
-      )
-      // Open profile sheet after mount
-      setTimeout(() => setProfileOpen(true), 0)
-      return "timer"
-    }
     const initial = tabFromHash()
     if (initial === "profile") {
       setTimeout(() => setProfileOpen(true), 0)
@@ -301,11 +288,6 @@ export function AppShell() {
       <header className="app-header">
         <Logo size={22} className="app-header-logo" />
         <span className="app-header-title">Kaisho</span>
-        {isPaid && (
-          <span className="header-plan-badge">
-            {planLabel(user!.plan)}
-          </span>
-        )}
         {initials && (
           <span className="header-initials">
             {initials}

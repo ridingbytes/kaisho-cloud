@@ -297,24 +297,6 @@ select {
   letter-spacing: 0.04em;
 }
 
-.header-plan-badge {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: none;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--t2);
-  font-family: var(--font);
-  line-height: 1.4;
-}
-
-[data-theme="light"] .header-plan-badge {
-  background: rgba(0, 0, 0, 0.06);
-}
-
 .header-avatar-btn {
   width: 32px;
   height: 32px;
@@ -1393,13 +1375,6 @@ select {
   flex: 1;
 }
 
-.plan-badge {
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: capitalize;
-  color: var(--t2);
-}
-
 .logout-btn {
   margin-top: 24px;
 }
@@ -1453,41 +1428,6 @@ select {
 .smart-book-hint {
   margin-top: 4px;
   font-size: 11px;
-}
-
-/* -- Upgrade banner -- */
-
-.upgrade-banner {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-  border-radius: 8px;
-  background: var(--raised);
-  border: 1px solid var(--border);
-}
-
-.upgrade-msg {
-  font-size: 13px;
-  color: var(--t2);
-  text-align: center;
-}
-
-.upgrade-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.upgrade-btn {
-  flex: 1;
-  padding: 10px;
-  font-size: 13px;
-}
-
-.upgrade-error {
-  font-size: 12px;
-  color: var(--red);
-  text-align: center;
 }
 
 /* -- Segmented control -- */
@@ -2193,15 +2133,6 @@ select {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-}
-
-.advisor-upgrade {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  padding: 32px;
-  text-align: center;
 }
 
 /* -- Inbox View -- */

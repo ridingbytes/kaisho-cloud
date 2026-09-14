@@ -20,7 +20,6 @@ import { CustomerPicker } from "./CustomerPicker"
 import { ProjectPicker } from "./ProjectPicker"
 import { EditEntrySheet } from "./EditEntrySheet"
 import { Markdown } from "./Markdown"
-import { UpgradeBanner } from "./UpgradeBanner"
 import { formatElapsed } from "../utils/formatElapsed"
 import type { ActiveTimer, ClockEntry } from "../types"
 
@@ -77,7 +76,6 @@ export function TimerView() {
   const [projectId, setProjectId] = useState("")
   const [desc, setDesc] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [needsUpgrade, setNeedsUpgrade] = useState(false)
   const [loading, setLoading] = useState(false)
   // Suppress WS refreshes while a local mutation is
   // in-flight or recently completed. Prevents the
@@ -351,15 +349,7 @@ export function TimerView() {
       // Revert optimistic update
       setTimer(null)
       if (err instanceof ApiError) {
-        if (
-          err.status === 403 &&
-          err.message.toLowerCase()
-            .includes("plan")
-        ) {
-          setNeedsUpgrade(true)
-        } else {
-          setError(err.message)
-        }
+        setError(err.message)
       }
     } finally {
       setLoading(false)
@@ -694,17 +684,13 @@ export function TimerView() {
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
         />
-        {needsUpgrade ? (
-          <UpgradeBanner />
-        ) : (
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={loading}
-          >
-            {loading ? "..." : t("timer.start")}
-          </button>
-        )}
+        <button
+          type="submit"
+          className="btn-primary"
+          disabled={loading}
+        >
+          {loading ? "..." : t("timer.start")}
+        </button>
       </form>
     </div>
   )

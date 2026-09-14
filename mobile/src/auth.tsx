@@ -83,18 +83,15 @@ export function AuthProvider(
   const [authView, setAuthView] =
     useState<AuthView>("login")
 
-  // Refresh plan info from server on mount (plan may have
-  // changed server-side since last login).
+  // Refresh the stored email from the server on mount: an
+  // operator can change it, and the stored copy is what
+  // the profile screen shows.
   useEffect(() => {
     if (!user) return
     getMe()
       .then((me) => {
-        if (me.plan !== user.plan || me.email !== user.email) {
-          const next = {
-            ...user,
-            plan: me.plan,
-            email: me.email,
-          }
+        if (me.email !== user.email) {
+          const next = { ...user, email: me.email }
           setUser(next)
           storeUser(next)
         }

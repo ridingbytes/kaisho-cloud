@@ -4,9 +4,10 @@
  *  round-trip. */
 export const DEFAULT_TASK_STATUS = "TODO"
 
+// The login response also carries a `plan` field. Nothing
+// reads it: there is one plan and it gates nothing.
 export interface User {
   email: string
-  plan: string
   access_token: string
   refresh_token: string
 }

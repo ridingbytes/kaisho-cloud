@@ -5,7 +5,6 @@ import { ApiError, aiSummarize, getEntries } from "../api"
 import { useAuth } from "../auth"
 import { ErrorBanner } from "./ErrorBanner"
 import { formatMins } from "../utils/time"
-import { isPaidPlan } from "../utils/planLabel"
 
 // ── Formatters ──────────────────────────────────────────
 
@@ -186,7 +185,6 @@ export function DashboardView() {
   const [summaryLoading, setSummaryLoading] = useState(
     false,
   )
-  const hasAI = isPaidPlan(user?.plan)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -269,49 +267,47 @@ export function DashboardView() {
         </button>
       </div>
 
-      {/* AI Summary — any paid plan */}
-      {hasAI && (
-        <section className="card dashboard-section">
-          <header className="dashboard-section-header">
-            <h3>{t("dashboard.ai_summary")}</h3>
-            <button
-              type="button"
-              className="link-btn"
-              onClick={async () => {
-                setSummaryLoading(true)
-                try {
-                  const { summary: text } =
-                    await aiSummarize(week)
-                  setSummary(text)
-                } catch {
-                  setSummary(
-                    t("dashboard.summary_failed"),
-                  )
-                } finally {
-                  setSummaryLoading(false)
-                }
-              }}
-              disabled={summaryLoading}
-            >
-              {summaryLoading
-                ? t("dashboard.generating")
-                : summary
-                  ? t("dashboard.refresh")
-                  : t("dashboard.generate")}
-            </button>
-          </header>
-          {summary && (
-            <p className="dashboard-summary">
-              {summary}
-            </p>
-          )}
-          {!summary && !summaryLoading && (
-            <p className="text-muted">
-              {t("dashboard.summary_hint")}
-            </p>
-          )}
-        </section>
-      )}
+      {/* AI Summary */}
+      <section className="card dashboard-section">
+        <header className="dashboard-section-header">
+          <h3>{t("dashboard.ai_summary")}</h3>
+          <button
+            type="button"
+            className="link-btn"
+            onClick={async () => {
+              setSummaryLoading(true)
+              try {
+                const { summary: text } =
+                  await aiSummarize(week)
+                setSummary(text)
+              } catch {
+                setSummary(
+                  t("dashboard.summary_failed"),
+                )
+              } finally {
+                setSummaryLoading(false)
+              }
+            }}
+            disabled={summaryLoading}
+          >
+            {summaryLoading
+              ? t("dashboard.generating")
+              : summary
+                ? t("dashboard.refresh")
+                : t("dashboard.generate")}
+          </button>
+        </header>
+        {summary && (
+          <p className="dashboard-summary">
+            {summary}
+          </p>
+        )}
+        {!summary && !summaryLoading && (
+          <p className="text-muted">
+            {t("dashboard.summary_hint")}
+          </p>
+        )}
+      </section>
 
       <section className="card dashboard-section">
         <header className="dashboard-section-header">

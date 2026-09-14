@@ -9,10 +9,8 @@ import {
 } from "../api"
 import { useAuth } from "../auth"
 import { useToast } from "../toast"
-import { isPaidPlan } from "../utils/planLabel"
 import { ErrorBanner } from "./ErrorBanner"
 import { CustomerPicker } from "./CustomerPicker"
-import { UpgradeBanner } from "./UpgradeBanner"
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10)
@@ -32,9 +30,7 @@ export function BookView() {
   const [smartText, setSmartText] = useState("")
   const [parsing, setParsing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [needsUpgrade, setNeedsUpgrade] = useState(false)
   const [loading, setLoading] = useState(false)
-  const hasAI = isPaidPlan(user?.plan)
 
   useEffect(() => {
     getCustomers()
@@ -59,15 +55,7 @@ export function BookView() {
       setDate(todayStr())
     } catch (err) {
       if (err instanceof ApiError) {
-        if (
-          err.status === 403 &&
-          err.message.toLowerCase()
-            .includes("plan")
-        ) {
-          setNeedsUpgrade(true)
-        } else {
-          setError(err.message)
-        }
+        setError(err.message)
       } else {
         setError(t("book.error_generic"))
       }
@@ -101,38 +89,36 @@ export function BookView() {
 
   return (
     <div className="view">
-      {/* Smart Book: natural language input (AI plan) */}
-      {hasAI && (
-        <div className="card form smart-book">
-          <div className="smart-book-row">
-            <input
-              type="text"
-              value={smartText}
-              onChange={(e) =>
-                setSmartText(e.target.value)
+      {/* Smart Book: natural language input */}
+      <div className="card form smart-book">
+        <div className="smart-book-row">
+          <input
+            type="text"
+            value={smartText}
+            onChange={(e) =>
+              setSmartText(e.target.value)
+            }
+            placeholder={t("book.smart_placeholder")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault()
+                handleSmartBook()
               }
-              placeholder={t("book.smart_placeholder")}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault()
-                  handleSmartBook()
-                }
-              }}
-            />
-            <button
-              type="button"
-              className="btn-primary smart-book-btn"
-              onClick={handleSmartBook}
-              disabled={parsing || !smartText.trim()}
-            >
-              {parsing ? "..." : t("book.parse")}
-            </button>
-          </div>
-          <p className="text-muted smart-book-hint">
-            {t("book.smart_hint")}
-          </p>
+            }}
+          />
+          <button
+            type="button"
+            className="btn-primary smart-book-btn"
+            onClick={handleSmartBook}
+            disabled={parsing || !smartText.trim()}
+          >
+            {parsing ? "..." : t("book.parse")}
+          </button>
         </div>
-      )}
+        <p className="text-muted smart-book-hint">
+          {t("book.smart_hint")}
+        </p>
+      </div>
 
       <form className="card form" onSubmit={handleSubmit}>
         <ErrorBanner
@@ -164,17 +150,13 @@ export function BookView() {
           value={date}
           onChange={(e) => setDate(e.target.value)}
         />
-        {needsUpgrade ? (
-          <UpgradeBanner />
-        ) : (
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={loading}
-          >
-            {loading ? "..." : t("book.submit")}
-          </button>
-        )}
+        <button
+          type="submit"
+          className="btn-primary"
+          disabled={loading}
+        >
+          {loading ? "..." : t("book.submit")}
+        </button>
       </form>
     </div>
   )

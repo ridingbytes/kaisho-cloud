@@ -6,18 +6,13 @@ import { useTheme } from "../theme"
 import type { Theme } from "../theme"
 import { setLanguage } from "../i18n"
 import {
-  createCheckout,
-  createPortalSession,
-  createTokenPackCheckout,
   getAppConfig,
-  getSubscription,
   regenerateApiKey,
   updateAppConfig,
   aiUsage,
   ApiError,
 } from "../api"
 import { ErrorBanner } from "./ErrorBanner"
-import { planLabel, isPaidPlan } from "../utils/planLabel"
 
 const LANG_OPTIONS = [
   { id: "en", label: "English" },
@@ -45,14 +40,6 @@ export function ProfileView() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [sub, setSub] = useState<{
-    plan: string
-    subscription?: {
-      current_period_end: number
-      cancel_at_period_end: boolean
-      status: string
-    } | null
-  } | null>(null)
   const [usage, setUsage] = useState<{
     month: string
     input_tokens: number
@@ -60,17 +47,9 @@ export function ProfileView() {
     total_tokens: number
     request_count: number
     cap: number
-    bonus_tokens_remaining: number
   } | null>(null)
 
-  function refreshSub() {
-    getSubscription()
-      .then(setSub)
-      .catch((e) => console.warn("subscription:", e))
-  }
-
   useEffect(() => {
-    refreshSub()
     getAppConfig()
       .then((cfg) => {
         setFullName(cfg.user_name || "")
@@ -79,15 +58,11 @@ export function ProfileView() {
       .catch(() => setNameLoaded(true))
   }, [])
 
-  const plan = sub?.plan || user?.plan || "free"
-  const isPaid = isPaidPlan(plan)
-
   useEffect(() => {
-    if (!isPaidPlan(plan)) return
     aiUsage()
       .then(setUsage)
       .catch((e) => console.warn("ai usage:", e))
-  }, [plan])
+  }, [])
 
   async function handleRegenerate() {
     setError(null)
@@ -114,48 +89,6 @@ export function ProfileView() {
       toast(t("profile.api_key_copied"))
       setTimeout(() => setCopied(false), 2000)
     })
-  }
-
-  async function handleManage() {
-    setError(null)
-    try {
-      const { url } = await createPortalSession()
-      if (url) window.open(url, "_blank")
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message)
-      }
-    }
-  }
-
-  async function handleSubscribe(
-    target: "companion" | "pro" | "team",
-  ) {
-    setError(null)
-    try {
-      const res = await createCheckout(target)
-      if (res.url) {
-        window.location.href = res.url
-      }
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message)
-      }
-    }
-  }
-
-  async function handleBuyTokens() {
-    setError(null)
-    try {
-      const { url } = await createTokenPackCheckout()
-      if (url) {
-        window.location.href = url
-      }
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message)
-      }
-    }
   }
 
   const cloudUrl = window.location.origin
@@ -204,124 +137,10 @@ export function ProfileView() {
           </span>
           <span>{user?.email}</span>
         </div>
-        <div className="profile-row">
-          <span className="text-muted">
-            {t("profile.plan")}
-          </span>
-          <span className="plan-badge">{planLabel(plan)}</span>
-        </div>
-      </div>
-
-      {/* Subscription management */}
-      <div className="card">
-        <h3>{t("profile.subscription")}</h3>
-        {isPaid ? (
-          <>
-            <p className="text-muted">
-              {t("profile.subscription.on_plan", {
-                plan: planLabel(plan),
-              })}
-            </p>
-            {sub?.subscription && (
-              <div
-                className="text-muted"
-                style={{ fontSize: 12, marginTop: 8 }}
-              >
-                <p>
-                  {t("profile.subscription.status")}{" "}
-                  <strong>
-                    {sub.subscription.status}
-                  </strong>
-                </p>
-                <p>
-                  {t("profile.subscription.renews")}{" "}
-                  {new Date(
-                    sub.subscription
-                      .current_period_end * 1000,
-                  ).toLocaleDateString()}
-                </p>
-                {sub.subscription
-                  .cancel_at_period_end && (
-                  <p style={{ color: "#ef4444" }}>
-                    {t("profile.subscription.cancels")}
-                  </p>
-                )}
-              </div>
-            )}
-            <div
-              className="upgrade-actions"
-              style={{ marginTop: 12 }}
-            >
-              <button
-                type="button"
-                className="btn-secondary upgrade-btn"
-                onClick={handleManage}
-              >
-                {t("profile.upgrade.manage")}
-              </button>
-              <button
-                type="button"
-                className="btn-secondary upgrade-btn"
-                onClick={handleBuyTokens}
-              >
-                {t("profile.buy_token_pack")}
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="text-muted">
-              {t("profile.subscription.choose_plan")}
-            </p>
-            <div
-              className="upgrade-actions"
-              style={{
-                marginTop: 12,
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-              }}
-            >
-              <button
-                type="button"
-                className="btn-primary upgrade-btn"
-                onClick={() => handleSubscribe("companion")}
-              >
-                {t("profile.subscribe.companion")}
-              </button>
-              <button
-                type="button"
-                className="btn-secondary upgrade-btn"
-                onClick={() => handleSubscribe("pro")}
-              >
-                {t("profile.subscribe.pro")}
-              </button>
-              {/*
-                Team is not self-serve yet -- matches the
-                kaisho.dev pricing page where it's a
-                mailto: contact CTA, not a checkout button.
-                Re-enable by swapping back to a Subscribe
-                button + handleSubscribe("team") when the
-                team flow is ready.
-              */}
-              <a
-                href="mailto:hello@kaisho.dev?subject=Kaisho for Teams"
-                className="btn-secondary upgrade-btn"
-                style={{
-                  textAlign: "center",
-                  textDecoration: "none",
-                  display: "block",
-                }}
-              >
-                {t("profile.contact.team")}
-              </a>
-            </div>
-          </>
-        )}
       </div>
 
       {/* AI token usage */}
-      {isPaidPlan(plan) && usage && (() => {
+      {usage && (() => {
         const pct = usage.cap > 0
           ? Math.min(
               100,
@@ -370,18 +189,6 @@ export function ProfileView() {
               {fmtK(usage.cap)}{" "}
               {t("profile.ai_usage.tokens")}
             </p>
-            {usage.bonus_tokens_remaining > 0 && (
-              <p
-                className="text-muted"
-                style={{ fontSize: 12, margin: "2px 0" }}
-              >
-                {t("profile.ai_usage.bonus", {
-                  amount: fmtK(
-                    usage.bonus_tokens_remaining,
-                  ),
-                })}
-              </p>
-            )}
             <p
               className="text-muted"
               style={{ fontSize: 12 }}

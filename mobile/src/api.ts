@@ -226,7 +226,6 @@ export function regenerateApiKey(): Promise<{
 export function getMe(): Promise<{
   user_id: string
   email: string
-  plan: string
 }> {
   return request("/auth/me")
 }
@@ -351,44 +350,6 @@ export function updateAppConfig(
   })
 }
 
-// -- Billing --
-
-export function getSubscription(): Promise<{
-  plan: string
-  subscription?: {
-    current_period_end: number
-    cancel_at_period_end: boolean
-    status: string
-  } | null
-}> {
-  return request("/billing/subscription")
-}
-
-export function createCheckout(
-  plan: "companion" | "pro" | "team",
-): Promise<{ url?: string; success?: boolean; plan?: string }> {
-  return request("/billing/checkout", {
-    method: "POST",
-    body: JSON.stringify({ plan }),
-  })
-}
-
-export function createPortalSession(): Promise<{
-  url: string
-}> {
-  return request("/billing/portal", {
-    method: "POST",
-  })
-}
-
-export function createTokenPackCheckout(): Promise<{
-  url?: string
-}> {
-  return request("/billing/token-pack", {
-    method: "POST",
-  })
-}
-
 // -- AI --
 
 interface AiAdvisorResponse {
@@ -398,9 +359,10 @@ interface AiAdvisorResponse {
 }
 
 // The cloud runs the full agentic advisor loop server-side
-// (kaisho data tools + the user's connected premium
-// integrations), so the client just sends the conversation
-// and an optional context block and gets the final answer.
+// (kaisho data tools plus whatever integrations the user
+// has connected), so the client just sends the
+// conversation and an optional context block and gets the
+// final answer.
 export async function aiAdvisor(
   messages: { role: string; content: string }[],
   context?: string,
@@ -452,7 +414,6 @@ export function aiUsage(): Promise<{
   total_tokens: number
   request_count: number
   cap: number
-  bonus_tokens_remaining: number
 }> {
   return request("/ai/usage")
 }

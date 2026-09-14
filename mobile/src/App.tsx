@@ -1,10 +1,5 @@
 import { useEffect, useState } from "react"
 import { useAuth } from "./auth"
-import { createCheckout } from "./api"
-import {
-  captureUpgradeFromUrl,
-  takePendingUpgrade,
-} from "./utils/pendingUpgrade"
 import { LoginForm } from "./components/LoginForm"
 import { SignupSuccess } from "./components/SignupSuccess"
 import { ForgotPassword } from "./components/ForgotPassword"
@@ -36,33 +31,6 @@ export function App() {
       )
     }
   }, [setAuthView])
-
-  // Capture ?upgrade=<plan> from a marketing-site CTA on
-  // first mount and strip it from the URL so reloads do
-  // not re-fire. The plan is consumed below once the user
-  // is authenticated.
-  useEffect(() => {
-    captureUpgradeFromUrl()
-  }, [])
-
-  // Resume a captured upgrade intent the moment the user
-  // becomes authenticated. takePendingUpgrade clears the
-  // entry on read so a cancelled checkout does not loop.
-  useEffect(() => {
-    if (!user) return
-    const plan = takePendingUpgrade()
-    if (!plan) return
-    createCheckout(plan)
-      .then((res) => {
-        if (res.url) window.location.href = res.url
-      })
-      .catch(() => {
-        // Surface nothing here; the user can retry from
-        // the Profile screen. We deliberately do not
-        // re-stash the intent so a server-side error does
-        // not pin the user in a redirect loop.
-      })
-  }, [user])
 
   if (user) return <AppShell />
 
