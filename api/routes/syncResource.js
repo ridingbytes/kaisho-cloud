@@ -89,22 +89,19 @@ function _mountChanges(router, opts, deps) {
       const limit = Math.min(
         parseInt(req.query.limit) || 200, 500,
       )
-      const { data: rows, error } = await supabase
-        .from(table)
-        .select("*")
-        .eq("user_id", req.userId)
-        .gt("updated_at", since)
-        .order("updated_at", { ascending: true })
-        .limit(limit)
-      if (error) {
+      const page = await _readPage(
+        supabase, table, req.userId, since, limit,
+      )
+      if (page.error) {
         req.log?.error?.(
-          { err: error, since, limit, table },
+          { err: page.error, since, limit, table },
           "sync changes query failed",
         )
         return res.status(500).json({
           error: `Failed to fetch ${table} changes`,
         })
       }
+      const { rows, hasMore } = page
       const cursor =
         rows.length > 0
           ? rows[rows.length - 1].updated_at
@@ -113,12 +110,81 @@ function _mountChanges(router, opts, deps) {
         now: new Date().toISOString(),
         cursor,
         entries: rows.map(rowToWire),
-        has_more: rows.length === limit,
+        has_more: hasMore,
       })
     }),
   )
 }
 
+
+/**
+ * Read one page of changes after ``since``.
+ *
+ * The cursor is a bare timestamp, and the next pull asks
+ * for ``updated_at > cursor``. That is only safe if the
+ * page ends on a timestamp boundary. It did not: a page
+ * that filled up mid-timestamp reported the shared value
+ * as the cursor, and every remaining row carrying it was
+ * then excluded by the ``>`` on the following request.
+ * Those rows were never delivered again.
+ *
+ * Rows can share a timestamp in ordinary use. The desktop
+ * backfills ``updated_at`` from an entry's ``created``
+ * date for rows that predate cloud sync, so a bulk import
+ * can leave hundreds of notes stamped with the same day.
+ *
+ * So: trim the trailing rows that share the last
+ * timestamp, and let them arrive on the next pull with a
+ * cursor that sits cleanly below them. When the whole page
+ * shares one timestamp there is nothing to trim without
+ * emptying it, so read that timestamp in full instead --
+ * one extra query, and only in the case that would
+ * otherwise lose data.
+ *
+ * @returns {Promise<{rows: object[], hasMore: boolean,
+ *   error?: object}>}
+ */
+/**
+ * Compare two updated_at values. The data layer hands back
+ * Date objects for timestamptz columns, and === on two
+ * Dates compares references, so every row would look
+ * distinct and the trim below would never fire.
+ */
+function _sameStamp(a, b) {
+  return String(a instanceof Date ? a.toISOString() : a)
+    === String(b instanceof Date ? b.toISOString() : b)
+}
+
+async function _readPage(supabase, table, userId, since, limit) {
+  const { data: rows, error } = await supabase
+    .from(table)
+    .select("*")
+    .eq("user_id", userId)
+    .gt("updated_at", since)
+    .order("updated_at", { ascending: true })
+    .limit(limit)
+  if (error) return { error }
+  if (rows.length < limit) {
+    return { rows, hasMore: false }
+  }
+
+  const last = rows[rows.length - 1].updated_at
+  if (!_sameStamp(rows[0].updated_at, last)) {
+    const trimmed = rows.filter(
+      (r) => !_sameStamp(r.updated_at, last),
+    )
+    return { rows: trimmed, hasMore: true }
+  }
+
+  const { data: all, error: allErr } = await supabase
+    .from(table)
+    .select("*")
+    .eq("user_id", userId)
+    .eq("updated_at", last)
+    .order("id", { ascending: true })
+  if (allErr) return { error: allErr }
+  return { rows: all, hasMore: true }
+}
 
 function _mountApply(router, opts, deps) {
   const {
