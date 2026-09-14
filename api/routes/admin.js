@@ -19,6 +19,7 @@ const {
   setPassword, deleteAccount, listAccounts,
 } = require("../services/accounts")
 const { asyncHandler } = require("../utils/asyncHandler")
+const { adminLimiter } = require("../config")
 
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY
 
@@ -41,6 +42,9 @@ function requireAdmin(req, res, next) {
 }
 
 const router = Router()
+// Limiter first: a rejected attempt should not reach the
+// key comparison at all.
+router.use(adminLimiter)
 router.use(requireAdmin)
 
 // ── GET /admin/accounts ─────────────────────────────────
