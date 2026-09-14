@@ -106,6 +106,33 @@ const syncLimiter = rateLimit({
   },
 })
 
+// The admin key opens account deletion, password resets
+// and token rotation, and it is the one auth surface on
+// this server that had no limiter at all: /auth/login
+// starts answering 429 at 30 attempts, /admin answered 401
+// forty times in a row without slowing down. The key is 64
+// characters, so this is not what stands between an
+// attacker and the data -- it is there so the most
+// privileged door is not the only unthrottled one, and so
+// a stuffing run shows up as 429s instead of an unbounded
+// column of 401s.
+/** @type {Function} 20 req/15 min IP-keyed admin limiter. */
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  // Successful operator work does not spend the budget;
+  // an operator adding ten accounts should not lock
+  // themselves out.
+  skipSuccessfulRequests: true,
+  message: {
+    error:
+      "Too many admin attempts. "
+      + "Try again in 15 minutes.",
+  },
+})
+
 /** @type {Function} 120 req/min per-user API limiter. */
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -133,6 +160,7 @@ module.exports = {
   DEFAULT_TASK_STATUS,
   signupLimiter,
   authLimiter,
+  adminLimiter,
   rotateKeyLimiter,
   apiLimiter,
   syncLimiter,
