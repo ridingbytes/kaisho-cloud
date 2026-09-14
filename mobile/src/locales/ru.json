@@ -193,6 +193,7 @@
   "detail.direction": "Направление",
   "common.yes": "Да",
   "common.no": "Нет",
+  "common.loading": "Загрузка…",
   "edit.label.date": "Дата",
   "shell.tab.projects": "Проекты",
   "projects.label": "Проект",

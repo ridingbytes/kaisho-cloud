@@ -1,6 +1,7 @@
 {
   "common.yes": "Yes",
   "common.no": "No",
+  "common.loading": "Loading…",
   "timer.start": "Start timer",
   "timer.stop": "Stop",
   "timer.customer": "Customer",
