@@ -357,12 +357,32 @@ const periodQuerySchema = z.object({
   to: z.string().optional(),
 })
 
+// ``since`` is a cursor the client got from a previous
+// pull, so it is always a timestamp we produced. A plain
+// z.string() let anything else through to Postgres, which
+// answered 22008 and surfaced as a 500: a client's typo
+// reported as a server fault, with a stack in the log for
+// every one of them (#119).
+//
+// Date.parse() would be too generous to gate on -- it
+// reads "0" as the year 2000, so the exact value in the
+// issue would have been accepted and answered with a
+// window nobody asked for.
+const timestampSchema = z
+  .string()
+  .datetime({
+    offset: true,
+    message:
+      "since must be an ISO 8601 timestamp, "
+      + "e.g. 1970-01-01T00:00:00Z",
+  })
+
 /**
  * GET /sync/changes query parameters.
  * @type {z.ZodObject}
  */
 const syncChangesQuerySchema = z.object({
-  since: z.string().optional(),
+  since: timestampSchema.optional(),
   limit: z.coerce.number().int().positive().optional(),
 })
 
