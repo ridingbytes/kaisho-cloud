@@ -136,11 +136,12 @@ curl -s -H "$ADMIN" -H "Content-Type: application/json" \
   $BASE/admin/accounts/<user_id>/password
 
 # Disable / re-enable an account (revokes sync immediately)
-curl -s -H "$ADMIN" $BASE/admin/accounts/<user_id>/disable
-curl -s -H "$ADMIN" $BASE/admin/accounts/<user_id>/enable
+curl -s -X POST -H "$ADMIN" $BASE/admin/accounts/<user_id>/disable
+curl -s -X POST -H "$ADMIN" $BASE/admin/accounts/<user_id>/enable
 
 # Rotate an account's sync token (invalidates the old one)
-curl -s -H "$ADMIN" $BASE/admin/accounts/<user_id>/rotate-token
+curl -s -X POST -H "$ADMIN" \
+  $BASE/admin/accounts/<user_id>/rotate-token
 
 # Delete an account and all of its data
 curl -s -X DELETE -H "$ADMIN" $BASE/admin/accounts/<user_id>
@@ -168,8 +169,9 @@ docker compose run --rm migrate     # re-run migrations after upgrade
 docker compose exec db psql -U kaisho kaisho
 ```
 
-## Optional: managed hosting
+## There is no managed option
 
-Prefer not to run a server? Point the desktop app at a Kaisho-hosted
-instance instead. It runs this same open-source image; the only
-difference is the URL. See the marketing site for details.
+We do not host Kaisho for anyone. Self-hosting is the way to use
+cloud sync, which is why this page exists and why the server is
+under the AGPL. If you are reading an older page that offers a
+Kaisho-hosted instance, it is out of date.
