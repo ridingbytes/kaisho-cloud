@@ -39,9 +39,14 @@ test("schema applies and is idempotent", {
     // 15 domain tables + schema_migrations.
     assert.equal(tables.rows[0].n, 16)
 
+    // Unique per run: the email column is UNIQUE, and a
+    // fixed literal made the second run of the suite fail
+    // on the row the first one left behind -- in a test
+    // whose whole subject is running twice.
     const uid = await client.query(
       "INSERT INTO users (email, api_key_hash)" +
-      " VALUES ('t@example.com', 'h') RETURNING id",
+      " VALUES ($1, 'h') RETURNING id",
+      [`schema-${Date.now()}@example.com`],
     )
     const id = uid.rows[0].id
     await client.query(
@@ -57,6 +62,11 @@ test("schema applies and is idempotent", {
     assert.equal(Number(usage.rows[0].input_tokens), 30)
     assert.equal(usage.rows[0].request_count, 2)
   } finally {
+    // Leave the database as it was found. The suite's
+    // other tests share it.
+    await client.query(
+      "DELETE FROM users WHERE email LIKE 'schema-%@example.com'",
+    ).catch(() => {})
     await client.end()
   }
 })
