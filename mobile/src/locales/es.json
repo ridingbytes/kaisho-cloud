@@ -192,6 +192,7 @@
   "detail.direction": "Dirección",
   "common.yes": "Sí",
   "common.no": "No",
+  "common.loading": "Cargando…",
   "edit.label.date": "Fecha",
   "shell.tab.projects": "Proyectos",
   "projects.label": "Proyecto",
