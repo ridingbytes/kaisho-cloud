@@ -57,23 +57,6 @@ const scheduled = new Map()
 const inFlight = new Set()
 
 /**
- * Look up the plan for a user (the worker has no request
- * context, so it can't rely on middleware). Defaults to
- * "free" if the row is gone.
- *
- * @param {string} userId
- * @returns {Promise<string>}
- */
-async function getUserPlan(userId) {
-  const { data } = await supabase
-    .from("users")
-    .select("plan")
-    .eq("id", userId)
-    .maybeSingle()
-  return data?.plan || "free"
-}
-
-/**
  * Write a job's output to its sink. Today only "inbox" is
  * supported; unknown sinks fall back to inbox so output is
  * never silently dropped.
@@ -149,7 +132,6 @@ async function runJob(job) {
   }
 
   try {
-    const plan = await getUserPlan(job.user_id)
     const month = currentMonth()
     const [usage, cap] = await Promise.all([
       getUsage(job.user_id, month),
@@ -180,7 +162,6 @@ async function runJob(job) {
     try {
       result = await callModel({
         model,
-        plan,
         messages: [{ role: "user", content: job.prompt }],
         maxTokens: 2048,
         signal: controller.signal,

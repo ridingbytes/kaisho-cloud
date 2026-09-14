@@ -3,12 +3,16 @@
 /**
  * @module ai/queue
  *
- * Priority-aware concurrency limiter for upstream AI
- * calls. Caps how many requests hit the backend at once;
- * when saturated, Pro/Team requests are served ahead of
- * Companion. At low load it's a no-op (slots are free), so
- * it only bites under contention — which is exactly when
- * the Pro "priority" promise should matter.
+ * Concurrency limiter for upstream AI calls. Caps how many
+ * requests hit the backend at once; at low load it is a
+ * no-op, so it only bites under contention.
+ *
+ * It used to order the queue by plan, serving Pro and Team
+ * ahead of Companion. There is one plan now, so every
+ * request carried the same priority and the ordering was a
+ * comparison that could not come out either way. The plan
+ * argument travelled from four route handlers and the cron
+ * worker through callModel to reach it.
  *
  * In-process only (per Node worker). Good enough for a
  * single-instance gateway; a multi-instance deployment
@@ -19,26 +23,16 @@ const MAX = parseInt(process.env.AI_MAX_CONCURRENCY, 10)
   || 8
 
 let active = 0
-/** @type {Array<{priority: number, resolve: Function}>} */
+/** @type {Array<Function>} */
 const waiters = []
 
-/**
- * Map a plan to a queue priority (higher served first).
- *
- * @param {string} plan
- * @returns {number}
- */
-function priorityFor(plan) {
-  return plan === "pro" || plan === "team" ? 2 : 1
-}
-
-function acquire(priority) {
+function acquire() {
   if (active < MAX) {
     active++
     return Promise.resolve()
   }
   return new Promise((resolve) => {
-    waiters.push({ priority, resolve })
+    waiters.push(resolve)
   })
 }
 
@@ -47,29 +41,20 @@ function release() {
     active = Math.max(0, active - 1)
     return
   }
-  // Hand the slot to the highest-priority waiter, FIFO
-  // within the same priority. active stays unchanged — the
-  // slot transfers directly.
-  let idx = 0
-  for (let i = 1; i < waiters.length; i++) {
-    if (waiters[i].priority > waiters[idx].priority) {
-      idx = i
-    }
-  }
-  const next = waiters.splice(idx, 1)[0]
-  next.resolve()
+  // Hand the slot to the next waiter, FIFO. active stays
+  // unchanged -- the slot transfers directly.
+  waiters.shift()()
 }
 
 /**
- * Run ``fn`` under the concurrency limiter at the given
- * plan's priority. Always releases, even on throw.
+ * Run ``fn`` under the concurrency limiter. Always
+ * releases, even on throw.
  *
- * @param {string} plan
  * @param {Function} fn - async () => result
  * @returns {Promise<*>}
  */
-async function withPriority(plan, fn) {
-  await acquire(priorityFor(plan))
+async function withLimit(fn) {
+  await acquire()
   try {
     return await fn()
   } finally {
@@ -77,4 +62,4 @@ async function withPriority(plan, fn) {
   }
 }
 
-module.exports = { withPriority, priorityFor }
+module.exports = { withLimit }

@@ -157,7 +157,6 @@ router.post(
 
     const result = await callModel({
       backend: req.aiBackend,
-      plan: req.userPlan,
       model: chosen,
       system,
       messages,
@@ -219,7 +218,6 @@ router.post(
 
     const out = await runAdvisor({
       userId: req.userId,
-      plan: req.userPlan,
       backend: req.aiBackend,
       model,
       system,
@@ -326,7 +324,6 @@ router.post(
     // Use the fast/cheap model for structured
     // extraction — no need for a large LLM here.
     const result = await callModel({
-      plan: req.userPlan,
       model: MODEL_FAST,
       system: PARSE_SYSTEM,
       messages: [{ role: "user", content: input }],
@@ -390,7 +387,6 @@ router.post(
     }))
 
     const result = await callModel({
-      plan: req.userPlan,
       model: MODEL_DEFAULT,
       system: SUMMARY_SYSTEM,
       messages: [{
