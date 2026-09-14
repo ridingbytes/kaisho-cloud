@@ -3,8 +3,10 @@
 /**
  * Minimal supabase-js-compatible query builder over node-pg.
  *
- * Implements exactly the subset kaisho-cloud uses so the 19
- * DB call sites keep working unchanged when DB_BACKEND=postgres:
+ * Implements exactly the subset kaisho-cloud uses. It was
+ * written so the DB call sites kept working unchanged
+ * across the move off Supabase; that move is done, and this
+ * is now the only data layer.
  *
  *   from(t).select(cols)              -> read
  *   from(t).insert(rows).select()     -> insert (+ RETURNING)
@@ -13,6 +15,8 @@
  *   from(t).delete().eq(...)          -> delete
  *   filters: eq, is(null), in, gt, gte, lt, lte, contains
  *   modifiers: order(col, {ascending}), limit, single, maybeSingle
+ *   counts: select(cols, {count:"exact", head:true}) -> {count};
+ *           update/delete -> {count} = affected rows
  *   rpc(name, args)
  *
  * Every terminal awaits to { data, error }, matching supabase-js.
@@ -106,6 +110,8 @@ class PgQuery {
     this._orders = []
     this._limit = null
     this._rowMode = null // "single" | "maybe" | null
+    this._count = null   // "exact" when a count was asked for
+    this._head = false   // count only, no rows
   }
 
   _colTypes() {
@@ -118,7 +124,26 @@ class PgQuery {
     return (t && t.pk) || []
   }
 
-  select(cols = "*") {
+  select(cols = "*", opts = {}) {
+    // supabase-js takes the count options on select().
+    // Dropping them silently is how /sync/stats came to
+    // report entry_count 0 for an account that had rows:
+    // the option was ignored, nothing read the columns,
+    // and the caller's `count` was simply undefined.
+    if (opts.count) {
+      // Only the head form is implemented. The rows-plus-
+      // total form would need count(*) OVER () and a
+      // stripped column to stay exact under LIMIT; no
+      // caller wants it, and guessing rows.length here
+      // would be right only until someone adds a limit.
+      if (opts.head !== true) {
+        throw new Error(
+          "db_pg: count requires head:true",
+        )
+      }
+      this._count = opts.count
+      this._head = true
+    }
     if (this._op === null) {
       this._op = "select"
       this._selectCols = cols || "*"
@@ -134,9 +159,10 @@ class PgQuery {
     return this
   }
 
-  update(obj) {
+  update(obj, opts = {}) {
     this._op = "update"
     this._payload = obj
+    if (opts.count) this._count = opts.count
     return this
   }
 
@@ -147,8 +173,9 @@ class PgQuery {
     return this
   }
 
-  delete() {
+  delete(opts = {}) {
     this._op = "delete"
+    if (opts.count) this._count = opts.count
     return this
   }
 
@@ -315,11 +342,20 @@ class PgQuery {
     let sql
     let wantsRows
     if (this._op === "select" || this._op === null) {
+      // head:true means "the count, not the rows". Select
+      // count(*) rather than the columns and discard them
+      // client-side: the row payload is exactly what the
+      // caller asked not to transfer.
+      const projection = this._head
+        ? "count(*)::int AS count"
+        : (this._selectCols === "*" ? "*" : this._selectCols)
       sql =
-        `SELECT ${this._selectCols === "*" ? "*" : this._selectCols}` +
+        `SELECT ${projection}` +
         ` FROM ${quoteIdent(this._table)}` +
-        this._where(params) + this._orderBy() +
-        (this._limit != null ? ` LIMIT ${Number(this._limit)}` : "")
+        this._where(params) +
+        (this._head ? "" : this._orderBy()) +
+        (this._limit != null && !this._head
+          ? ` LIMIT ${Number(this._limit)}` : "")
       wantsRows = true
     } else if (this._op === "insert") {
       sql = this._buildInsertLike(params, "insert")
@@ -341,7 +377,27 @@ class PgQuery {
     return { sql, params, wantsRows }
   }
 
-  _shape(rows, wantsRows) {
+  _shape(rows, wantsRows, rowCount) {
+    // A write reports how many rows it touched, but only
+    // when the caller asked for it -- supabase-js leaves
+    // `count` off otherwise, and adding it unconditionally
+    // would change what every existing write returns.
+    if (this._op === "update" || this._op === "delete") {
+      const shaped = this._shapeRows(rows, wantsRows)
+      if (!this._count) return shaped
+      return { ...shaped, count: rowCount }
+    }
+    if (this._head) {
+      return {
+        data: null,
+        count: rows.length ? rows[0].count : 0,
+        error: null,
+      }
+    }
+    return this._shapeRows(rows, wantsRows)
+  }
+
+  _shapeRows(rows, wantsRows = true) {
     if (!wantsRows) return { data: null, error: null }
     if (this._rowMode === "single") {
       if (rows.length === 1) return { data: rows[0], error: null }
@@ -363,7 +419,7 @@ class PgQuery {
       }
       const { sql, params, wantsRows } = this._build()
       const res = await this._pool.query(sql, params)
-      return this._shape(res.rows, wantsRows)
+      return this._shape(res.rows, wantsRows, res.rowCount)
     } catch (err) {
       return {
         data: null,
