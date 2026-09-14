@@ -3,7 +3,7 @@
 /**
  * @module integrations/linear
  *
- * Linear premium integration (Pro tier). Authenticates
+ * Linear integration. Authenticates
  * with a personal API key (no OAuth app required) sent in
  * the Authorization header to Linear's GraphQL API.
  *

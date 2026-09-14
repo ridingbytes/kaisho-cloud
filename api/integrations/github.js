@@ -3,7 +3,7 @@
 /**
  * @module integrations/github
  *
- * GitHub Projects (v2) premium integration (Pro tier).
+ * GitHub Projects (v2) integration.
  * Authenticates with a personal access token (classic or
  * fine-grained with `read:project` / `project` scope) — no
  * OAuth app required. Projects v2 is GraphQL-only, so all

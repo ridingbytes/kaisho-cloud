@@ -3,7 +3,7 @@
 /**
  * @module integrations/slack
  *
- * Slack premium integration (Pro tier). Connected via
+ * Slack integration. Connected via
  * OAuth (see oauth.js) — the stored credential holds the
  * bot access token. Tools are namespaced ``slack_*``.
  */

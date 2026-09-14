@@ -8,8 +8,9 @@
  * Usage is metered per user per month in the
  * ``ai_usage`` table.
  *
- * All endpoints require a paid plan
- * (companion / pro / team).
+ * Open to every authenticated account. What bounds it is
+ * the monthly token cap, enforced by requireTokenQuota
+ * below, not a plan.
  */
 
 const { Router } = require("express")

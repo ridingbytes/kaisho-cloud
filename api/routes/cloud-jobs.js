@@ -6,8 +6,7 @@
  * Hosted cron job CRUD. The desktop pushes a job spec here
  * when the user ticks "Run in cloud"; a separate Node
  * worker (see workers/cron.js) polls and executes due
- * jobs. All routes require auth and a paid plan
- * (companion / pro / team).
+ * jobs. All routes require auth.
  */
 
 const { Router } = require("express")

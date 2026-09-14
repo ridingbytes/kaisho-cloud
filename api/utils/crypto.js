@@ -4,7 +4,7 @@
  * @module utils/crypto
  *
  * AES-256-GCM helpers for encrypting third-party
- * integration credentials at rest (Pro tier). The key
+ * integration credentials at rest. The key
  * lives only in the INTEGRATION_KEY env var (32 bytes,
  * hex) — never in the database — so a DB dump alone can't
  * recover any stored OAuth tokens / API keys.

@@ -72,7 +72,7 @@ app.use("/cloud", cloudJobRoutes)
 app.use("/integrations", integrationRoutes)
 app.use("/admin", adminRoutes)
 
-// Hosted MCP gateway (Companion+) — opt-in. Disabled by
+// Hosted MCP gateway -- opt-in. Disabled by
 // default so deployments without the feature flag set
 // don't expose the endpoint at all (not even 401-ing).
 if (process.env.MCP_GATEWAY_ENABLED === "true") {

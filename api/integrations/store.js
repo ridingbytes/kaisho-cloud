@@ -3,8 +3,8 @@
 /**
  * @module integrations/store
  *
- * Data-access layer for per-user integration credentials
- * (Pro tier). Wraps the ``user_integrations`` table and
+ * Data-access layer for per-user integration credentials.
+ * Wraps the ``user_integrations`` table and
  * transparently encrypts/decrypts the credential blob via
  * api/utils/crypto. Callers (the OAuth flow, the
  * integration modules) deal only in plaintext objects.

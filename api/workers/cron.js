@@ -4,8 +4,8 @@
  * @module workers/cron
  *
  * Hosted cron worker. A standalone process (started by its
- * own docker-compose service) that runs Companion+ cloud
- * jobs even when the user's laptop is closed.
+ * own docker-compose service) that runs cloud jobs even
+ * when the user's laptop is closed.
  *
  * Loop:
  *   1. Every RECONCILE_MS, load enabled cloud_jobs and
