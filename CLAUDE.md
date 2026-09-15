@@ -1,6 +1,6 @@
 # Kaisho Cloud
 
-Cloud sync + AI gateway + Stripe billing for the Kaisho
+Cloud sync + AI gateway for the Kaisho
 desktop app, and the mobile PWA. Live at
 `https://cloud.kaisho.dev`.
 
@@ -13,12 +13,10 @@ desktop app, and the mobile PWA. Live at
   `api/db_pg.js`, exposed as `api/db.js`. Auth is self-owned:
   HS256 JWTs signed with `JWT_SECRET`, bcrypt password hashes
   on the users row.
-- **Billing**: Stripe live mode. Live products + webhook
-  endpoint `we_1Tbybo4CP1EJS4RIkUJ3Kvs3` provisioned 2026-05-28.
 - **AI**: OpenRouter via the gateway (`api/routes/ai.js`),
   metered per user per month in `ai_usage` with a hard cap.
 - **Email**: Resend, from `noreply@kaisho.dev`.
-- **Premium integrations** (Pro tier): Google Calendar, Slack,
+- **Workspace integrations**: Google Calendar, Slack,
   Linear, GitHub Projects. OAuth state HMAC uses
   `INTEGRATION_STATE_SECRET`; credentials AES-256-GCM encrypted
   at rest with `INTEGRATION_KEY`.
@@ -27,25 +25,22 @@ desktop app, and the mobile PWA. Live at
 
 ```
 api/                Express server
-  routes/           Endpoints by domain (auth, sync, billing,
-                    ai, mcp, integrations, stripe-webhook)
+  routes/           Endpoints by domain (auth, sync, ai,
+                    mcp, integrations, admin, ref, clocks)
   ai/               advisor.js (server-side loop), engine.js
                     (model + metering), tool defs
   workers/          cron.js (hosted cron worker, separate
                     process, heartbeats to cron_health table)
   integrations/     Per-provider modules + AES crypto helpers
-  middleware.js     requireAuth, requireApiKey, requirePlan,
-                    rate limiters
+  middleware.js     requireAuth, requireApiKey
   validation.js     Zod schemas for every authenticated route
   ws.js             WebSocket fan-out (first-message auth)
   db.js             the Postgres client (see db_pg.js)
-  config.js         PLAN_QUOTAS, PLAN_PRICES, rate-limit budgets
+  config.js         rate limiters, SOURCE_URL, constants
 mobile/             React 19 PWA (Vite)
 db/                 schema.sql + migrate.js (the migration
                     runner the deploy invokes)
-scripts/            create-stripe-products.js,
-                    sync-stripe-webhook.js, audit-stripe.js,
-                    dev-login.sh (mint JWT from local API)
+scripts/            dev-login.sh (mint JWT from local API)
 docs/               development.md, self-hosting.md,
                     deployment.md, architecture.md
 ```
@@ -64,16 +59,7 @@ JWT=$(scripts/dev-login.sh)
 curl -H "Authorization: Bearer $JWT" \
   http://localhost:3000/ai/usage
 
-# Stripe webhooks locally (one terminal):
-stripe listen --forward-to localhost:3000/billing/webhook/stripe
-# Copy the printed whsec_ into .env STRIPE_WEBHOOK_SECRET,
-# restart API. See docs/development.md for the full guide.
-
-# Audit live Stripe setup:
-STRIPE_SECRET_KEY=$(awk -F= \
-  '/^PROD_STRIPE_SECRET_KEY=/{print substr($0,index($0,"=")+1)}' \
-  ~/.config/ridingbytes/kaisho.env) \
-  node scripts/audit-stripe.js
+# See docs/development.md for the full guide.
 ```
 
 ## Deploy
@@ -90,10 +76,10 @@ STRIPE_SECRET_KEY=$(awk -F= \
   `/home/docker/kaisho-cloud/` (api `kaisho-cloud`, worker
   `kaisho-cron`, db `kaisho-cloud-db`). `.env` is at the
   same path, mode 600, and is never shipped.
-- **Legacy stack**: retired 2026-09-13. The Supabase + Stripe
-  stack that used to serve `cloud.kaisho.dev` is archived at
-  `/home/docker/kaisho-cloud.legacy/` and stopped. Its data
-  was not migrated; accounts start fresh.
+- **Legacy stack**: gone. The Supabase stack that used to
+  serve `cloud.kaisho.dev` was retired on 2026-09-13 and its
+  archive directory removed on 2026-09-15. Its data was not
+  migrated; accounts start fresh.
 - **Migrations**: `db/migrate.js`, run on every deploy.
 
 ## Conventions
@@ -109,11 +95,7 @@ STRIPE_SECRET_KEY=$(awk -F= \
 - Trust the proxy: `app.set("trust proxy", 1)` is set in
   `server.js`; do not remove (Traefik IP would fill all
   buckets without it).
-- Stripe webhook: raw body before `express.json()`, signature
-  verified via `stripe.webhooks.constructEvent`, idempotency
-  via insert-first on `stripe_events`, rollback the row on
-  handler throw.
-- Tests: any new auth or webhook path needs coverage.
+- Tests: any new auth path needs coverage.
 
 ## Kaisho ecosystem
 
@@ -155,7 +137,8 @@ being shipped in the current session's PR.
 - Naked TODO in code — never leave a bare `TODO:`. Use
   `TODO(#123):` and link the issue from the body too.
 - External dependency — gated on the user, a third party, or a
-  future condition ("when we hit 1k users", "next Stripe rev").
+  future condition ("when we hit 1k users", "when the next
+  provider lands").
 - Discovered during code review / audit / live-test that we
   choose not to fix immediately.
 
