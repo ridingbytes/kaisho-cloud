@@ -3,7 +3,7 @@
 /**
  * Read-side MCP tools served by the hosted gateway.
  *
- * Each tool maps to one of the Supabase tables the PWA
+ * Each tool maps to one of the tables the PWA
  * and desktop sync engine already populate. Tools are
  * scoped to the authenticated user via the ``userId``
  * captured at registration time — each request gets a
@@ -15,7 +15,7 @@
  */
 
 const { z } = require("zod")
-const { supabase } = require("../../db")
+const { db } = require("../../db")
 
 const DEFAULT_LIMIT = 100
 const MAX_LIMIT = 500
@@ -72,7 +72,7 @@ function registerListTasks(server, userId) {
       },
     },
     async (args) => {
-      let q = supabase
+      let q = db
         .from("tasks")
         .select("*")
         .eq("user_id", userId)
@@ -99,7 +99,7 @@ function registerListCustomers(server, userId) {
       inputSchema: {},
     },
     async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("ref_customers")
         .select("name, snapshot")
         .eq("user_id", userId)
@@ -135,7 +135,7 @@ function registerListClockEntries(server, userId) {
       const fromIso = args.from || new Date(
         Date.now() - 30 * 24 * 3600 * 1000,
       ).toISOString()
-      let q = supabase
+      let q = db
         .from("clock_entries")
         .select("*")
         .eq("user_id", userId)
@@ -166,7 +166,7 @@ function registerListInbox(server, userId) {
       },
     },
     async (args) => {
-      let q = supabase
+      let q = db
         .from("inbox_entries")
         .select("*")
         .eq("user_id", userId)
@@ -197,7 +197,7 @@ function registerListNotes(server, userId) {
       },
     },
     async (args) => {
-      let q = supabase
+      let q = db
         .from("notes")
         .select("*")
         .eq("user_id", userId)

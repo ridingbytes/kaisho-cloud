@@ -11,7 +11,7 @@
 
 const crypto = require("crypto")
 const bcrypt = require("bcryptjs")
-const { supabase, invalidateAuthCache } = require("../db")
+const { db, invalidateAuthCache } = require("../db")
 const { hashPassword } = require("../auth/session")
 
 /**
@@ -23,7 +23,7 @@ const { hashPassword } = require("../auth/session")
 async function createAccount({ email, password }) {
   const row = { email, plan: "free" }
   if (password) row.password_hash = await hashPassword(password)
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("users").insert(row).select("id").single()
   if (error) {
     if (error.code === "23505") {
@@ -50,7 +50,7 @@ function failure() {
 async function generateApiKey(userId) {
   const apiKey = crypto.randomUUID()
   const keyHash = await bcrypt.hash(apiKey, 10)
-  const { data } = await supabase
+  const { data } = await db
     .from("users")
     .update({ api_key_hash: keyHash, api_key_prefix: apiKey.slice(0, 8) })
     .eq("id", userId)
@@ -66,7 +66,7 @@ async function generateApiKey(userId) {
  * once. Returns { found }.
  */
 async function setDisabled(userId, disabled) {
-  const { data } = await supabase
+  const { data } = await db
     .from("users")
     .update({ disabled_at: disabled ? new Date().toISOString() : null })
     .eq("id", userId)
@@ -78,12 +78,10 @@ async function setDisabled(userId, disabled) {
 
 /**
  * Set (reset) an account's password. Returns { found }.
- * postgres/own-auth only — supabase mode stores passwords in
- * Supabase Auth, not on the users row.
  */
 async function setPassword(userId, password) {
   const passwordHash = await hashPassword(password)
-  const { data } = await supabase
+  const { data } = await db
     .from("users")
     .update({ password_hash: passwordHash })
     .eq("id", userId)
@@ -98,7 +96,7 @@ async function setPassword(userId, password) {
  * synced data. Returns { found }.
  */
 async function deleteAccount(userId) {
-  const { data } = await supabase
+  const { data } = await db
     .from("users")
     .delete()
     .eq("id", userId)
@@ -110,7 +108,7 @@ async function deleteAccount(userId) {
 
 /** Per-account sync stats keyed by user id. postgres only. */
 async function accountStats() {
-  const { rows } = await supabase.raw(
+  const { rows } = await db.raw(
     "SELECT u.id," +
     " count(c.id) FILTER (WHERE c.deleted_at IS NULL)" +
     "   AS clock_entries," +
@@ -139,12 +137,12 @@ async function accountStats() {
  * (postgres backend). Never includes password hashes or keys.
  */
 async function listAccounts() {
-  const { data } = await supabase
+  const { data } = await db
     .from("users")
     .select("id, email, plan, disabled_at, created_at")
     .order("created_at", { ascending: true })
   const accounts = data || []
-  if (typeof supabase.raw !== "function") return accounts
+  if (typeof db.raw !== "function") return accounts
   const stats = await accountStats()
   return accounts.map((a) => ({
     ...a,

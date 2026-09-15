@@ -20,7 +20,7 @@ const WebSocket = require("ws")
 const bcrypt = require("bcryptjs")
 const { logger } = require("./logger")
 const {
-  supabase,
+  db,
   getCachedUser,
   cacheUser,
 } = require("./db")
@@ -64,7 +64,7 @@ async function authenticate(token, apiKey) {
     if (cached) return cached.id
 
     const prefix = apiKey.slice(0, 8)
-    const { data: users } = await supabase
+    const { data: users } = await db
       .from("users")
       .select("id, plan, api_key_hash, disabled_at")
       .eq("api_key_prefix", prefix)

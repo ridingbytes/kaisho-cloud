@@ -1,7 +1,7 @@
 "use strict"
 
 /**
- * Generic helper for building Supabase update objects
+ * Generic helper for building update objects
  * from request bodies.
  */
 

@@ -6,7 +6,7 @@
  * Bidirectional sync endpoints (JWT or API-key auth).
  * These routes let the mobile PWA and the local Kaisho
  * desktop app push and pull
- * clock entries against the Supabase cloud store using a
+ * clock entries against the cloud store using a
  * cursor-based, last-writer-wins merge protocol.
  *
  * Endpoint contract:
@@ -24,7 +24,7 @@
  */
 
 const { Router } = require("express")
-const { supabase } = require("../db")
+const { db } = require("../db")
 const {
   syncLimiter, DEFAULT_TASK_STATUS,
 } = require("../config")
@@ -59,8 +59,8 @@ router.use(syncLimiter)
 /**
  * Insert rows with per-row retry on batch failure.
  *
- * Supabase rejects the WHOLE batch if any row violates a
- * constraint (e.g. one bad task_id FK in 500 rows). The
+ * A multi-row INSERT fails as a whole if any row violates
+ * a constraint (e.g. one bad task_id FK in 500 rows). The
  * previous "attribute the failure to every id in the
  * batch" behaviour made the client retry every row of
  * every batch forever, hiding the one bad row.
@@ -69,17 +69,17 @@ router.use(syncLimiter)
  * If it fails, fall back to inserting each row on its
  * own so the bad rows are isolated to their own id.
  *
- * @param {string} table - Supabase table name.
+ * @param {string} table - Table name.
  * @param {object[]} rows - Rows to insert.
  * @returns {Promise<string[]>} IDs that failed to insert.
  */
 async function insertWithRowRetry(table, rows) {
   if (rows.length === 0) return []
-  const { error } = await supabase.from(table).insert(rows)
+  const { error } = await db.from(table).insert(rows)
   if (!error) return []
   const failedIds = []
   for (const row of rows) {
-    const { error: rowErr } = await supabase
+    const { error: rowErr } = await db
       .from(table)
       .insert(row)
     if (rowErr) failedIds.push(row.id)
@@ -93,7 +93,7 @@ async function insertWithRowRetry(table, rows) {
  * Deleted rows carry deleted_at; end_at may be null for
  * a running timer.
  *
- * @param {object} row - Supabase clock_entries row.
+ * @param {object} row - clock_entries row.
  * @returns {object} Wire-format entry with renamed
  *   fields (start_at -> start, end_at -> end).
  */
@@ -130,13 +130,13 @@ router.post(
   asyncHandler(async (req, res) => {
     const { customers, tasks, config } = req.body
 
-    await supabase
+    await db
       .from("ref_customers")
       .delete()
       .eq("user_id", req.userId)
 
     if (customers.length > 0) {
-      await supabase.from("ref_customers").insert(
+      await db.from("ref_customers").insert(
         customers.map((c) => ({
           user_id: req.userId,
           name: c.name,
@@ -147,13 +147,13 @@ router.post(
       )
     }
 
-    await supabase
+    await db
       .from("ref_tasks")
       .delete()
       .eq("user_id", req.userId)
 
     if (tasks.length > 0) {
-      await supabase.from("ref_tasks").insert(
+      await db.from("ref_tasks").insert(
         tasks.map((t) => ({
           user_id: req.userId,
           task_id: t.id,
@@ -174,7 +174,7 @@ router.post(
     // the server actually dropped it.
     let stored_config = null
     if (config) {
-      const { error: cfgErr } = await supabase
+      const { error: cfgErr } = await db
         .from("ref_config")
         .upsert(
           {
@@ -227,8 +227,8 @@ const APPLY_FIELDS = [
  *
  * @param {object} entry - Wire-format sync entry.
  * @param {string} userId - Authenticated user ID.
- * @returns {object} Row object ready for Supabase
- *   insert or update.
+ * @returns {object} Row object ready for insert or
+ *   update.
  */
 function wireToRow(entry, userId) {
   return {
@@ -293,7 +293,7 @@ mountSyncResource(router, {
   wireToRow,
   broadcastEvent: "entries:changed",
 }, {
-  supabase, broadcast,
+  db, broadcast,
   decideMerge, insertWithRowRetry,
   validate, validateQuery, syncChangesQuerySchema,
   requireAuth, requireSync, asyncHandler,
@@ -312,7 +312,7 @@ router.get(
   requireAuth,
   requireSync,
   asyncHandler(async (req, res) => {
-    const { data: row } = await supabase
+    const { data: row } = await db
       .from("clock_entries")
       .select("*")
       .eq("user_id", req.userId)
@@ -350,7 +350,7 @@ router.post(
     const incoming = req.body
     const now = new Date().toISOString()
 
-    const { data: active } = await supabase
+    const { data: active } = await db
       .from("clock_entries")
       .select("*")
       .eq("user_id", req.userId)
@@ -376,7 +376,7 @@ router.post(
           ...rowToWire(active),
         })
       }
-      await supabase
+      await db
         .from("clock_entries")
         .update({
           end_at: incoming.start,
@@ -385,7 +385,7 @@ router.post(
         .eq("id", active.id)
     }
 
-    const { data: row, error } = await supabase
+    const { data: row, error } = await db
       .from("clock_entries")
       .insert({
         id: incoming.id,
@@ -435,7 +435,7 @@ router.post(
     const now = new Date().toISOString()
     const endAt = end || now
 
-    let query = supabase
+    let query = db
       .from("clock_entries")
       .select("*")
       .eq("user_id", req.userId)
@@ -451,7 +451,7 @@ router.post(
         .json({ error: "No running timer" })
     }
 
-    const { data: row, error } = await supabase
+    const { data: row, error } = await db
       .from("clock_entries")
       .update({ end_at: endAt, updated_at: now })
       .eq("id", active.id)
@@ -497,7 +497,7 @@ router.delete(
     // half-wiped if any DELETE failed midway through the
     // six tables, and the next reconnect would mix fresh
     // pushed rows with stale leftovers.
-    const { data: deleted, error } = await supabase.rpc(
+    const { data: deleted, error } = await db.rpc(
       "wipe_user_sync_state",
       { p_user_id: req.userId },
     )
@@ -525,13 +525,13 @@ router.get(
   "/stats",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { count: entryCount } = await supabase
+    const { count: entryCount } = await db
       .from("clock_entries")
       .select("id", { count: "exact", head: true })
       .eq("user_id", req.userId)
       .is("deleted_at", null)
 
-    const { data: latest } = await supabase
+    const { data: latest } = await db
       .from("clock_entries")
       .select("updated_at")
       .eq("user_id", req.userId)
@@ -539,7 +539,7 @@ router.get(
       .limit(1)
       .maybeSingle()
 
-    const { data: active } = await supabase
+    const { data: active } = await db
       .from("clock_entries")
       .select("id")
       .eq("user_id", req.userId)
@@ -547,7 +547,7 @@ router.get(
       .is("deleted_at", null)
       .maybeSingle()
 
-    const { data: user } = await supabase
+    const { data: user } = await db
       .from("users")
       .select("plan")
       .eq("id", req.userId)
@@ -577,7 +577,7 @@ router.get(
   "/status",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { data: user } = await supabase
+    const { data: user } = await db
       .from("users")
       .select("plan")
       .eq("id", req.userId)
@@ -594,7 +594,7 @@ router.get(
 /**
  * Shape a DB inbox row into wire format.
  *
- * @param {object} row - Supabase inbox_entries row.
+ * @param {object} row - inbox_entries row.
  * @returns {object} Wire-format inbox item.
  */
 function inboxRowToWire(row) {
@@ -617,7 +617,7 @@ function inboxRowToWire(row) {
  *
  * @param {object} entry - Wire-format inbox item.
  * @param {string} userId - Authenticated user ID.
- * @returns {object} Row for Supabase upsert.
+ * @returns {object} Row for upsert.
  */
 function inboxWireToRow(entry, userId) {
   return {
@@ -652,7 +652,7 @@ mountSyncResource(router, {
   wireToRow: inboxWireToRow,
   broadcastEvent: "inbox:changed",
 }, {
-  supabase, broadcast,
+  db, broadcast,
   decideMerge, insertWithRowRetry,
   validate, validateQuery, syncChangesQuerySchema,
   requireAuth, requireSync, asyncHandler,
@@ -714,7 +714,7 @@ mountSyncResource(router, {
   wireToRow: taskWireToRow,
   broadcastEvent: "tasks:changed",
 }, {
-  supabase, broadcast,
+  db, broadcast,
   decideMerge, insertWithRowRetry,
   validate, validateQuery, syncChangesQuerySchema,
   requireAuth, requireSync, asyncHandler,
@@ -771,7 +771,7 @@ mountSyncResource(router, {
   wireToRow: noteWireToRow,
   broadcastEvent: "notes:changed",
 }, {
-  supabase, broadcast,
+  db, broadcast,
   decideMerge, insertWithRowRetry,
   validate, validateQuery, syncChangesQuerySchema,
   requireAuth, requireSync, asyncHandler,
@@ -843,7 +843,7 @@ mountSyncResource(router, {
   wireToRow: projectWireToRow,
   broadcastEvent: "projects:changed",
 }, {
-  supabase, broadcast,
+  db, broadcast,
   decideMerge, insertWithRowRetry,
   validate, validateQuery, syncChangesQuerySchema,
   requireAuth, requireSync, asyncHandler,

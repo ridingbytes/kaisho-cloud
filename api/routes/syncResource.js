@@ -26,7 +26,7 @@
  * The deps the factory needs are injected so this
  * module stays free of imports beyond its
  * dependencies; the caller in routes/sync.js wires
- * supabase / broadcast / decideMerge / insertWith
+ * db / broadcast / decideMerge / insertWith
  * RowRetry / validation / middleware once and passes
  * the bundle to each mount call.
  */
@@ -57,7 +57,7 @@
  * @param {object} deps Shared singletons / helpers --
  *   pulled in by the caller to avoid this module
  *   re-importing them. Required:
- *   ``supabase``, ``broadcast``, ``decideMerge``,
+ *   ``db``, ``broadcast``, ``decideMerge``,
  *   ``insertWithRowRetry``, ``validate``,
  *   ``validateQuery``, ``syncChangesQuerySchema``,
  *   ``requireAuth``, ``requireSync``, ``asyncHandler``.
@@ -74,7 +74,7 @@ function _mountChanges(router, opts, deps) {
     table, pathPrefix, rowToWire,
   } = opts
   const {
-    supabase, validateQuery,
+    db, validateQuery,
     syncChangesQuerySchema,
     requireAuth, requireSync, asyncHandler,
   } = deps
@@ -90,7 +90,7 @@ function _mountChanges(router, opts, deps) {
         parseInt(req.query.limit) || 200, 500,
       )
       const page = await _readPage(
-        supabase, table, req.userId, since, limit,
+        db, table, req.userId, since, limit,
       )
       if (page.error) {
         req.log?.error?.(
@@ -155,8 +155,8 @@ function _sameStamp(a, b) {
     === String(b instanceof Date ? b.toISOString() : b)
 }
 
-async function _readPage(supabase, table, userId, since, limit) {
-  const { data: rows, error } = await supabase
+async function _readPage(db, table, userId, since, limit) {
+  const { data: rows, error } = await db
     .from(table)
     .select("*")
     .eq("user_id", userId)
@@ -176,7 +176,7 @@ async function _readPage(supabase, table, userId, since, limit) {
     return { rows: trimmed, hasMore: true }
   }
 
-  const { data: all, error: allErr } = await supabase
+  const { data: all, error: allErr } = await db
     .from(table)
     .select("*")
     .eq("user_id", userId)
@@ -192,7 +192,7 @@ function _mountApply(router, opts, deps) {
     wireToRow, broadcastEvent,
   } = opts
   const {
-    supabase, broadcast,
+    db, broadcast,
     decideMerge, insertWithRowRetry,
     validate, requireAuth, requireSync, asyncHandler,
   } = deps
@@ -210,7 +210,7 @@ function _mountApply(router, opts, deps) {
       const errorIds = []
 
       const ids = entries.map((e) => e.id)
-      const { data: existingRows } = await supabase
+      const { data: existingRows } = await db
         .from(table)
         .select("id, updated_at")
         .eq("user_id", req.userId)
@@ -255,7 +255,7 @@ function _mountApply(router, opts, deps) {
 
       if (toUpdate.length > 0) {
         for (const row of toUpdate) {
-          const { error } = await supabase
+          const { error } = await db
             .from(table)
             .update(row)
             .eq("id", row.id)
@@ -292,7 +292,7 @@ function _mountApply(router, opts, deps) {
 function _mountAck(router, opts, deps) {
   const { table, pathPrefix } = opts
   const {
-    supabase, requireAuth, requireSync, asyncHandler,
+    db, requireAuth, requireSync, asyncHandler,
   } = deps
   router.post(
     `${pathPrefix}/ack`,
@@ -318,7 +318,7 @@ function _mountAck(router, opts, deps) {
       // and the old `?? ids.length` fallback then told the
       // client every id it sent was acked -- including ids
       // that had no row, or a row already acked.
-      const { error, count } = await supabase
+      const { error, count } = await db
         .from(table)
         .update({ synced_at: now }, { count: "exact" })
         .eq("user_id", req.userId)

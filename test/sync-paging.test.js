@@ -21,7 +21,7 @@ const { migrate } = require("../db/migrate")
 const {
   createAccount, generateApiKey, deleteAccount,
 } = require("../api/services/accounts")
-const { supabase } = require("../api/db")
+const { db } = require("../api/db")
 const { mountSyncResource } = require("../api/routes/syncResource")
 const {
   validate, validateQuery, noteApplySchema, syncChangesQuerySchema,
@@ -44,7 +44,7 @@ function buildApp(userId) {
     wireToRow: (e, uid) => ({ ...e, user_id: uid }),
     broadcastEvent: "notes:changed",
   }, {
-    supabase,
+    db,
     broadcast: () => {},
     decideMerge: () => ({ action: "insert" }),
     insertWithRowRetry: async () => [],
@@ -105,7 +105,7 @@ test("sync paging: rows sharing a timestamp", opts, async () => {
   const app = buildApp(userId)
 
   const mk = async (id, stamp) => {
-    const { error } = await supabase.from("notes").insert({
+    const { error } = await db.from("notes").insert({
       id, user_id: userId, title: id,
       created_at: stamp, updated_at: stamp,
     })

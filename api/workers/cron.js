@@ -25,7 +25,7 @@
 
 const cron = require("node-cron")
 const { randomUUID } = require("crypto")
-const { supabase } = require("../db")
+const { db } = require("../db")
 const { logger } = require("../logger")
 const {
   resolveCap,
@@ -66,7 +66,7 @@ const inFlight = new Set()
  */
 async function writeOutput(job, text) {
   const now = new Date().toISOString()
-  await supabase.from("inbox_entries").insert({
+  await db.from("inbox_entries").insert({
     id: randomUUID(),
     user_id: job.user_id,
     type: "NOTE",
@@ -88,7 +88,7 @@ async function writeOutput(job, text) {
  * @param {string} status
  */
 async function stampJob(jobId, status) {
-  await supabase
+  await db
     .from("cloud_jobs")
     .update({
       last_run_at: new Date().toISOString(),
@@ -105,7 +105,7 @@ async function stampJob(jobId, status) {
  * @param {object} job - cloud_jobs row.
  */
 async function runJob(job) {
-  const { data: run } = await supabase
+  const { data: run } = await db
     .from("cloud_job_runs")
     .insert({
       id: randomUUID(),
@@ -120,7 +120,7 @@ async function runJob(job) {
 
   const finish = async (fields) => {
     if (runId) {
-      await supabase
+      await db
         .from("cloud_job_runs")
         .update({
           ...fields,
@@ -225,7 +225,7 @@ async function fireJob(jobId) {
   }
   inFlight.add(jobId)
   try {
-    const { data: job } = await supabase
+    const { data: job } = await db
       .from("cloud_jobs")
       .select("*")
       .eq("id", jobId)
@@ -263,7 +263,7 @@ function unschedule(jobId) {
  * instead of silently no-op-ing forever.
  */
 async function bumpHeartbeat() {
-  const { error } = await supabase
+  const { error } = await db
     .from("cron_health")
     .upsert({
       id: CRON_HEALTH_ID,
@@ -287,7 +287,7 @@ async function bumpHeartbeat() {
 async function reconcile() {
   // Only id + schedule are needed here; fireJob re-reads
   // the full row at fire time.
-  const { data: jobs, error } = await supabase
+  const { data: jobs, error } = await db
     .from("cloud_jobs")
     .select("id, schedule")
     .eq("enabled", true)

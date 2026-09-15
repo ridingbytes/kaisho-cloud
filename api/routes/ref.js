@@ -8,7 +8,7 @@
  */
 
 const { Router } = require("express")
-const { supabase } = require("../db")
+const { db } = require("../db")
 const { requireAuth } = require("../middleware")
 const { asyncHandler } = require("../utils/asyncHandler")
 
@@ -26,7 +26,7 @@ router.get(
   "/customers",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { data: rows } = await supabase
+    const { data: rows } = await db
       .from("ref_customers")
       .select("name, snapshot")
       .eq("user_id", req.userId)
@@ -53,7 +53,7 @@ router.get(
   "/tasks",
   requireAuth,
   asyncHandler(async (req, res) => {
-    let query = supabase
+    let query = db
       .from("ref_tasks")
       .select("task_id, customer, title, status")
       .eq("user_id", req.userId)
@@ -88,7 +88,7 @@ router.get(
   "/config",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { data } = await supabase
+    const { data } = await db
       .from("ref_config")
       .select("config")
       .eq("user_id", req.userId)
@@ -123,7 +123,7 @@ router.patch(
       if (key in raw) updates[key] = raw[key]
     }
 
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from("ref_config")
       .select("config")
       .eq("user_id", req.userId)
@@ -134,7 +134,7 @@ router.patch(
       ...updates,
     }
 
-    await supabase.from("ref_config").upsert(
+    await db.from("ref_config").upsert(
       {
         user_id: req.userId,
         config: merged,

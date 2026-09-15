@@ -3,7 +3,7 @@
 /**
  * Write-side MCP tools served by the hosted gateway.
  *
- * These INSERT / UPDATE the same Supabase tables the PWA
+ * These INSERT / UPDATE the same tables the PWA
  * writes to. The desktop sync engine picks the rows up on
  * its next cycle and merges them into the local org files,
  * so no WebSocket relay is needed (see
@@ -20,7 +20,7 @@
 const { randomUUID } = require("crypto")
 const { z } = require("zod")
 const { DEFAULT_TASK_STATUS } = require("../../config")
-const { supabase } = require("../../db")
+const { db } = require("../../db")
 const { broadcast } = require("../../ws")
 const { parseDuration } = require("../../utils/clocks")
 
@@ -88,7 +88,7 @@ function registerAddTask(server, userId) {
         updated_at: now,
         deleted_at: null,
       }
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("tasks")
         .insert(row)
         .select()
@@ -127,7 +127,7 @@ function registerUpdateTask(server, userId) {
       ]) {
         if (args[k] !== undefined) updates[k] = args[k]
       }
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("tasks")
         .update(updates)
         .eq("user_id", userId)
@@ -157,7 +157,7 @@ function registerMoveTask(server, userId) {
       },
     },
     async (args) => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("tasks")
         .update({
           status: args.status,
@@ -217,7 +217,7 @@ function registerBookTime(server, userId) {
       const endAt = new Date(
         startAt.getTime() + minutes * 60000,
       )
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("clock_entries")
         .insert({
           user_id: userId,
@@ -268,7 +268,7 @@ function registerAddInboxItem(server, userId) {
         updated_at: now,
         deleted_at: null,
       }
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("inbox_entries")
         .insert(row)
         .select()
@@ -310,7 +310,7 @@ function registerAddNote(server, userId) {
         updated_at: now,
         deleted_at: null,
       }
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("notes")
         .insert(row)
         .select()

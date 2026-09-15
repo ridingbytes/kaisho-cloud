@@ -16,7 +16,7 @@
  */
 
 const crypto = require("crypto")
-const { supabase } = require("../db")
+const { db } = require("../db")
 const { logger } = require("../logger")
 const { withLimit } = require("./queue")
 
@@ -149,7 +149,7 @@ async function getGatewayConfig() {
     return _configCache.data
   }
   try {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("gateway_config")
       .select("*")
       .eq("id", GATEWAY_CONFIG_ID)
@@ -213,7 +213,7 @@ async function getBackend() {
  * @returns {Promise<object>}
  */
 async function getUserOverrides(userId) {
-  const { data } = await supabase
+  const { data } = await db
     .from("users")
     .select(
       "monthly_token_cap_override, "
@@ -325,7 +325,7 @@ function currentMonth() {
  * @returns {Promise<object>}
  */
 async function getUsage(userId, month) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("ai_usage")
     .select("*")
     .eq("user_id", userId)
@@ -361,7 +361,7 @@ async function getUsage(userId, month) {
 async function recordUsage(
   userId, month, inputTokens, outputTokens,
 ) {
-  const { error } = await supabase.rpc(
+  const { error } = await db.rpc(
     "increment_ai_usage",
     {
       p_user_id: userId,
