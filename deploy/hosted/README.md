@@ -54,16 +54,28 @@ app-side record.
 
 Until 2026-09-13 `cloud.kaisho.dev` was served by the
 original Supabase + Stripe stack out of the same directory
-this one now occupies. It is stopped and archived at
-`/home/docker/kaisho-cloud.legacy/`, its containers removed
-and its Traefik route gone. Its data was not migrated:
-accounts on this stack start fresh.
+this one now occupies. Its data was not migrated: accounts
+on this stack start fresh.
 
-Nothing depends on it any more, and the Supabase project
-itself was deleted on 2026-09-13. Once the Stripe account is
-closed out (open-source plan, phase 5), the archive directory
-can go too — it holds only the old compose file and a `.env`
-whose remaining secrets are due for rotation regardless.
+Nothing is left of it. The containers and the Traefik route
+went on the cutover day, the Supabase project was deleted
+the same day, and the archive directory
+`/home/docker/kaisho-cloud.legacy/` was removed on
+2026-09-15.
+
+That directory held four `.env` files, and four of the
+secrets in them — `OPENROUTER_API_KEY`, `RESEND_API_KEY`,
+`SLACK_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET` — were
+byte-identical to the ones this stack is still using. They
+were not archived credentials; they were live ones, in four
+extra copies on disk. The files were overwritten before
+being unlinked, since `rm` returns the blocks without
+touching them and the bytes were the point.
+
+Those four keys should still be rotated: they sat readable
+in a directory nobody was looking at for two days, and the
+Stripe keys beside them belong to an account that is still
+open.
 
 ## Operating
 
