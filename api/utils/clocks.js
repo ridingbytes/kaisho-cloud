@@ -86,7 +86,7 @@ function periodRange(period) {
  * Computes duration_minutes from start_at/end_at when
  * the entry is complete (end_at present).
  *
- * @param {object} row - Supabase clock_entries row.
+ * @param {object} row - clock_entries row.
  * @returns {object} Formatted clock entry with
  *   camelCase-friendly field names.
  */

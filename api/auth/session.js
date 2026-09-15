@@ -12,7 +12,7 @@
 
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
-const { supabase } = require("../db")
+const { db } = require("../db")
 
 const SECRET = process.env.JWT_SECRET
 const ACCESS_TTL = process.env.JWT_ACCESS_TTL || "1h"
@@ -72,7 +72,7 @@ function verifyRefresh(token) {
 
 /** Look up a user's email by id. */
 async function getUserEmail(userId) {
-  const { data } = await supabase
+  const { data } = await db
     .from("users").select("email").eq("id", userId).maybeSingle()
   return data?.email || null
 }

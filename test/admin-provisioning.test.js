@@ -17,7 +17,7 @@ const {
   createAccount, generateApiKey, setDisabled,
   setPassword, deleteAccount, listAccounts,
 } = require("../api/services/accounts")
-const { supabase } = require("../api/db")
+const { db } = require("../api/db")
 
 const NIL = "00000000-0000-0000-0000-000000000000"
 const opts = { skip: url ? false : "set TEST_DATABASE_URL to run" }
@@ -37,7 +37,7 @@ test("provision, rotate, disable, enable", opts, async () => {
   assert.ok(token)
 
   // the sync token is a real API key: prefix + bcrypt hash match
-  const row = await supabase
+  const row = await db
     .from("users")
     .select("api_key_hash, api_key_prefix, disabled_at")
     .eq("id", r.userId).single()
@@ -47,13 +47,13 @@ test("provision, rotate, disable, enable", opts, async () => {
 
   // disable stamps disabled_at
   assert.deepEqual(await setDisabled(r.userId, true), { found: true })
-  const dis = await supabase
+  const dis = await db
     .from("users").select("disabled_at").eq("id", r.userId).single()
   assert.ok(dis.data.disabled_at)
 
   // enable clears it
   await setDisabled(r.userId, false)
-  const en = await supabase
+  const en = await db
     .from("users").select("disabled_at").eq("id", r.userId).single()
   assert.equal(en.data.disabled_at, null)
 
@@ -62,12 +62,12 @@ test("provision, rotate, disable, enable", opts, async () => {
   assert.notEqual(token2, token)
 
   // set password: verify the hash changes and old != new
-  const before = await supabase
+  const before = await db
     .from("users").select("password_hash").eq("id", r.userId).single()
   assert.deepEqual(await setPassword(r.userId, "newpassw0rd"), {
     found: true,
   })
-  const after = await supabase
+  const after = await db
     .from("users").select("password_hash").eq("id", r.userId).single()
   assert.notEqual(after.data.password_hash, before.data.password_hash)
   assert.equal(
@@ -95,7 +95,7 @@ test("provision, rotate, disable, enable", opts, async () => {
 
   // delete removes the account
   assert.deepEqual(await deleteAccount(r.userId), { found: true })
-  const gone = await supabase
+  const gone = await db
     .from("users").select("id").eq("id", r.userId).maybeSingle()
   assert.equal(gone.data, null)
 })

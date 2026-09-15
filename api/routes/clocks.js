@@ -8,7 +8,7 @@
  */
 
 const { Router } = require("express")
-const { supabase } = require("../db")
+const { db } = require("../db")
 const { requireAuth } = require("../middleware")
 const { apiLimiter } = require("../config")
 const { broadcast } = require("../ws")
@@ -42,7 +42,7 @@ router.use(apiLimiter)
 router.get(
   "/active",
   asyncHandler(async (req, res) => {
-    const { data: row } = await supabase
+    const { data: row } = await db
       .from("clock_entries")
       .select("*")
       .eq("user_id", req.userId)
@@ -86,7 +86,7 @@ router.get(
       toDate = null
     }
 
-    let query = supabase
+    let query = db
       .from("clock_entries")
       .select("*")
       .eq("user_id", req.userId)
@@ -126,7 +126,7 @@ router.post(
       customer, description, task_id, contract, project,
     } = req.body
 
-    const { data: active } = await supabase
+    const { data: active } = await db
       .from("clock_entries")
       .select("id")
       .eq("user_id", req.userId)
@@ -140,7 +140,7 @@ router.post(
         .json({ error: "A timer is already running" })
     }
 
-    const { data: row, error } = await supabase
+    const { data: row, error } = await db
       .from("clock_entries")
       .insert({
         user_id: req.userId,
@@ -178,7 +178,7 @@ router.post(
 router.post(
   "/stop",
   asyncHandler(async (req, res) => {
-    const { data: active } = await supabase
+    const { data: active } = await db
       .from("clock_entries")
       .select("*")
       .eq("user_id", req.userId)
@@ -193,7 +193,7 @@ router.post(
     }
 
     const now = new Date().toISOString()
-    const { data: row, error } = await supabase
+    const { data: row, error } = await db
       .from("clock_entries")
       .update({ end_at: now, updated_at: now })
       .eq("id", active.id)
@@ -251,7 +251,7 @@ router.post(
       startAt.getTime() + minutes * 60000,
     )
 
-    const { data: row, error } = await supabase
+    const { data: row, error } = await db
       .from("clock_entries")
       .insert({
         user_id: req.userId,
@@ -312,7 +312,7 @@ router.patch(
     )
     updates.updated_at = new Date().toISOString()
 
-    const { data: row, error } = await supabase
+    const { data: row, error } = await db
       .from("clock_entries")
       .update(updates)
       .eq("id", req.params.id)
@@ -350,7 +350,7 @@ router.delete(
   "/:id",
   asyncHandler(async (req, res) => {
     const now = new Date().toISOString()
-    const { data: row, error } = await supabase
+    const { data: row, error } = await db
       .from("clock_entries")
       .update({ deleted_at: now, updated_at: now })
       .eq("id", req.params.id)

@@ -10,7 +10,7 @@ const { Router } = require("express")
 const {
   signupLimiter, authLimiter, rotateKeyLimiter,
 } = require("../config")
-const { supabase } = require("../db")
+const { db } = require("../db")
 const {
   hashPassword,
   verifyPassword,
@@ -102,10 +102,10 @@ router.post(
 /**
  * Self-owned login: verify the bcrypt password_hash on the
  * users row and issue our own access + refresh JWTs. Same
- * 401 and wire shape as the Supabase path.
+ * 401 and wire shape the clients already expect.
  */
 async function loginOwn(email, password, res) {
-  const { data: user } = await supabase
+  const { data: user } = await db
     .from("users")
     .select("id, email, plan, password_hash, disabled_at")
     .eq("email", email)
@@ -155,7 +155,7 @@ async function refreshOwn(refreshToken, res) {
   if (!claim) {
     return res.status(401).json({ error: "Invalid refresh token" })
   }
-  const { data: user } = await supabase
+  const { data: user } = await db
     .from("users")
     .select("email, disabled_at")
     .eq("id", claim.userId)
@@ -273,7 +273,7 @@ router.post(
     // earlier auth.admin.listUsers() scan that grew
     // linearly with user count. The RPC returns NULL
     // on miss so the no-account path stays silent.
-    const { data: userId } = await supabase.rpc(
+    const { data: userId } = await db.rpc(
       "find_user_id_by_email", { p_email: email },
     )
 
@@ -334,7 +334,7 @@ router.post(
       })
     }
 
-    const { error } = await supabase
+    const { error } = await db
       .from("users")
       .update({ password_hash: await hashPassword(password) })
       .eq("id", userId)
@@ -360,7 +360,7 @@ router.get(
   "/me",
   requireJwt,
   asyncHandler(async (req, res) => {
-    const { data: user } = await supabase
+    const { data: user } = await db
       .from("users")
       .select("plan")
       .eq("id", req.userId)

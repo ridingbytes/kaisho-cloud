@@ -10,7 +10,7 @@
  * integration modules) deal only in plaintext objects.
  */
 
-const { supabase } = require("../db")
+const { db } = require("../db")
 const { encryptJson, decryptJson } = require("../utils/crypto")
 
 /**
@@ -26,7 +26,7 @@ const { encryptJson, decryptJson } = require("../utils/crypto")
 async function saveIntegration(
   userId, kind, credentials, opts = {},
 ) {
-  const { error } = await supabase
+  const { error } = await db
     .from("user_integrations")
     .upsert({
       user_id: userId,
@@ -52,7 +52,7 @@ async function saveIntegration(
  * } | null>}
  */
 async function getIntegration(userId, kind) {
-  const { data } = await supabase
+  const { data } = await db
     .from("user_integrations")
     .select("credentials, scopes, expires_at")
     .eq("user_id", userId)
@@ -77,7 +77,7 @@ async function getIntegration(userId, kind) {
  * }>>}
  */
 async function listIntegrations(userId) {
-  const { data } = await supabase
+  const { data } = await db
     .from("user_integrations")
     .select("kind, scopes, expires_at, created_at")
     .eq("user_id", userId)
@@ -91,7 +91,7 @@ async function listIntegrations(userId) {
  * @param {string} kind
  */
 async function deleteIntegration(userId, kind) {
-  await supabase
+  await db
     .from("user_integrations")
     .delete()
     .eq("user_id", userId)

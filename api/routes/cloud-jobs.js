@@ -10,7 +10,7 @@
  */
 
 const { Router } = require("express")
-const { supabase } = require("../db")
+const { db } = require("../db")
 const { requireAuth } = require("../middleware")
 const { apiLimiter } = require("../config")
 const {
@@ -42,7 +42,7 @@ const JOB_COLUMNS =
 router.get(
   "/jobs",
   asyncHandler(async (req, res) => {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("cloud_jobs")
       .select(JOB_COLUMNS)
       .eq("user_id", req.userId)
@@ -68,7 +68,7 @@ router.post(
   validate(cloudJobCreateSchema),
   asyncHandler(async (req, res) => {
     const body = req.body
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("cloud_jobs")
       .insert({
         user_id: req.userId,
@@ -118,7 +118,7 @@ router.patch(
         updates[field] = req.body[field]
       }
     }
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("cloud_jobs")
       .update(updates)
       .eq("user_id", req.userId)
@@ -147,7 +147,7 @@ router.patch(
 router.delete(
   "/jobs/:id",
   asyncHandler(async (req, res) => {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("cloud_jobs")
       .delete()
       .eq("user_id", req.userId)
@@ -177,7 +177,7 @@ router.delete(
 router.get(
   "/jobs/:id/runs",
   asyncHandler(async (req, res) => {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("cloud_job_runs")
       .select(
         "id, status, model, tokens_used, output, error, " +

@@ -12,7 +12,7 @@ const crypto = require("crypto")
 // and this. Supabase is gone — the hosted instance cut over on
 // 2026-09-13 and the project was deleted — so Postgres is not
 // the default any more, it is the only one.
-const supabase = require("./db_pg").createClient()
+const db = require("./db_pg").createClient()
 
 // ── Auth cache ───────────────────────────────────────────
 // Bcrypt comparison takes ~100 ms. The fast key-hash
@@ -60,7 +60,7 @@ function invalidateAuthCache(userId) {
 }
 
 module.exports = {
-  supabase,
+  db,
   getCachedUser,
   cacheUser,
   invalidateAuthCache,
